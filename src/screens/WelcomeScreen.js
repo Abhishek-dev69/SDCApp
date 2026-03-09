@@ -14,11 +14,11 @@ export default function WelcomeScreen({ onNavigate }) {
           </View>
           
           <View style={styles.buttonContainer}>
-            <TouchableOpacity style={styles.primaryButton} onPress={() => onNavigate('RoleSelection')}>
+            <TouchableOpacity style={styles.primaryButton}>
               <Text style={styles.primaryButtonText}>Get Started</Text>
             </TouchableOpacity>
             
-            <TouchableOpacity style={styles.secondaryButton}>
+            <TouchableOpacity style={styles.secondaryButton} onPress={() => onNavigate('RoleSelection')}>
               <Text style={styles.secondaryButtonText}>Sign In</Text>
             </TouchableOpacity>
           </View>

@@ -1,20 +1,19 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import WelcomeScreen from './src/screens/WelcomeScreen';
+import RoleSelectionScreen from './src/screens/RoleSelectionScreen';
 
 export default function App() {
+  const [currentScreen, setCurrentScreen] = useState('Welcome');
+
   return (
-    <View style={styles.container}>
-      <Text>Open up App.js to start working on your app!</Text>
+    <>
       <StatusBar style="auto" />
-    </View>
+      {currentScreen === 'Welcome' ? (
+        <WelcomeScreen onNavigate={setCurrentScreen} />
+      ) : (
+        <RoleSelectionScreen onNavigate={setCurrentScreen} />
+      )}
+    </>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
