@@ -4,6 +4,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import WelcomeScreen from './src/screens/WelcomeScreen';
 import RoleSelectionScreen from './src/screens/RoleSelectionScreen';
 import ClassSelectionScreen from './src/screens/ClassSelectionScreen';
+import SubjectSelectionScreen from './src/screens/SubjectSelectionScreen';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState('Welcome');
@@ -16,6 +17,8 @@ export default function App() {
         return <RoleSelectionScreen onNavigate={setCurrentScreen} />;
       case 'ClassSelection':
         return <ClassSelectionScreen onNavigate={setCurrentScreen} />;
+      case 'SubjectSelection':
+        return <SubjectSelectionScreen onNavigate={setCurrentScreen} />;
       default:
         return <WelcomeScreen onNavigate={setCurrentScreen} />;
     }

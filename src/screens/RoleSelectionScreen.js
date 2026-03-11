@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Crown, Shield, Users, GraduationCap, UserCircle } from 'lucide-react-native';
@@ -12,6 +12,17 @@ const ROLES = [
 ];
 
 export default function RoleSelectionScreen({ onNavigate }) {
+  const [selectedRoleId, setSelectedRoleId] = useState(null);
+
+  const handleContinue = () => {
+    if (selectedRoleId === 'student') {
+      onNavigate('ClassSelection');
+    } else if (selectedRoleId) {
+      // In the future: handle navigation for other roles
+      console.log('Navigating for role:', selectedRoleId);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <Text style={styles.headerTitle}>Select Your Role</Text>
@@ -19,8 +30,16 @@ export default function RoleSelectionScreen({ onNavigate }) {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {ROLES.map((role) => {
           const IconComponent = role.icon;
+          const isSelected = selectedRoleId === role.id;
           return (
-            <TouchableOpacity key={role.id} style={styles.card}>
+            <TouchableOpacity 
+              key={role.id} 
+              style={[
+                styles.card,
+                isSelected && styles.cardSelected // visually highlight selected role
+              ]}
+              onPress={() => setSelectedRoleId(role.id)}
+            >
               <View style={[styles.iconContainer, { backgroundColor: `${role.color}15` }]}>
                 <IconComponent size={32} color={role.color} />
               </View>
@@ -34,6 +53,14 @@ export default function RoleSelectionScreen({ onNavigate }) {
       </ScrollView>
 
       <View style={styles.footer}>
+        <TouchableOpacity 
+          style={[styles.continueButton, selectedRoleId ? styles.continueButtonEnabled : styles.continueButtonDisabled]} 
+          onPress={handleContinue}
+          disabled={!selectedRoleId}
+        >
+          <Text style={styles.continueButtonText}>Continue</Text>
+        </TouchableOpacity>
+        
         <TouchableOpacity style={styles.backButton} onPress={() => onNavigate('Welcome')}>
           <Text style={styles.backButtonText}>Back</Text>
         </TouchableOpacity>
@@ -61,15 +88,21 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     backgroundColor: '#ffffff',
-    borderRadius: 16,
+    borderRadius: 15,
     padding: 20,
     marginBottom: 16,
+    borderWidth: 2,
+    borderColor: '#ffffff', // transparent initially basically matching background
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 3,
+  },
+  cardSelected: {
+    borderColor: '#28388f', // Same navy blue border
+    backgroundColor: '#f8fafc',
   },
   iconContainer: {
     width: 60,
@@ -98,6 +131,23 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
     paddingTop: 10,
     backgroundColor: '#f8fafc',
+  },
+  continueButton: {
+    paddingVertical: 18,
+    borderRadius: 16,
+    alignItems: 'center',
+    marginBottom: 12, // separation between back and continue
+  },
+  continueButtonEnabled: {
+    backgroundColor: '#28388f',
+  },
+  continueButtonDisabled: {
+    backgroundColor: '#9ba3c1',
+  },
+  continueButtonText: {
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
   backButton: {
     backgroundColor: '#e2e8f0',
