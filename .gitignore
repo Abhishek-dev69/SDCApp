@@ -39,3 +39,11 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+
+package-lock.json
+
+# Backend
+backend/package-lock.json
+backend/.env
+backend/node_modules
