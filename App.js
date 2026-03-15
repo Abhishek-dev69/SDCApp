@@ -5,9 +5,10 @@ import WelcomeScreen from './src/screens/WelcomeScreen';
 import RoleSelectionScreen from './src/screens/RoleSelectionScreen';
 import BatchSelectionScreen from './src/screens/BatchSelectionScreen';
 import SubjectSelectionScreen from './src/screens/SubjectSelectionScreen';
+import LoginScreen from './src/screens/LoginScreen';
 
 export default function App() {
-  const [currentScreen, setCurrentScreen] = useState('Welcome');
+  const [currentScreen, setCurrentScreen] = useState('RoleSelection');
 
   const renderScreen = () => {
     switch (currentScreen) {
@@ -19,8 +20,10 @@ export default function App() {
         return <BatchSelectionScreen onNavigate={setCurrentScreen} />;
       case 'SubjectSelection':
         return <SubjectSelectionScreen onNavigate={setCurrentScreen} />;
+      case 'Login':
+        return <LoginScreen onNavigate={setCurrentScreen} />;
       default:
-        return <WelcomeScreen onNavigate={setCurrentScreen} />;
+        return <RoleSelectionScreen onNavigate={setCurrentScreen} />;
     }
   };
 

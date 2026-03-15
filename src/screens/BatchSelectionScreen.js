@@ -41,7 +41,7 @@ export default function BatchSelectionScreen({ onNavigate }) {
         <View style={styles.headerTop}>
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => onNavigate('Welcome')}
+            onPress={() => onNavigate('Login')}
           >
             <ChevronLeft size={28} color="#ffffff" />
           </TouchableOpacity>
