@@ -31,7 +31,7 @@ export default function SubjectSelectionScreen({ onNavigate }) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => onNavigate('ClassSelection')}>
+        <TouchableOpacity style={styles.backButton} onPress={() => onNavigate('BatchSelection')}>
           <ChevronLeft size={28} color="#28388f" />
         </TouchableOpacity>
         <View style={styles.headerTextContainer}>

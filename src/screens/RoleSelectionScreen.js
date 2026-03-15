@@ -16,7 +16,7 @@ export default function RoleSelectionScreen({ onNavigate }) {
 
   const handleContinue = () => {
     if (selectedRoleId === 'student') {
-      onNavigate('ClassSelection');
+      onNavigate('BatchSelection');
     } else if (selectedRoleId) {
       // In the future: handle navigation for other roles
       console.log('Navigating for role:', selectedRoleId);
