@@ -9,7 +9,7 @@ const SUBJECTS = [
   { id: 'mathematics', title: 'Mathematics', subtitle: 'Full syllabus coverage', icon: TriangleRight, color: '#64748b' }, // Grey ruler/triangle
 ];
 
-export default function SubjectSelectionScreen({ onNavigate }) {
+export default function BatchSelectionScreen({ onNavigate }) {
   const [selectedSubjects, setSelectedSubjects] = useState([]);
 
   const toggleSubject = (id) => {
