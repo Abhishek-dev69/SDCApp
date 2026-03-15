@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import WelcomeScreen from './src/screens/WelcomeScreen';
 import RoleSelectionScreen from './src/screens/RoleSelectionScreen';
-import ClassSelectionScreen from './src/screens/ClassSelectionScreen';
+import BatchSelectionScreen from './src/screens/BatchSelectionScreen';
 import SubjectSelectionScreen from './src/screens/SubjectSelectionScreen';
 
 export default function App() {
@@ -15,8 +15,8 @@ export default function App() {
         return <WelcomeScreen onNavigate={setCurrentScreen} />;
       case 'RoleSelection':
         return <RoleSelectionScreen onNavigate={setCurrentScreen} />;
-      case 'ClassSelection':
-        return <ClassSelectionScreen onNavigate={setCurrentScreen} />;
+      case 'BatchSelection':
+        return <BatchSelectionScreen onNavigate={setCurrentScreen} />;
       case 'SubjectSelection':
         return <SubjectSelectionScreen onNavigate={setCurrentScreen} />;
       default:
