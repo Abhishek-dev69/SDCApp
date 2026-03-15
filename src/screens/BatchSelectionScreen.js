@@ -17,14 +17,14 @@ const BATCHES = [
   { id: 'M12', label: 'M12', subtitle: 'NEET Repeater' }
 ];
 
-export default function BatchSelectionScreen({ onNavigate }) {
+export default function BatchSelectionScreen({ navigation }) {
 
   const [selectedBatch, setSelectedBatch] = useState(null);
   const [searchText, setSearchText] = useState("");
 
   const handleContinue = () => {
     if (selectedBatch) {
-      onNavigate('SubjectSelection');
+      navigation.navigate('SubjectSelection');
     }
   };
 
@@ -41,7 +41,7 @@ export default function BatchSelectionScreen({ onNavigate }) {
         <View style={styles.headerTop}>
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => onNavigate('Login')}
+            onPress={() => navigation.navigate('Login')}
           >
             <ChevronLeft size={28} color="#ffffff" />
           </TouchableOpacity>
