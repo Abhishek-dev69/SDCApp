@@ -11,12 +11,12 @@ const ROLES = [
   { id: 'parent', title: 'Parent', description: "View child's progress & fees", icon: UserCircle, color: '#8B5CF6' },
 ];
 
-export default function RoleSelectionScreen({ onNavigate }) {
+export default function RoleSelectionScreen({ navigation }) {
   const [selectedRoleId, setSelectedRoleId] = useState(null);
 
   const handleContinue = () => {
     if (selectedRoleId) {
-      onNavigate('Login');
+      navigation.navigate('Login');
     }
   };
 
