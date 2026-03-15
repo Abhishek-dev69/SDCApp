@@ -9,7 +9,7 @@ const SUBJECTS = [
   { id: 'mathematics', title: 'Mathematics', subtitle: 'Full syllabus coverage', icon: TriangleRight, color: '#64748b' }, // Grey ruler/triangle
 ];
 
-export default function SubjectSelectionScreen({ onNavigate }) {
+export default function SubjectSelectionScreen({ navigation }) {
   const [selectedSubjects, setSelectedSubjects] = useState([]);
 
   const toggleSubject = (id) => {
@@ -23,15 +23,14 @@ export default function SubjectSelectionScreen({ onNavigate }) {
   const handleStartLearning = () => {
     if (selectedSubjects.length > 0) {
       console.log("Selected subjects:", selectedSubjects);
-      // Navigate to the next main screen
-      // e.g. onNavigate('Home')
+      navigation.navigate('MainTabs');
     }
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => onNavigate('BatchSelection')}>
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.navigate('BatchSelection')}>
           <ChevronLeft size={28} color="#28388f" />
         </TouchableOpacity>
         <View style={styles.headerTextContainer}>
