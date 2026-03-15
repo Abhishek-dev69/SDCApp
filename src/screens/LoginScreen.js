@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Phone, Mail } from 'lucide-react-native';
 
-export default function LoginScreen({ onNavigate }) {
+export default function LoginScreen({ navigation }) {
   return (
     <View style={styles.container}>
       <LinearGradient
@@ -31,7 +31,7 @@ export default function LoginScreen({ onNavigate }) {
           <View style={styles.buttonSection}>
             <TouchableOpacity 
               style={styles.socialButton}
-              onPress={() => onNavigate('BatchSelection')}
+              onPress={() => navigation.navigate('BatchSelection')}
             >
               <View style={styles.iconWrapper}>
                 {/* Mocking Google G with colored segments or an image if available */}
@@ -45,7 +45,7 @@ export default function LoginScreen({ onNavigate }) {
 
             <TouchableOpacity 
               style={styles.socialButton}
-              onPress={() => onNavigate('BatchSelection')}
+              onPress={() => navigation.navigate('BatchSelection')}
             >
               <View style={styles.iconWrapper}>
                 <Phone size={24} color="#10b981" fill="#10b981" />
@@ -55,7 +55,7 @@ export default function LoginScreen({ onNavigate }) {
 
             <TouchableOpacity 
               style={styles.socialButton}
-              onPress={() => onNavigate('BatchSelection')}
+              onPress={() => navigation.navigate('BatchSelection')}
             >
               <View style={styles.iconWrapper}>
                 <Mail size={24} color="#2b58ed" fill="#2b58ed" />
@@ -67,7 +67,7 @@ export default function LoginScreen({ onNavigate }) {
           {/* Footer Section */}
           <View style={styles.footerContainer}>
             <Text style={styles.footerText}>Don't have an account? </Text>
-            <TouchableOpacity onPress={() => onNavigate('RoleSelection')}>
+            <TouchableOpacity onPress={() => navigation.navigate('RoleSelection')}>
               <Text style={styles.signUpLink}>Sign Up</Text>
             </TouchableOpacity>
           </View>
