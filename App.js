@@ -1,33 +1,33 @@
-import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import React from 'react';
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import WelcomeScreen from './src/screens/WelcomeScreen';
+import { StatusBar } from 'expo-status-bar';
+
 import RoleSelectionScreen from './src/screens/RoleSelectionScreen';
-import ClassSelectionScreen from './src/screens/ClassSelectionScreen';
+import LoginScreen from './src/screens/LoginScreen';
+import BatchSelectionScreen from './src/screens/BatchSelectionScreen';
 import SubjectSelectionScreen from './src/screens/SubjectSelectionScreen';
+import StudentTabNavigator from './src/navigation/StudentTabNavigator';
+
+const Stack = createNativeStackNavigator();
 
 export default function App() {
-  const [currentScreen, setCurrentScreen] = useState('Welcome');
-
-  const renderScreen = () => {
-    switch (currentScreen) {
-      case 'Welcome':
-        return <WelcomeScreen onNavigate={setCurrentScreen} />;
-      case 'RoleSelection':
-        return <RoleSelectionScreen onNavigate={setCurrentScreen} />;
-      case 'ClassSelection':
-        return <ClassSelectionScreen onNavigate={setCurrentScreen} />;
-      case 'SubjectSelection':
-        return <SubjectSelectionScreen onNavigate={setCurrentScreen} />;
-      default:
-        return <WelcomeScreen onNavigate={setCurrentScreen} />;
-    }
-  };
-
   return (
     <SafeAreaProvider>
       <StatusBar style="auto" />
-      {renderScreen()}
+      <NavigationContainer>
+        <Stack.Navigator 
+          initialRouteName="RoleSelection"
+          screenOptions={{ headerShown: false }}
+        >
+          <Stack.Screen name="RoleSelection" component={RoleSelectionScreen} />
+          <Stack.Screen name="Login" component={LoginScreen} />
+          <Stack.Screen name="BatchSelection" component={BatchSelectionScreen} />
+          <Stack.Screen name="SubjectSelection" component={SubjectSelectionScreen} />
+          <Stack.Screen name="MainTabs" component={StudentTabNavigator} />
+        </Stack.Navigator>
+      </NavigationContainer>
     </SafeAreaProvider>
   );
 }

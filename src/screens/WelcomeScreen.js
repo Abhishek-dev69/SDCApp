@@ -15,7 +15,7 @@ export default function WelcomeScreen({ onNavigate }) {
           </View>
           
           <View style={styles.buttonContainer}>
-            <TouchableOpacity style={styles.primaryButton} onPress={() => onNavigate('ClassSelection')}>
+            <TouchableOpacity style={styles.primaryButton} onPress={() => onNavigate('BatchSelection')}>
               <Text style={styles.primaryButtonText}>Get Started</Text>
             </TouchableOpacity>
             
