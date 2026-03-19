@@ -6,8 +6,8 @@ import { StatusBar } from 'expo-status-bar';
 
 import RoleSelectionScreen from './src/screens/RoleSelectionScreen';
 import LoginScreen from './src/screens/LoginScreen';
-import BatchSelectionScreen from './src/screens/BatchSelectionScreen';
-import SubjectSelectionScreen from './src/screens/SubjectSelectionScreen';
+import BatchSelectionScreen from './src/screens/student/BatchSelectionScreen';
+import SubjectSelectionScreen from './src/screens/student/SubjectSelectionScreen';
 import StudentTabNavigator from './src/navigation/StudentTabNavigator';
 
 const Stack = createNativeStackNavigator();

@@ -1,9 +1,11 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Home, BookOpen, FileText, MessageCircle, User } from 'lucide-react-native';
-import StudentHomeScreen from '../screens/StudentHomeScreen';
+import StudentHomeScreen from '../screens/student/StudentHomeScreen';
 import LecturesStackNavigator from './LecturesStackNavigator';
-import { TestsScreen, DoubtsScreen, ProfileScreen } from '../screens/tabs/TabPlaceholders';
+import TestsScreen from '../screens/student/TestsScreen';
+import DoubtsScreen from '../screens/student/DoubtsScreen';
+import ProfileScreen from '../screens/student/ProfileScreen';
 
 const Tab = createBottomTabNavigator();
 
