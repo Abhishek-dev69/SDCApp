@@ -5,10 +5,10 @@ import {
   StyleSheet, 
   FlatList, 
   TouchableOpacity, 
-  SafeAreaView,
   Dimensions,
   Image
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { 
   ChevronLeft, 
   Search, 
