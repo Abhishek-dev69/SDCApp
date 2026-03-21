@@ -113,7 +113,7 @@ export default function AdminBatchesScreen() {
 
   if (selectedBatch) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => setSelectedBatch(null)} style={styles.backButton}>
             <ChevronLeft size={24} color="#1e293b" />
@@ -154,7 +154,7 @@ export default function AdminBatchesScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <View style={styles.header}>
         <Text style={styles.mainTitle}>Batches</Text>
         <View style={styles.headerActions}>
@@ -229,6 +229,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 20,
+    paddingBottom: 100,
   },
   batchCard: {
     flexDirection: 'row',

@@ -54,7 +54,11 @@ const TEACHERS = [
 
 export default function AdminDashboardScreen() {
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <ScrollView 
+      style={styles.container} 
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={{ paddingBottom: 100 }}
+    >
       {/* Header & Revenue Banner */}
       <View style={styles.header}>
         <LinearGradient

@@ -27,11 +27,11 @@ export default function AdminTabNavigator() {
         },
         tabBarActiveTintColor: '#28388f',
         tabBarInactiveTintColor: 'gray',
+        tabBarHideOnKeyboard: true,
         tabBarStyle: {
           backgroundColor: '#ffffff',
           borderTopWidth: 1,
           borderTopColor: '#e2e8f0',
-          height: 60,
           paddingBottom: 8,
           paddingTop: 8,
         },
