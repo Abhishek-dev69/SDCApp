@@ -52,7 +52,16 @@ const TEACHERS = [
   { id: '2', name: 'Prof. Anjali Roy', subject: 'Chemistry', students: '95', rating: '4.9', color: '#F97316' },
 ];
 
-export default function AdminDashboardScreen() {
+export default function AdminDashboardScreen({ navigation }) {
+  const handleAction = (id) => {
+    switch(id) {
+      case '1': navigation.navigate('AddStudent'); break;
+      case '2': navigation.navigate('AddTeacher'); break;
+      case '3': navigation.navigate('AssignBatch'); break;
+      default: break;
+    }
+  };
+
   return (
     <ScrollView 
       style={styles.container} 
@@ -134,7 +143,11 @@ export default function AdminDashboardScreen() {
             {MANAGEMENT_ACTIONS.map((action) => {
               const Icon = action.icon;
               return (
-                <TouchableOpacity key={action.id} style={styles.managementCard}>
+                <TouchableOpacity 
+                  key={action.id} 
+                  style={styles.managementCard}
+                  onPress={() => handleAction(action.id)}
+                >
                   <View style={[styles.managementIconContainer, { backgroundColor: `${action.color}10` }]}>
                     <Icon size={28} color={action.color} />
                   </View>

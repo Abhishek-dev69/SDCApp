@@ -10,6 +10,9 @@ import BatchSelectionScreen from './src/screens/student/BatchSelectionScreen';
 import SubjectSelectionScreen from './src/screens/student/SubjectSelectionScreen';
 import StudentTabNavigator from './src/navigation/StudentTabNavigator';
 import AdminTabNavigator from './src/navigation/AdminTabNavigator';
+import AddStudentScreen from './src/screens/admin/AddStudentScreen';
+import AddTeacherScreen from './src/screens/admin/AddTeacherScreen';
+import AssignBatchScreen from './src/screens/admin/AssignBatchScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -28,6 +31,9 @@ export default function App() {
           <Stack.Screen name="SubjectSelection" component={SubjectSelectionScreen} />
           <Stack.Screen name="MainTabs" component={StudentTabNavigator} />
           <Stack.Screen name="AdminTabs" component={AdminTabNavigator} />
+          <Stack.Screen name="AddStudent" component={AddStudentScreen} />
+          <Stack.Screen name="AddTeacher" component={AddTeacherScreen} />
+          <Stack.Screen name="AssignBatch" component={AssignBatchScreen} />
         </Stack.Navigator>
       </NavigationContainer>
     </SafeAreaProvider>
