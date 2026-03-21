@@ -42,9 +42,13 @@ const MOCK_TEACHERS = [
   { id: '3', name: 'Sanjay Gupta', subject: 'Biology', experience: '15 Years', status: 'Leave' },
 ];
 
-export default function AdminBatchesScreen() {
+export default function AdminBatchesScreen({ navigation }) {
   const [selectedBatch, setSelectedBatch] = useState(null);
   const [activeSegment, setActiveSegment] = useState('students'); // 'students' or 'teachers'
+
+  const handleCreateBatch = () => {
+    navigation.navigate('AddBatch');
+  };
 
   const renderBatchItem = ({ item }) => (
     <TouchableOpacity 
@@ -161,7 +165,7 @@ export default function AdminBatchesScreen() {
           <TouchableOpacity style={styles.actionButton}>
             <Search size={24} color="#1e293b" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionButton}>
+          <TouchableOpacity style={styles.actionButton} onPress={handleCreateBatch}>
             <Plus size={24} color="#1e293b" />
           </TouchableOpacity>
         </View>

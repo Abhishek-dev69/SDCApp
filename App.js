@@ -13,6 +13,7 @@ import AdminTabNavigator from './src/navigation/AdminTabNavigator';
 import AddStudentScreen from './src/screens/admin/AddStudentScreen';
 import AddTeacherScreen from './src/screens/admin/AddTeacherScreen';
 import AssignBatchScreen from './src/screens/admin/AssignBatchScreen';
+import AddBatchScreen from './src/screens/admin/AddBatchScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -34,6 +35,7 @@ export default function App() {
           <Stack.Screen name="AddStudent" component={AddStudentScreen} />
           <Stack.Screen name="AddTeacher" component={AddTeacherScreen} />
           <Stack.Screen name="AssignBatch" component={AssignBatchScreen} />
+          <Stack.Screen name="AddBatch" component={AddBatchScreen} />
         </Stack.Navigator>
       </NavigationContainer>
     </SafeAreaProvider>
