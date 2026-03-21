@@ -16,7 +16,7 @@ export default function RoleSelectionScreen({ navigation }) {
 
   const handleContinue = () => {
     if (selectedRoleId) {
-      navigation.navigate('Login');
+      navigation.navigate('Login', { role: selectedRoleId });
     }
   };
 

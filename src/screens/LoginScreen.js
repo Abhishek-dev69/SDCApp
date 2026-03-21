@@ -4,7 +4,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Phone, Mail } from 'lucide-react-native';
 
-export default function LoginScreen({ navigation }) {
+export default function LoginScreen({ navigation, route }) {
+  const { role } = route.params || {};
+
+  const handleLogin = () => {
+    if (role === 'admin') {
+      navigation.navigate('AdminTabs');
+    } else {
+      navigation.navigate('BatchSelection');
+    }
+  };
+
   return (
     <View style={styles.container}>
       <LinearGradient
@@ -31,7 +41,7 @@ export default function LoginScreen({ navigation }) {
           <View style={styles.buttonSection}>
             <TouchableOpacity 
               style={styles.socialButton}
-              onPress={() => navigation.navigate('BatchSelection')}
+              onPress={handleLogin}
             >
               <View style={styles.iconWrapper}>
                 {/* Mocking Google G with colored segments or an image if available */}
@@ -45,7 +55,7 @@ export default function LoginScreen({ navigation }) {
 
             <TouchableOpacity 
               style={styles.socialButton}
-              onPress={() => navigation.navigate('BatchSelection')}
+              onPress={handleLogin}
             >
               <View style={styles.iconWrapper}>
                 <Phone size={24} color="#10b981" fill="#10b981" />
@@ -55,7 +65,7 @@ export default function LoginScreen({ navigation }) {
 
             <TouchableOpacity 
               style={styles.socialButton}
-              onPress={() => navigation.navigate('BatchSelection')}
+              onPress={handleLogin}
             >
               <View style={styles.iconWrapper}>
                 <Mail size={24} color="#2b58ed" fill="#2b58ed" />
