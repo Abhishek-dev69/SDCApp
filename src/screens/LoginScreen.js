@@ -3,9 +3,59 @@ import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Phone, Mail } from 'lucide-react-native';
+import * as AuthSession from 'expo-auth-session';
+import * as Google from 'expo-auth-session/providers/google';
+import * as WebBrowser from 'expo-web-browser';
+import * as SecureStore from 'expo-secure-store';
+import { useEffect } from 'react';
+
+
+console.log(AuthSession.makeRedirectUri({ useProxy: true })); // For debugging redirect URI issues
+WebBrowser.maybeCompleteAuthSession();
 
 export default function LoginScreen({ navigation, route }) {
   const { role } = route.params || {};
+  // Google auth setup
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    androidClientId: '456970553309-14fk1ssbbm4po4iqrknss9l6ljulorgq.apps.googleusercontent.com',
+    iosClientId: '456970553309-e1vtskth15r0dpa7drnfpch747i64763.apps.googleusercontent.com',
+    webClientId: '456970553309-5f21m5egcqm0a5gdlkj80buqvmd363ef.apps.googleusercontent.com',
+    redirectUri: 'http://localhost:8081'
+  });
+
+  // Runs automatically when Google responds
+  useEffect(() => {
+    if (response?.type === 'success') {
+      handleGoogleToken(response.authentication.accessToken);
+    }
+  }, [response]);
+
+  const handleGoogleToken = async (googleToken) => {
+    try {
+      const res = await fetch('http://192.168.1.7:3000/auth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: googleToken })
+      });
+      console.log('Google auth response status:', res.status);
+      const data = await res.json();
+      console.log('JWT received:', data.jwt ? 'yes' : 'no');
+      await SecureStore.setItemAsync('userToken', data.jwt);
+      navigation.navigate('BatchSelection'); // or AdminTabs based on role from JWT
+    } catch (err) {
+      console.error('Google login failed:', err);
+    }
+  };
+
+  const handleEmailPress = () => {
+    navigation.navigate('EmailLogin');
+  };
+
+  const handlePhonePress = () => {
+    navigation.navigate('PhoneLogin');
+  };
+
+
 
   const handleLogin = () => {
     if (role === 'admin') {
@@ -41,7 +91,7 @@ export default function LoginScreen({ navigation, route }) {
           <View style={styles.buttonSection}>
             <TouchableOpacity 
               style={styles.socialButton}
-              onPress={handleLogin}
+              onPress={() => promptAsync()} 
             >
               <View style={styles.iconWrapper}>
                 {/* Mocking Google G with colored segments or an image if available */}
@@ -55,6 +105,7 @@ export default function LoginScreen({ navigation, route }) {
 
             <TouchableOpacity 
               style={styles.socialButton}
+              // onPress={handlePhonePress}     After implementing phone login screen.
               onPress={handleLogin}
             >
               <View style={styles.iconWrapper}>
@@ -65,6 +116,7 @@ export default function LoginScreen({ navigation, route }) {
 
             <TouchableOpacity 
               style={styles.socialButton}
+              // onPress={handleEmailPress}     After implementing email login screen.
               onPress={handleLogin}
             >
               <View style={styles.iconWrapper}>

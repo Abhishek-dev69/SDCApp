@@ -9,7 +9,10 @@ app.use(cors());
 app.use(express.json());
 
 // import routes
+const authRoutes = require('./routes/auth');
 const usersRouter = require('./routes/users');
+
+app.use('/auth', authRoutes);  
 app.use('/users', usersRouter);
 
 // test route
