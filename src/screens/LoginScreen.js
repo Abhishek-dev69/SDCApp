@@ -20,13 +20,12 @@ export default function LoginScreen({ navigation, route }) {
     androidClientId: '456970553309-14fk1ssbbm4po4iqrknss9l6ljulorgq.apps.googleusercontent.com',
     iosClientId: '456970553309-e1vtskth15r0dpa7drnfpch747i64763.apps.googleusercontent.com',
     webClientId: '456970553309-5f21m5egcqm0a5gdlkj80buqvmd363ef.apps.googleusercontent.com',
-    redirectUri: 'http://localhost:8081'
   });
 
   // Runs automatically when Google responds
   useEffect(() => {
     if (response?.type === 'success') {
-      handleGoogleToken(response.authentication.accessToken);
+      handleGoogleToken(response.authentication.idToken);
     }
   }, [response]);
 
@@ -41,7 +40,7 @@ export default function LoginScreen({ navigation, route }) {
       const data = await res.json();
       console.log('JWT received:', data.jwt ? 'yes' : 'no');
       await SecureStore.setItemAsync('userToken', data.jwt);
-      navigation.navigate('BatchSelection'); // or AdminTabs based on role from JWT
+      navigation.navigate('BatchSelection'); 
     } catch (err) {
       console.error('Google login failed:', err);
     }

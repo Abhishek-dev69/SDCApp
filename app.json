@@ -31,6 +31,12 @@
       "expo-asset",
       "expo-secure-store",
       "expo-web-browser"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "e629b11b-6f86-4f4a-83ad-20f5f634c326"
+      }
+    },
+    "owner": "shlokpunekar"
   }
 }
