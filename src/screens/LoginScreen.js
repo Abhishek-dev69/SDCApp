@@ -104,8 +104,7 @@ export default function LoginScreen({ navigation, route }) {
 
             <TouchableOpacity 
               style={styles.socialButton}
-              // onPress={handlePhonePress}     After implementing phone login screen.
-              onPress={handleLogin}
+              onPress={handlePhonePress}
             >
               <View style={styles.iconWrapper}>
                 <Phone size={24} color="#10b981" fill="#10b981" />
@@ -115,8 +114,7 @@ export default function LoginScreen({ navigation, route }) {
 
             <TouchableOpacity 
               style={styles.socialButton}
-              // onPress={handleEmailPress}     After implementing email login screen.
-              onPress={handleLogin}
+              onPress={handleEmailPress}
             >
               <View style={styles.iconWrapper}>
                 <Mail size={24} color="#2b58ed" fill="#2b58ed" />
