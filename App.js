@@ -14,6 +14,10 @@ import AddStudentScreen from './src/screens/admin/AddStudentScreen';
 import AddTeacherScreen from './src/screens/admin/AddTeacherScreen';
 import AssignBatchScreen from './src/screens/admin/AssignBatchScreen';
 import AddBatchScreen from './src/screens/admin/AddBatchScreen';
+import EmailSignUpScreen from './src/screens/auth/EmailSignUpScreen';
+import EmailSignInScreen from './src/screens/auth/EmailSignInScreen';
+import PhoneLoginScreen from './src/screens/auth/PhoneLoginScreen';
+import OTPVerificationScreen from './src/screens/auth/OTPVerificationScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -36,6 +40,10 @@ export default function App() {
           <Stack.Screen name="AddTeacher" component={AddTeacherScreen} />
           <Stack.Screen name="AssignBatch" component={AssignBatchScreen} />
           <Stack.Screen name="AddBatch" component={AddBatchScreen} />
+          <Stack.Screen name="EmailSignUp" component={EmailSignUpScreen} />
+          <Stack.Screen name="EmailSignIn" component={EmailSignInScreen} />
+          <Stack.Screen name="PhoneLogin" component={PhoneLoginScreen} />
+          <Stack.Screen name="OTPVerification" component={OTPVerificationScreen} />
         </Stack.Navigator>
       </NavigationContainer>
     </SafeAreaProvider>
