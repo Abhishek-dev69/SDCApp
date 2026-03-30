@@ -47,7 +47,7 @@ export default function LoginScreen({ navigation, route }) {
   };
 
   const handleEmailPress = () => {
-    navigation.navigate('EmailLogin');
+    navigation.navigate('EmailSignIn');
   };
 
   const handlePhonePress = () => {
