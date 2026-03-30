@@ -18,6 +18,7 @@ import EmailSignUpScreen from './src/screens/auth/EmailSignUpScreen';
 import EmailSignInScreen from './src/screens/auth/EmailSignInScreen';
 import PhoneLoginScreen from './src/screens/auth/PhoneLoginScreen';
 import OTPVerificationScreen from './src/screens/auth/OTPVerificationScreen';
+import ForgotPasswordScreen from './src/screens/auth/ForgotPasswordScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -44,6 +45,7 @@ export default function App() {
           <Stack.Screen name="EmailSignIn" component={EmailSignInScreen} />
           <Stack.Screen name="PhoneLogin" component={PhoneLoginScreen} />
           <Stack.Screen name="OTPVerification" component={OTPVerificationScreen} />
+          <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
         </Stack.Navigator>
       </NavigationContainer>
     </SafeAreaProvider>
