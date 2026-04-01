@@ -59,6 +59,8 @@ export default function LoginScreen({ navigation, route }) {
   const handleLogin = () => {
     if (role === 'admin') {
       navigation.navigate('AdminTabs');
+    } else if (role === 'parent') {
+      navigation.navigate('ParentTabs');
     } else {
       navigation.navigate('BatchSelection');
     }
