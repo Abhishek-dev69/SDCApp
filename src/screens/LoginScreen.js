@@ -40,18 +40,23 @@ export default function LoginScreen({ navigation, route }) {
       const data = await res.json();
       console.log('JWT received:', data.jwt ? 'yes' : 'no');
       await SecureStore.setItemAsync('userToken', data.jwt);
-      navigation.navigate('BatchSelection'); 
-    } catch (err) {
+      if (role === 'admin') {
+        navigation.navigate('AdminTabs');
+      } else if (role === 'parent') {
+        navigation.navigate('ParentTabs');
+      } else {
+        navigation.navigate('BatchSelection');
+      }    } catch (err) {
       console.error('Google login failed:', err);
     }
   };
 
   const handleEmailPress = () => {
-    navigation.navigate('EmailSignIn');
+    navigation.navigate('EmailSignIn', { role });
   };
 
   const handlePhonePress = () => {
-    navigation.navigate('PhoneLogin');
+    navigation.navigate('PhoneLogin', { role });
   };
 
 
