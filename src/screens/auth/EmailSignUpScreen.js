@@ -4,7 +4,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronLeft, Mail, Lock, Eye, EyeOff } from 'lucide-react-native';
 
-export default function EmailSignUpScreen({ navigation }) {
+export default function EmailSignUpScreen({ navigation, route }) {
+  const { role } = route.params || {};
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -17,7 +18,13 @@ export default function EmailSignUpScreen({ navigation }) {
       alert("Passwords don't match");
       return;
     }
-    navigation.navigate('BatchSelection');
+    if (role === 'admin') {
+      navigation.navigate('AdminTabs');
+    } else if (role === 'parent') {
+      navigation.navigate('ParentTabs');
+    } else {
+      navigation.navigate('BatchSelection');
+    }
   };
 
   return (

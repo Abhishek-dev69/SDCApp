@@ -4,7 +4,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronLeft, Phone } from 'lucide-react-native';
 
-export default function PhoneLoginScreen({ navigation }) {
+export default function PhoneLoginScreen({ navigation, route }) {
+  const { role } = route.params || {};
   const [phoneNumber, setPhoneNumber] = useState('');
 
   const handleSendOTP = () => {
@@ -13,7 +14,7 @@ export default function PhoneLoginScreen({ navigation }) {
       alert("Please enter a valid phone number");
       return;
     }
-    navigation.navigate('OTPVerification', { phoneNumber });
+    navigation.navigate('OTPVerification', { phoneNumber, role });
   };
 
   return (

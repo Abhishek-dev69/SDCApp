@@ -5,7 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronLeft } from 'lucide-react-native';
 
 export default function OTPVerificationScreen({ navigation, route }) {
-  const { phoneNumber } = route.params || { phoneNumber: '9876543210' };
+  const { phoneNumber, role } = route.params || { phoneNumber: '9876543210' };
   const [otp, setOtp] = useState(['', '', '', '']);
   const inputs = useRef([]);
 
@@ -34,7 +34,13 @@ export default function OTPVerificationScreen({ navigation, route }) {
       return;
     }
     // Logic to verify OTP
-    navigation.navigate('BatchSelection');
+    if (role === 'admin') {
+      navigation.navigate('AdminTabs');
+    } else if (role === 'parent') {
+      navigation.navigate('ParentTabs');
+    } else {
+      navigation.navigate('BatchSelection');
+    }
   };
 
   const resendOTP = () => {

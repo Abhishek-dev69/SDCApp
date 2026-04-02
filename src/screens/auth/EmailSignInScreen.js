@@ -4,14 +4,21 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronLeft, Mail, Lock, Eye, EyeOff } from 'lucide-react-native';
 
-export default function EmailSignInScreen({ navigation }) {
+export default function EmailSignInScreen({ navigation, route }) {
+  const { role } = route.params || {};
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
   const handleSignIn = () => {
     // Auth logic here
-    navigation.navigate('BatchSelection');
+    if (role === 'admin') {
+      navigation.navigate('AdminTabs');
+    } else if (role === 'parent') {
+      navigation.navigate('ParentTabs');
+    } else {
+      navigation.navigate('BatchSelection');
+    }
   };
 
   return (
