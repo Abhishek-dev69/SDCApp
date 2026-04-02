@@ -1,23 +1,33 @@
 const { Pool } = require('pg');
 require('dotenv').config();
 
-const pool = new Pool({
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT,
-  database: process.env.DB_NAME,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  ssl: {
-    rejectUnauthorized: false
-  },
-});
+const isCloudRun = !!process.env.INSTANCE_UNIX_SOCKET;
+
+const pool = new Pool(
+  isCloudRun
+    ? {
+        host: process.env.INSTANCE_UNIX_SOCKET,
+        database: process.env.DB_NAME,
+        user: process.env.DB_USER,
+        password: process.env.DB_PASSWORD,
+      }
+    : {
+        host: process.env.DB_HOST,
+        port: process.env.DB_PORT,
+        database: process.env.DB_NAME,
+        user: process.env.DB_USER,
+        password: process.env.DB_PASSWORD,
+        ssl: { rejectUnauthorized: false },
+      }
+);
 
 pool.connect((err, client, release) => {
-  if(err) {
+  if (err) {
     console.error('Error connecting to the database', err);
-  }
-  else{
+  } else {
+    release();
     console.log('Successfully connected to SDC_Database');
   }
 });
+
 module.exports = pool;
