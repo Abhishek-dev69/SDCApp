@@ -12,8 +12,11 @@ app.use(express.json());
 const authRoutes = require('./routes/auth');
 const usersRouter = require('./routes/users');
 const emailRoutes = require('./routes/email');
+const announcementRoutes = require('./routes/announcements');
 
 
+
+app.use('/announcements', announcementRoutes);
 app.use('/auth/email', emailRoutes);
 app.use('/auth', authRoutes);  
 app.use('/users', usersRouter);
