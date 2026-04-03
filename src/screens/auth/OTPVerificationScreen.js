@@ -10,15 +10,28 @@ export default function OTPVerificationScreen({ navigation, route }) {
   const inputs = useRef([]);
 
   const handleOtpChange = (value, index) => {
-    const newOtp = [...otp];
-    newOtp[index] = value;
-    setOtp(newOtp);
+  //   const newOtp = [...otp];
+  //   newOtp[index] = value;
+  //   setOtp(newOtp);
 
-    // Auto-focus next input
-    if (value && index < 3) {
-      inputs.current[index + 1].focus();
-    }
-  };
+  //   // Auto-focus next input
+  //   if (value && index < 3) {
+  //     inputs.current[index + 1].focus();
+  //   }
+  // };
+  if (value.length === 4) {
+    const digits = value.split('');
+    setOtp(digits);
+    inputs.current[3].focus();
+    return;
+  }
+  const newOtp = [...otp];
+  newOtp[index] = value;
+  setOtp(newOtp);
+  if (value && index < 3) {
+    inputs.current[index + 1].focus();
+  }
+};
 
   const handleKeyPress = (e, index) => {
     // Handle backspace
@@ -83,6 +96,7 @@ export default function OTPVerificationScreen({ navigation, route }) {
                   selectionColor="#FFFFFF"
                   // Autofill property
                   textContentType="oneTimeCode"
+                  autoComplete="sms-otp"
                   autoFocus={index === 0}
                 />
               ))}

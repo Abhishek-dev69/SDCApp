@@ -3,23 +3,41 @@ import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView } from 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronLeft, Mail, Lock, Eye, EyeOff } from 'lucide-react-native';
-
+import * as SecureStore from 'expo-secure-store';
 export default function EmailSignInScreen({ navigation, route }) {
   const { role } = route.params || {};
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  const handleSignIn = () => {
-    // Auth logic here
-    if (role === 'admin') {
-      navigation.navigate('AdminTabs');
-    } else if (role === 'parent') {
-      navigation.navigate('ParentTabs');
+  const handleSignIn = async () => {
+try {
+    const res = await fetch('https://sdcapp-backend-456970553309.asia-south1.run.app/auth/email/signin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+
+    const data = await res.json();
+
+    if (res.status === 200) {
+      await SecureStore.setItemAsync('userToken', data.jwt);
+      // Navigate based on role from backend
+      if (data.role === 'admin') {
+        navigation.navigate('AdminTabs');
+      } else if (data.role === 'parent') {
+        navigation.navigate('ParentTabs');
+      } else {
+        navigation.navigate('BatchSelection');
+      }
     } else {
-      navigation.navigate('BatchSelection');
+      alert(data.error || 'Signin failed');
     }
-  };
+  } catch (err) {
+    console.error('Signin error:', err);
+    alert('Something went wrong. Please try again.');
+  }
+};
 
   return (
     <View style={styles.container}>

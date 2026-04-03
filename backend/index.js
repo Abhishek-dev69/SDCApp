@@ -11,7 +11,10 @@ app.use(express.json());
 // import routes
 const authRoutes = require('./routes/auth');
 const usersRouter = require('./routes/users');
+const emailRoutes = require('./routes/email');
 
+
+app.use('/auth/email', emailRoutes);
 app.use('/auth', authRoutes);  
 app.use('/users', usersRouter);
 

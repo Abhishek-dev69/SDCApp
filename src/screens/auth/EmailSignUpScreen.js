@@ -7,24 +7,48 @@ import { ChevronLeft, Mail, Lock, Eye, EyeOff } from 'lucide-react-native';
 export default function EmailSignUpScreen({ navigation, route }) {
   const { role } = route.params || {};
   const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const handleSignUp = () => {
+  const handleSignUp = async () => {
     // Validation logic here
     if (password !== confirmPassword) {
       alert("Passwords don't match");
       return;
     }
-    if (role === 'admin') {
-      navigation.navigate('AdminTabs');
-    } else if (role === 'parent') {
-      navigation.navigate('ParentTabs');
+    try {
+    const res = await fetch('https://sdcapp-backend-456970553309.asia-south1.run.app/auth/email/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password , role, name })
+    });
+
+    const data = await res.json();
+
+    if (res.status === 201) {
+      alert('Account created! Please check your email to verify your account.');
+      navigation.navigate('EmailSignIn');
     } else {
-      navigation.navigate('BatchSelection');
+      alert(data.error || 'Signup failed');
     }
+
+    if (role === 'admin') {
+          navigation.navigate('AdminTabs');
+        } else if (role === 'parent') {
+          navigation.navigate('ParentTabs');
+        } else {
+          navigation.navigate('BatchSelection');
+        }
+
+  } catch (err) {
+    console.error('Signup error:', err);
+    alert('Something went wrong. Please try again.');
+  }
+
+    
   };
 
   return (
@@ -46,6 +70,18 @@ export default function EmailSignUpScreen({ navigation, route }) {
           </View>
 
           <View style={styles.formContainer}>
+            <View style={styles.inputWrapper}>
+              <TextInput
+                style={styles.input}
+                placeholder="Full Name"
+                placeholderTextColor="rgba(255, 255, 255, 0.6)"
+                value={name}
+                onChangeText={setName}
+                autoCapitalize="words"
+              />
+            </View>
+
+
             <View style={styles.inputWrapper}>
               <Mail size={20} color="rgba(255, 255, 255, 0.6)" style={styles.inputIcon} />
               <TextInput
