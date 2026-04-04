@@ -4,7 +4,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Phone, Mail } from 'lucide-react-native';
 import * as AuthSession from 'expo-auth-session';
-import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import * as SecureStore from 'expo-secure-store';
 import { useEffect } from 'react';
@@ -30,40 +29,67 @@ GoogleSignin.configure({
 
 export default function LoginScreen({ navigation, route }) {
   const { role } = route.params || {};
-  // Google auth setup
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    androidClientId: '456970553309-14fk1ssbbm4po4iqrknss9l6ljulorgq.apps.googleusercontent.com',
-    iosClientId: '456970553309-e1vtskth15r0dpa7drnfpch747i64763.apps.googleusercontent.com',
-    webClientId: '456970553309-5f21m5egcqm0a5gdlkj80buqvmd363ef.apps.googleusercontent.com',
-  });
+  // // Google auth setup
+  // const [request, response, promptAsync] = Google.useAuthRequest({
+  //   androidClientId: '456970553309-14fk1ssbbm4po4iqrknss9l6ljulorgq.apps.googleusercontent.com',
+  //   iosClientId: '456970553309-e1vtskth15r0dpa7drnfpch747i64763.apps.googleusercontent.com',
+  //   webClientId: '456970553309-5f21m5egcqm0a5gdlkj80buqvmd363ef.apps.googleusercontent.com',
+  // });
 
   // Runs automatically when Google responds
-  useEffect(() => {
-    if (response?.type === 'success') {
-      handleGoogleToken(response.authentication.idToken);
-    }
-  }, [response]);
+  // useEffect(() => {
+  //   if (response?.type === 'success') {
+  //     handleGoogleToken(response.authentication.idToken);
+  //   }
+  // }, [response]);
 
-  const handleGoogleToken = async (googleToken) => {
-    try {
-      const res = await fetch('http://192.168.1.7:3000/auth/google', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: googleToken })
-      });
-      console.log('Google auth response status:', res.status);
-      const data = await res.json();
-      console.log('JWT received:', data.jwt ? 'yes' : 'no');
-      await SecureStore.setItemAsync('userToken', data.jwt);
-      if (role === 'admin') {
-        navigation.navigate('AdminTabs');
-      } else if (role === 'parent') {
-        navigation.navigate('ParentTabs');
-      } else {
-        navigation.navigate('BatchSelection');
+  // const handleGoogleToken = async (googleToken) => {
+    const handleGoogleSignIn = async () => {
+    try {await GoogleSignin.hasPlayServices();
+      const response = await GoogleSignin.signIn();
+      console.log('Response type:', response?.type);
+      if (isSuccessResponse(response)) {
+        const idToken = response.data.idToken;
+        const user = response.data.user;
+        
+        console.log('idToken:', idToken ? 'exists' : 'MISSING');
+        console.log('User:', user.name, user.email);
+        console.log('Calling backend at:', API_URL);
+        const res = await fetch(`${API_URL}/auth/google`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: idToken })
+        });
+        
+        console.log('Backend response status:', res.status);
+        const data = await res.json();
+        console.log('JWT received:', data.jwt ? 'yes' : 'no');
+        
+        if (data.jwt) {
+          await SecureStore.setItemAsync('userToken', data.jwt);
+          navigation.navigate('BatchSelection');
+        } else {
+          console.log('No JWT received, backend error:', data.error);
+        }
       }
     } catch (err) {
-      console.error('Google login failed:', err);
+      if (isErrorWithCode(err)) {
+        switch (err.code) {
+          case statusCodes.IN_PROGRESS:
+            console.log('Google Sign-In already in progress');
+            break;
+          case statusCodes.PLAY_SERVICES_NOT_AVAILABLE:
+            console.log('Google Play Services not available');
+            break;
+          default:
+            console.log('Google Sign-In error:', err);
+      }
+      
+      }
+      else {
+        console.log('Unexpected error during Google Sign-In:', err);
+      } 
+
     }
   };
 

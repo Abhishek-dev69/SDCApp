@@ -32,16 +32,10 @@ export default function EmailSignUpScreen({ navigation, route }) {
       alert('Account created! Please check your email to verify your account.');
       navigation.navigate('EmailSignIn');
     } else {
+      console.log('Signup failed, status:', res.status);
+      console.log('Error response:', JSON.stringify(data));
       alert(data.error || 'Signup failed');
     }
-
-    if (role === 'admin') {
-          navigation.navigate('AdminTabs');
-        } else if (role === 'parent') {
-          navigation.navigate('ParentTabs');
-        } else {
-          navigation.navigate('BatchSelection');
-        }
 
   } catch (err) {
     console.error('Signup error:', err);

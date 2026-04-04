@@ -100,7 +100,7 @@ try {
 
           <View style={styles.footerContainer}>
             <Text style={styles.footerText}>Don't have an account? </Text>
-            <TouchableOpacity onPress={() => navigation.navigate('EmailSignUp')}>
+            <TouchableOpacity onPress={() => navigation.navigate('EmailSignUp', {role})}>
               <Text style={styles.signUpLink}>Sign Up</Text>
             </TouchableOpacity>
           </View>

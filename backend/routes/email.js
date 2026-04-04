@@ -127,12 +127,7 @@ router.post('/signup', async (req, res) => {
 
     // Insert into auth table
     await pool.query(
-    //   `INSERT INTO auth 
-    //     (student_id, email, name, auth_provider, role, password_hash, email_verified, verification_token, verification_token_expires_at)
-    //    VALUES 
-    //     ($1, $2, $3, 'email', $4, false, $5, $6)`,
-    //   [studentId, email, name,  role, passwordHash, verificationToken, tokenExpiry]
-    // );
+   
     `INSERT INTO auth 
         (student_id, email, name, auth_provider, role, password_hash, email_verified, verification_token, verification_token_expires_at)
     VALUES 
