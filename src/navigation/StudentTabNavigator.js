@@ -38,7 +38,11 @@ export default function StudentTabNavigator() {
       })}
     >
       <Tab.Screen name="Home" component={StudentHomeScreen} />
-      <Tab.Screen name="Lectures" component={LecturesStackNavigator} />
+      <Tab.Screen
+        name="Lectures"
+        component={LecturesStackNavigator}
+        options={{ tabBarLabel: 'Study Material' }}
+      />
       <Tab.Screen name="Tests" component={TestsScreen} />
       <Tab.Screen name="Doubts" component={DoubtsScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
