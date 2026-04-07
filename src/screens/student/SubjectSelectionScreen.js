@@ -1,16 +1,21 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ChevronLeft, Zap, FlaskConical, TriangleRight } from 'lucide-react-native';
+import { Zap, FlaskConical, TriangleRight, Dna } from 'lucide-react-native';
+import { useStudentSession } from '../../context/StudentSessionContext';
+import { getSubjectsForBatch } from '../../data/studentBatches';
 
-const SUBJECTS = [
-  { id: 'physics', title: 'Physics', subtitle: 'Full syllabus coverage', icon: Zap, color: '#F59E0B' }, // Yellow lightning bolt
-  { id: 'chemistry', title: 'Chemistry', subtitle: 'Full syllabus coverage', icon: FlaskConical, color: '#10B981' }, // Green test tube
-  { id: 'mathematics', title: 'Mathematics', subtitle: 'Full syllabus coverage', icon: TriangleRight, color: '#64748b' }, // Grey ruler/triangle
-];
+const SUBJECT_ICONS = {
+  physics: Zap,
+  chemistry: FlaskConical,
+  mathematics: TriangleRight,
+  biology: Dna,
+};
 
 export default function SubjectSelectionScreen({ navigation }) {
   const [selectedSubjects, setSelectedSubjects] = useState([]);
+  const { selectedBatch } = useStudentSession();
+  const subjects = getSubjectsForBatch(selectedBatch);
 
   const toggleSubject = (id) => {
     setSelectedSubjects((prev) => 
@@ -32,14 +37,18 @@ export default function SubjectSelectionScreen({ navigation }) {
       <View style={styles.header}>
         <View style={styles.headerTextContainer}>
           <Text style={styles.headerTitle}>Select Subjects</Text>
-          <Text style={styles.headerSubtitle}>Choose subjects you want to study</Text>
+          <Text style={styles.headerSubtitle}>
+            {selectedBatch
+              ? `${selectedBatch.label} • ${selectedBatch.program} • ${selectedBatch.stream}`
+              : 'Choose subjects you want to study'}
+          </Text>
         </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {SUBJECTS.map((subject) => {
+        {subjects.map((subject) => {
           const isSelected = selectedSubjects.includes(subject.id);
-          const IconComponent = subject.icon;
+          const IconComponent = SUBJECT_ICONS[subject.id];
           return (
             <TouchableOpacity 
               key={subject.id} 
@@ -49,8 +58,8 @@ export default function SubjectSelectionScreen({ navigation }) {
               ]}
               onPress={() => toggleSubject(subject.id)}
             >
-              <View style={[styles.iconContainer, { backgroundColor: `${subject.color}15` }]}>
-                <IconComponent size={32} color={subject.color} />
+              <View style={[styles.iconContainer, { backgroundColor: `${subject.accentColor}15` }]}>
+                <IconComponent size={32} color={subject.accentColor} />
               </View>
               <View style={styles.cardContent}>
                 <Text style={styles.cardTitle}>{subject.title}</Text>
