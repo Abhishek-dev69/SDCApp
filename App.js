@@ -20,36 +20,39 @@ import EmailSignInScreen from './src/screens/auth/EmailSignInScreen';
 import PhoneLoginScreen from './src/screens/auth/PhoneLoginScreen';
 import OTPVerificationScreen from './src/screens/auth/OTPVerificationScreen';
 import ForgotPasswordScreen from './src/screens/auth/ForgotPasswordScreen';
+import { StudentSessionProvider } from './src/context/StudentSessionContext';
 
 const Stack = createNativeStackNavigator();
 
 export default function App() {
   return (
-    <SafeAreaProvider>
-      <StatusBar style="auto" />
-      <NavigationContainer>
-        <Stack.Navigator 
-          initialRouteName="RoleSelection"
-          screenOptions={{ headerShown: false }}
-        >
-          <Stack.Screen name="RoleSelection" component={RoleSelectionScreen} />
-          <Stack.Screen name="Login" component={LoginScreen} />
-          <Stack.Screen name="BatchSelection" component={BatchSelectionScreen} />
-          <Stack.Screen name="SubjectSelection" component={SubjectSelectionScreen} />
-          <Stack.Screen name="MainTabs" component={StudentTabNavigator} />
-          <Stack.Screen name="AdminTabs" component={AdminTabNavigator} />
-          <Stack.Screen name="ParentTabs" component={ParentTabNavigator} />
-          <Stack.Screen name="AddStudent" component={AddStudentScreen} />
-          <Stack.Screen name="AddTeacher" component={AddTeacherScreen} />
-          <Stack.Screen name="AssignBatch" component={AssignBatchScreen} />
-          <Stack.Screen name="AddBatch" component={AddBatchScreen} />
-          <Stack.Screen name="EmailSignUp" component={EmailSignUpScreen} />
-          <Stack.Screen name="EmailSignIn" component={EmailSignInScreen} />
-          <Stack.Screen name="PhoneLogin" component={PhoneLoginScreen} />
-          <Stack.Screen name="OTPVerification" component={OTPVerificationScreen} />
-          <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
-        </Stack.Navigator>
-      </NavigationContainer>
-    </SafeAreaProvider>
+    <StudentSessionProvider>
+      <SafeAreaProvider>
+        <StatusBar style="auto" />
+        <NavigationContainer>
+          <Stack.Navigator 
+            initialRouteName="RoleSelection"
+            screenOptions={{ headerShown: false }}
+          >
+            <Stack.Screen name="RoleSelection" component={RoleSelectionScreen} />
+            <Stack.Screen name="Login" component={LoginScreen} />
+            <Stack.Screen name="BatchSelection" component={BatchSelectionScreen} />
+            <Stack.Screen name="SubjectSelection" component={SubjectSelectionScreen} />
+            <Stack.Screen name="MainTabs" component={StudentTabNavigator} />
+            <Stack.Screen name="AdminTabs" component={AdminTabNavigator} />
+            <Stack.Screen name="ParentTabs" component={ParentTabNavigator} />
+            <Stack.Screen name="AddStudent" component={AddStudentScreen} />
+            <Stack.Screen name="AddTeacher" component={AddTeacherScreen} />
+            <Stack.Screen name="AssignBatch" component={AssignBatchScreen} />
+            <Stack.Screen name="AddBatch" component={AddBatchScreen} />
+            <Stack.Screen name="EmailSignUp" component={EmailSignUpScreen} />
+            <Stack.Screen name="EmailSignIn" component={EmailSignInScreen} />
+            <Stack.Screen name="PhoneLogin" component={PhoneLoginScreen} />
+            <Stack.Screen name="OTPVerification" component={OTPVerificationScreen} />
+            <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+          </Stack.Navigator>
+        </NavigationContainer>
+      </SafeAreaProvider>
+    </StudentSessionProvider>
   );
 }
