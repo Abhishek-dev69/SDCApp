@@ -36,13 +36,16 @@ const CHAPTERS = [
 
 export default function ChapterListScreen({ navigation, route }) {
   const subjectName = route.params?.subject || 'Physics';
+  const materialSource = route.params?.materialSource || 'SDC Notes';
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
         <View>
           <Text style={styles.headerTitle}>{subjectName}</Text>
-          <Text style={styles.headerSubtitle}>{CHAPTERS.length} Chapters</Text>
+          <Text style={styles.headerSubtitle}>
+            {materialSource} • {CHAPTERS.length} Chapters
+          </Text>
         </View>
       </View>
 
