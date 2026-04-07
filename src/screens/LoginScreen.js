@@ -1,95 +1,76 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Phone, Mail } from 'lucide-react-native';
 import * as AuthSession from 'expo-auth-session';
+import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import * as SecureStore from 'expo-secure-store';
-import { useEffect } from 'react';
-import {
-  GoogleSignin,
-  isSuccessResponse,
-  isErrorWithCode,
-  statusCodes,
-} from "@react-native-google-signin/google-signin";
 import Constants from 'expo-constants';
-
-
-
 
 const API_URL = Constants.expoConfig.extra.apiUrl;
 
-console.log(AuthSession.makeRedirectUri({ useProxy: true })); // For debugging redirect URI issues
+console.log(AuthSession.makeRedirectUri({ useProxy: true }));
 WebBrowser.maybeCompleteAuthSession();
-
-GoogleSignin.configure({
-  webClientId: '456970553309-5f21m5egcqm0a5gdlkj80buqvmd363ef.apps.googleusercontent.com',
-});
 
 export default function LoginScreen({ navigation, route }) {
   const { role } = route.params || {};
-  // // Google auth setup
-  // const [request, response, promptAsync] = Google.useAuthRequest({
-  //   androidClientId: '456970553309-14fk1ssbbm4po4iqrknss9l6ljulorgq.apps.googleusercontent.com',
-  //   iosClientId: '456970553309-e1vtskth15r0dpa7drnfpch747i64763.apps.googleusercontent.com',
-  //   webClientId: '456970553309-5f21m5egcqm0a5gdlkj80buqvmd363ef.apps.googleusercontent.com',
-  // });
 
-  // Runs automatically when Google responds
-  // useEffect(() => {
-  //   if (response?.type === 'success') {
-  //     handleGoogleToken(response.authentication.idToken);
-  //   }
-  // }, [response]);
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    androidClientId: '456970553309-14fk1ssbbm4po4iqrknss9l6ljulorgq.apps.googleusercontent.com',
+    iosClientId: '456970553309-e1vtskth15r0dpa7drnfpch747i64763.apps.googleusercontent.com',
+    webClientId: '456970553309-5f21m5egcqm0a5gdlkj80buqvmd363ef.apps.googleusercontent.com',
+  });
 
-  // const handleGoogleToken = async (googleToken) => {
-    const handleGoogleSignIn = async () => {
-    try {await GoogleSignin.hasPlayServices();
-      const response = await GoogleSignin.signIn();
-      console.log('Response type:', response?.type);
-      if (isSuccessResponse(response)) {
-        const idToken = response.data.idToken;
-        const user = response.data.user;
-        
-        console.log('idToken:', idToken ? 'exists' : 'MISSING');
-        console.log('User:', user.name, user.email);
-        console.log('Calling backend at:', API_URL);
-        const res = await fetch(`${API_URL}/auth/google`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token: idToken })
-        });
-        
-        console.log('Backend response status:', res.status);
-        const data = await res.json();
-        console.log('JWT received:', data.jwt ? 'yes' : 'no');
-        
-        if (data.jwt) {
-          await SecureStore.setItemAsync('userToken', data.jwt);
-          navigation.navigate('BatchSelection');
-        } else {
-          console.log('No JWT received, backend error:', data.error);
-        }
+  useEffect(() => {
+    if (response?.type === 'success') {
+      const idToken = response.authentication?.idToken || response.params?.id_token;
+
+      if (idToken) {
+        handleGoogleToken(idToken);
+      } else {
+        console.log('Google auth completed without an id token');
+      }
+    }
+  }, [response]);
+
+  const navigatePostLogin = () => {
+    if (role === 'admin') {
+      navigation.navigate('AdminTabs');
+    } else if (role === 'parent') {
+      navigation.navigate('ParentTabs');
+    } else {
+      navigation.navigate('BatchSelection');
+    }
+  };
+
+  const handleGoogleToken = async (googleToken) => {
+    try {
+      const res = await fetch(`${API_URL}/auth/google`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: googleToken }),
+      });
+
+      const data = await res.json();
+
+      if (data.jwt) {
+        await SecureStore.setItemAsync('userToken', data.jwt);
+        navigatePostLogin();
+      } else {
+        console.log('No JWT received, backend error:', data.error);
       }
     } catch (err) {
-      if (isErrorWithCode(err)) {
-        switch (err.code) {
-          case statusCodes.IN_PROGRESS:
-            console.log('Google Sign-In already in progress');
-            break;
-          case statusCodes.PLAY_SERVICES_NOT_AVAILABLE:
-            console.log('Google Play Services not available');
-            break;
-          default:
-            console.log('Google Sign-In error:', err);
-      }
-      
-      }
-      else {
-        console.log('Unexpected error during Google Sign-In:', err);
-      } 
+      console.log('Google login failed:', err);
+    }
+  };
 
+  const handleGoogleSignIn = async () => {
+    try {
+      await promptAsync({ useProxy: true });
+    } catch (err) {
+      console.log('Unable to start Google auth flow:', err);
     }
   };
 
@@ -101,57 +82,42 @@ export default function LoginScreen({ navigation, route }) {
     navigation.navigate('PhoneLogin', { role });
   };
 
-
-
-  const handleLogin = () => {
-    if (role === 'admin') {
-      navigation.navigate('AdminTabs');
-    } else if (role === 'parent') {
-      navigation.navigate('ParentTabs');
-    } else {
-      navigation.navigate('BatchSelection');
-    }
-  };
-
   return (
     <View style={styles.container}>
       <LinearGradient
         colors={['#2b58ed', '#1e3a8a']}
         style={styles.gradient}
       />
-      
+
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.content}>
-          {/* Logo Section */}
           <View style={styles.logoContainer}>
             <View style={styles.logoBox}>
               <Text style={styles.logoText}>SDC</Text>
             </View>
           </View>
 
-          {/* Header Section */}
           <View style={styles.headerContainer}>
             <Text style={styles.welcomeText}>Welcome Back</Text>
             <Text style={styles.subtitleText}>Sign in to continue learning</Text>
           </View>
 
-          {/* Social Login Buttons */}
           <View style={styles.buttonSection}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.socialButton}
-              onPress={handleGoogleSignIn} 
+              onPress={handleGoogleSignIn}
+              disabled={!request}
             >
               <View style={styles.iconWrapper}>
-                {/* Mocking Google G with colored segments or an image if available */}
-                <Image 
-                  source={{ uri: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/1024px-Google_%22G%22_logo.svg.png' }} 
+                <Image
+                  source={{ uri: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/1024px-Google_%22G%22_logo.svg.png' }}
                   style={styles.googleIcon}
                 />
               </View>
               <Text style={styles.buttonText}>Continue with Google</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.socialButton}
               onPress={handlePhonePress}
             >
@@ -161,7 +127,7 @@ export default function LoginScreen({ navigation, route }) {
               <Text style={styles.buttonText}>Continue with Phone Number</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.socialButton}
               onPress={handleEmailPress}
             >
@@ -172,7 +138,6 @@ export default function LoginScreen({ navigation, route }) {
             </TouchableOpacity>
           </View>
 
-          {/* Footer Section */}
           <View style={styles.footerContainer}>
             <Text style={styles.footerText}>Don't have an account? </Text>
             <TouchableOpacity onPress={() => navigation.navigate('RoleSelection')}>
@@ -253,7 +218,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     paddingVertical: 14,
     paddingHorizontal: 20,
-    borderRadius: 50, // Capsule shape
+    borderRadius: 50,
     width: '100%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
@@ -276,7 +241,7 @@ const styles = StyleSheet.create({
     color: '#374151',
     flex: 1,
     textAlign: 'center',
-    marginRight: 32, // Offset the icon width to center text
+    marginRight: 32,
   },
   footerContainer: {
     marginTop: 'auto',
