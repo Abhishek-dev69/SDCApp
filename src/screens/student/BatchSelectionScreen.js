@@ -1,36 +1,36 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ChevronLeft } from 'lucide-react-native';
-
-const BATCHES = [
-  { id: 'A7', label: 'A7', subtitle: 'CET' },
-  { id: 'A8', label: 'A8', subtitle: 'NEET' },
-  { id: 'G7', label: 'G7', subtitle: 'CET + NEET' },
-
-  { id: 'K7', label: 'K7', subtitle: 'CET' },
-  { id: 'K8', label: 'K8', subtitle: 'NEET + JEE' },
-  { id: 'K9', label: 'K9', subtitle: 'CET' },
-
-  { id: 'S7', label: 'S7', subtitle: 'CET' },
-  { id: 'S8', label: 'S8', subtitle: 'NEET' },
-  { id: 'M12', label: 'M12', subtitle: 'NEET Repeater' }
-];
+import { useStudentSession } from '../../context/StudentSessionContext';
+import { BATCHES, findBatchById } from '../../data/studentBatches';
 
 export default function BatchSelectionScreen({ navigation }) {
-
   const [selectedBatch, setSelectedBatch] = useState(null);
-  const [searchText, setSearchText] = useState("");
+  const [searchText, setSearchText] = useState('');
+  const { setSelectedBatch: setSessionBatch } = useStudentSession();
 
   const handleContinue = () => {
     if (selectedBatch) {
+      setSessionBatch(findBatchById(selectedBatch));
       navigation.navigate('SubjectSelection');
     }
   };
 
   const filteredBatches = BATCHES.filter(batch =>
-    batch.label.toLowerCase().includes(searchText.toLowerCase())
+    [batch.label, batch.branch, batch.program, batch.stream]
+      .join(' ')
+      .toLowerCase()
+      .includes(searchText.toLowerCase())
   );
+
+  const groupedBatches = filteredBatches.reduce((groups, batch) => {
+    if (!groups[batch.branch]) {
+      groups[batch.branch] = [];
+    }
+
+    groups[batch.branch].push(batch);
+    return groups;
+  }, {});
 
   return (
     <SafeAreaView style={styles.container}>
@@ -58,38 +58,43 @@ export default function BatchSelectionScreen({ navigation }) {
 
       {/* Batch List */}
       <ScrollView style={styles.listContainer}>
+        {Object.entries(groupedBatches).map(([branch, branchBatches]) => (
+          <View key={branch} style={styles.branchSection}>
+            <Text style={styles.branchTitle}>{branch}</Text>
 
-        {filteredBatches.map((batch) => {
+            {branchBatches.map((batch) => {
+              const isSelected = selectedBatch === batch.id;
 
-          const isSelected = selectedBatch === batch.id;
+              return (
+                <TouchableOpacity
+                  key={batch.id}
+                  activeOpacity={0.8}
+                  style={[styles.card, isSelected && styles.cardSelected]}
+                  onPress={() => setSelectedBatch(batch.id)}
+                >
+                  <View style={styles.batchIcon}>
+                    <Text style={styles.batchIconText}>{batch.label}</Text>
+                  </View>
 
-          return (
-            <TouchableOpacity
-              key={batch.id}
-              activeOpacity={0.8}
-              style={[styles.card, isSelected && styles.cardSelected]}
-              onPress={() => setSelectedBatch(batch.id)}
-            >
+                  <View style={styles.cardContent}>
+                    <Text style={styles.batchName}>{batch.label} Batch</Text>
+                    <Text style={styles.batchCourse}>
+                      {batch.program} • {batch.stream}
+                    </Text>
+                  </View>
 
-              <View style={styles.batchIcon}>
-                <Text style={styles.batchIconText}>{batch.label}</Text>
-              </View>
+                  <Text style={[styles.arrow, isSelected && styles.arrowActive]}>
+                    〉
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        ))}
 
-              <View style={styles.cardContent}>
-                <Text style={styles.batchName}>{batch.label} Batch</Text>
-
-                <Text style={styles.batchCourse}>
-                  {batch.subtitle} Preparation
-                </Text>
-              </View>
-
-              <Text style={[styles.arrow, isSelected && styles.arrowActive]}>
-                〉
-              </Text>
-
-            </TouchableOpacity>
-          );
-        })}
+        {!filteredBatches.length && (
+          <Text style={styles.emptyStateText}>No batches found for that search.</Text>
+        )}
 
       </ScrollView>
 
@@ -157,6 +162,18 @@ listContainer:{
 padding:16
 },
 
+branchSection:{
+marginBottom:20
+},
+
+branchTitle:{
+fontSize:15,
+fontWeight:"700",
+color:"#475569",
+marginBottom:10,
+marginLeft:4
+},
+
 card:{
 flexDirection:"row",
 alignItems:"center",
@@ -205,6 +222,13 @@ batchCourse:{
 fontSize:13,
 color:"#64748b",
 marginTop:2
+},
+
+emptyStateText:{
+textAlign:"center",
+color:"#64748b",
+fontSize:14,
+paddingVertical:24
 },
 
 arrow:{
