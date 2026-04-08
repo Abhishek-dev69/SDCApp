@@ -11,14 +11,13 @@ import {
   Alert
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ChevronLeft, BookOpen, GraduationCap, Calendar, CheckSquare, Square } from 'lucide-react-native';
+import { ChevronLeft, BookOpen, Calendar, CheckSquare, Square } from 'lucide-react-native';
 
 const SUBJECTS_LIST = ['Physics', 'Chemistry', 'Mathematics', 'Biology'];
 
 export default function AddBatchScreen({ navigation }) {
   const [formData, setFormData] = useState({
     batchName: '',
-    academicClass: '',
     startDate: '',
     selectedSubjects: []
   });
@@ -33,8 +32,8 @@ export default function AddBatchScreen({ navigation }) {
   };
 
   const handleCreate = () => {
-    if (!formData.batchName || !formData.academicClass) {
-      Alert.alert('Required Fields', 'Please fill in the batch name and class.');
+    if (!formData.batchName) {
+      Alert.alert('Required Fields', 'Please fill in the batch name.');
       return;
     }
     Alert.alert('Success', `Batch "${formData.batchName}" created successfully!`, [
@@ -76,17 +75,9 @@ export default function AddBatchScreen({ navigation }) {
             <InputField 
               label="Batch Name" 
               icon={BookOpen} 
-              placeholder="e.g. NEET 2026 - A7"
+              placeholder="e.g. A1 or K2"
               value={formData.batchName}
               onChangeText={(text) => setFormData({...formData, batchName: text})}
-            />
-
-            <InputField 
-              label="Academic Class" 
-              icon={GraduationCap} 
-              placeholder="e.g. 12th Standard"
-              value={formData.academicClass}
-              onChangeText={(text) => setFormData({...formData, academicClass: text})}
             />
 
             <InputField 
