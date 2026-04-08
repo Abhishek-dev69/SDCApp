@@ -17,6 +17,15 @@ WebBrowser.maybeCompleteAuthSession();
 export default function LoginScreen({ navigation, route }) {
   const { role } = route.params || {};
 
+  const getAdminRouteParams = (currentRole) => ({
+    userRole: currentRole,
+    displayName: currentRole === 'owner'
+      ? 'Natik Sir'
+      : currentRole === 'teacher'
+        ? 'Teacher'
+        : 'Admin',
+  });
+
   const [request, response, promptAsync] = Google.useAuthRequest({
     androidClientId: '456970553309-14fk1ssbbm4po4iqrknss9l6ljulorgq.apps.googleusercontent.com',
     iosClientId: '456970553309-e1vtskth15r0dpa7drnfpch747i64763.apps.googleusercontent.com',
@@ -36,8 +45,8 @@ export default function LoginScreen({ navigation, route }) {
   }, [response]);
 
   const navigatePostLogin = () => {
-    if (role === 'admin') {
-      navigation.navigate('AdminTabs');
+    if (role === 'admin' || role === 'teacher' || role === 'owner') {
+      navigation.navigate('AdminTabs', getAdminRouteParams(role));
     } else if (role === 'parent') {
       navigation.navigate('ParentTabs');
     } else {
