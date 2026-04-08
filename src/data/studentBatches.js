@@ -45,7 +45,7 @@ const SUBJECTS_BY_STREAM = {
 
 export const BATCHES = [
   { id: 'A1', label: 'A1', branch: 'Andheri', stream: 'PCM', program: 'CET', textbookSources: ['maharashtra'] },
-  { id: 'A2', label: 'A2', branch: 'Andheri', stream: 'PCM', program: 'CET', textbookSources: ['maharashtra'] },
+  { id: 'A2', label: 'A2', branch: 'Andheri', stream: 'PCB', program: 'NEET', textbookSources: ['ncert'] },
   { id: 'A3', label: 'A3', branch: 'Andheri', stream: 'PCM', program: 'CET', textbookSources: ['maharashtra'] },
   { id: 'G1', label: 'G1', branch: 'Goregaon', stream: 'PCMB', program: 'CET + NEET', textbookSources: ['ncert', 'maharashtra'] },
   { id: 'K1', label: 'K1', branch: 'Kandivali', stream: 'PCM', program: 'CET', textbookSources: ['maharashtra'] },
