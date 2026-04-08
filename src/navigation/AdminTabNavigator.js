@@ -10,7 +10,10 @@ import AdminAnalyticsScreen, {
 
 const Tab = createBottomTabNavigator();
 
-export default function AdminTabNavigator() {
+export default function AdminTabNavigator({ route }) {
+  const userRole = route?.params?.userRole || 'admin';
+  const displayName = route?.params?.displayName || 'Admin';
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -38,7 +41,11 @@ export default function AdminTabNavigator() {
         headerShown: false,
       })}
     >
-      <Tab.Screen name="Dashboard" component={AdminDashboardScreen} />
+      <Tab.Screen
+        name="Dashboard"
+        component={AdminDashboardScreen}
+        initialParams={{ userRole, displayName }}
+      />
       <Tab.Screen name="Batches" component={AdminBatchesScreen} />
       <Tab.Screen name="Analytics" component={AdminAnalyticsScreen} />
       <Tab.Screen name="Finances" component={AdminFinancesScreen} />
