@@ -11,20 +11,19 @@ import {
   Alert
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ChevronLeft, User, Phone, GraduationCap, Users } from 'lucide-react-native';
+import { ChevronLeft, User, Phone, Users } from 'lucide-react-native';
 
 export default function AddStudentScreen({ navigation }) {
   const [formData, setFormData] = useState({
     fullName: '',
     parentName: '',
     phone: '',
-    class: '',
     batch: ''
   });
 
   const handleSave = () => {
-    if (!formData.fullName || !formData.phone) {
-      Alert.alert('Required Fields', 'Please fill in the student name and phone number.');
+    if (!formData.fullName || !formData.phone || !formData.batch) {
+      Alert.alert('Required Fields', 'Please fill in the student name, phone number, and batch.');
       return;
     }
     Alert.alert('Success', 'Student added successfully!', [
@@ -90,17 +89,9 @@ export default function AddStudentScreen({ navigation }) {
             />
 
             <InputField 
-              label="Academic Class" 
-              icon={GraduationCap} 
-              placeholder="e.g. 12th Standard"
-              value={formData.class}
-              onChangeText={(text) => setFormData({...formData, class: text})}
-            />
-
-            <InputField 
-              label="Batch (Optional)" 
+              label="Batch" 
               icon={Users} 
-              placeholder="e.g. NEET A7"
+              placeholder="e.g. A1 or K2"
               value={formData.batch}
               onChangeText={(text) => setFormData({...formData, batch: text})}
             />
