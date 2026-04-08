@@ -7,7 +7,6 @@ import { StatusBar } from 'expo-status-bar';
 import RoleSelectionScreen from './src/screens/RoleSelectionScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import BatchSelectionScreen from './src/screens/student/BatchSelectionScreen';
-import SubjectSelectionScreen from './src/screens/student/SubjectSelectionScreen';
 import StudentTabNavigator from './src/navigation/StudentTabNavigator';
 import AdminTabNavigator from './src/navigation/AdminTabNavigator';
 import ParentTabNavigator from './src/navigation/ParentTabNavigator';
@@ -37,7 +36,6 @@ export default function App() {
             <Stack.Screen name="RoleSelection" component={RoleSelectionScreen} />
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name="BatchSelection" component={BatchSelectionScreen} />
-            <Stack.Screen name="SubjectSelection" component={SubjectSelectionScreen} />
             <Stack.Screen name="MainTabs" component={StudentTabNavigator} />
             <Stack.Screen name="AdminTabs" component={AdminTabNavigator} />
             <Stack.Screen name="ParentTabs" component={ParentTabNavigator} />
