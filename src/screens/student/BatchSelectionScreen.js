@@ -12,7 +12,7 @@ export default function BatchSelectionScreen({ navigation }) {
   const handleContinue = () => {
     if (selectedBatch) {
       setSessionBatch(findBatchById(selectedBatch));
-      navigation.navigate('SubjectSelection');
+      navigation.navigate('MainTabs');
     }
   };
 
@@ -79,7 +79,7 @@ export default function BatchSelectionScreen({ navigation }) {
                   <View style={styles.cardContent}>
                     <Text style={styles.batchName}>{batch.label} Batch</Text>
                     <Text style={styles.batchCourse}>
-                      {batch.program} • {batch.stream}
+                      {batch.stream}
                     </Text>
                   </View>
 
