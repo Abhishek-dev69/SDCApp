@@ -10,6 +10,15 @@ export default function EmailSignInScreen({ navigation, route }) {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
+  const getAdminRouteParams = (currentRole) => ({
+    userRole: currentRole,
+    displayName: currentRole === 'owner'
+      ? 'Natik Sir'
+      : currentRole === 'teacher'
+        ? 'Teacher'
+        : 'Admin',
+  });
+
   const handleSignIn = async () => {
 try {
     const res = await fetch('https://sdcapp-backend-456970553309.asia-south1.run.app/auth/email/signin', {
@@ -23,8 +32,8 @@ try {
     if (res.status === 200) {
       await SecureStore.setItemAsync('userToken', data.jwt);
       // Navigate based on role from backend
-      if (data.role === 'admin') {
-        navigation.navigate('AdminTabs');
+      if (data.role === 'admin' || data.role === 'teacher' || data.role === 'owner') {
+        navigation.navigate('AdminTabs', getAdminRouteParams(data.role));
       } else if (data.role === 'parent') {
         navigation.navigate('ParentTabs');
       } else {
