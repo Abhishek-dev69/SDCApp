@@ -52,7 +52,15 @@ const TEACHERS = [
   { id: '2', name: 'Prof. Anjali Roy', subject: 'Chemistry', students: '95', rating: '4.9', color: '#F97316' },
 ];
 
-export default function AdminDashboardScreen({ navigation }) {
+export default function AdminDashboardScreen({ navigation, route }) {
+  const userRole = route?.params?.userRole || 'admin';
+  const displayName = route?.params?.displayName || 'Admin';
+  const roleBadgeText = userRole === 'owner'
+    ? 'Owner View'
+    : userRole === 'teacher'
+      ? 'Teacher View'
+      : 'Admin View';
+
   const handleAction = (id) => {
     switch(id) {
       case '1': navigation.navigate('AddStudent'); break;
@@ -79,9 +87,9 @@ export default function AdminDashboardScreen({ navigation }) {
             <View>
               <Text style={styles.greetingText}>Good Morning,</Text>
               <View style={styles.adminRow}>
-                <Text style={styles.userNameText}>Admin</Text>
+                <Text style={styles.userNameText}>{displayName}</Text>
                 <View style={styles.adminBadge}>
-                  <Text style={styles.adminBadgeText}>Admin View</Text>
+                  <Text style={styles.adminBadgeText}>{roleBadgeText}</Text>
                 </View>
               </View>
             </View>
