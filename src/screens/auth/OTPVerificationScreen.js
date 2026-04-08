@@ -9,6 +9,15 @@ export default function OTPVerificationScreen({ navigation, route }) {
   const [otp, setOtp] = useState(['', '', '', '']);
   const inputs = useRef([]);
 
+  const getAdminRouteParams = (currentRole) => ({
+    userRole: currentRole,
+    displayName: currentRole === 'owner'
+      ? 'Natik Sir'
+      : currentRole === 'teacher'
+        ? 'Teacher'
+        : 'Admin',
+  });
+
   const handleOtpChange = (value, index) => {
   //   const newOtp = [...otp];
   //   newOtp[index] = value;
@@ -47,8 +56,8 @@ export default function OTPVerificationScreen({ navigation, route }) {
       return;
     }
     // Logic to verify OTP
-    if (role === 'admin') {
-      navigation.navigate('AdminTabs');
+    if (role === 'admin' || role === 'teacher' || role === 'owner') {
+      navigation.navigate('AdminTabs', getAdminRouteParams(role));
     } else if (role === 'parent') {
       navigation.navigate('ParentTabs');
     } else {
