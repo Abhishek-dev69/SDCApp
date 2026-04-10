@@ -22,6 +22,8 @@ const jwt = require('jsonwebtoken');
 router.post('/signin', async (req, res) => {
   const { email, password } = req.body;
 
+ 
+
   if (!email || !password) {
     return res.status(400).json({ error: 'Email and password are required' });
   }
@@ -31,6 +33,7 @@ router.post('/signin', async (req, res) => {
       'SELECT * FROM auth WHERE email = $1 AND auth_provider = $2',
       [email, 'email']
     );
+    
 
     if (result.rows.length === 0) {
       return res.status(401).json({ error: 'Invalid email or password' });
@@ -40,6 +43,7 @@ router.post('/signin', async (req, res) => {
 
     // Check email is verified
     if (!user.email_verified) {
+      
       return res.status(403).json({ error: 'Please verify your email before signing in' });
     }
 
@@ -152,7 +156,7 @@ router.post('/signup', async (req, res) => {
         </div>
       `
     });
-    console.log('Resend result:', emailResult);
+    
     res.status(201).json({ message: JSON.stringify(emailResult) });
 
   } catch (err) {
