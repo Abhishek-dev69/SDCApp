@@ -131,3 +131,64 @@ export default function ChangePasswordScreen({ navigation }) {
     </View>
   );
 }
+
+// ✅ THIS WAS MISSING
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  gradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  safeArea: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    paddingBottom: 40,
+  },
+  headerContainer: {
+    marginBottom: 40,
+  },
+  headerTitle: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginBottom: 8,
+  },
+  headerSubtitle: {
+    fontSize: 16,
+    color: 'rgba(255, 255, 255, 0.7)',
+  },
+  formContainer: {
+    gap: 20,
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  input: {
+    flex: 1,
+    color: '#FFFFFF',
+    fontSize: 16,
+  },
+  signInButton: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 50,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  signInButtonText: {
+    color: '#1e3a8a',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+});
