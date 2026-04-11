@@ -71,7 +71,7 @@ export default function EmailSignUpScreen({ navigation, route }) {
                 placeholderTextColor="rgba(255, 255, 255, 0.6)"
                 value={name}
                 onChangeText={setName}
-                autoCapitalize="words"
+                autoCapitalize="none"
               />
             </View>
 

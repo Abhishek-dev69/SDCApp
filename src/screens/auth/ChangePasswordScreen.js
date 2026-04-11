@@ -1,44 +1,29 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Eye, EyeOff } from 'lucide-react-native';
 
 export default function ChangePasswordScreen({ navigation }) {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [loading, setLoading] = useState(false);
+
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const handleSubmit = () => {
-    if (loading) return;
-
     if (!newPassword || !confirmPassword) {
-      Alert.alert('Error', 'Please fill all fields');
-      return;
-    }
-
-    if (newPassword.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters');
+      alert('Please fill all fields');
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
+      alert('Passwords do not match');
       return;
     }
 
-    setLoading(true);
-
-    
-    setTimeout(() => {
-      setLoading(false);
-
-      Alert.alert('Success', 'Password updated successfully');
-
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Login' }],
-      });
-    }, 1000);
+    alert('Password updated successfully');
+    navigation.navigate('Login');
   };
 
   return (
@@ -60,39 +45,53 @@ export default function ChangePasswordScreen({ navigation }) {
 
           <View style={styles.formContainer}>
 
+            {/* NEW PASSWORD */}
             <View style={styles.inputWrapper}>
               <TextInput
                 placeholder="New Password"
                 placeholderTextColor="rgba(255,255,255,0.6)"
-                secureTextEntry
+                secureTextEntry={!showNewPassword}
+                autoCapitalize="none"
                 style={styles.input}
                 value={newPassword}
                 onChangeText={setNewPassword}
               />
+
+              <TouchableOpacity onPress={() => setShowNewPassword(!showNewPassword)}>
+                {showNewPassword ? (
+                  <EyeOff size={20} color="#fff" />
+                ) : (
+                  <Eye size={20} color="#fff" />
+                )}
+              </TouchableOpacity>
             </View>
 
+            {/* CONFIRM PASSWORD */}
             <View style={styles.inputWrapper}>
               <TextInput
                 placeholder="Confirm Password"
                 placeholderTextColor="rgba(255,255,255,0.6)"
-                secureTextEntry
+                secureTextEntry={!showConfirmPassword}
+                autoCapitalize="none"
                 style={styles.input}
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
               />
+
+              <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
+                {showConfirmPassword ? (
+                  <EyeOff size={20} color="#fff" />
+                ) : (
+                  <Eye size={20} color="#fff" />
+                )}
+              </TouchableOpacity>
             </View>
 
             <TouchableOpacity
-              style={[
-                styles.signInButton,
-                loading && { opacity: 0.6 }
-              ]}
+              style={styles.signInButton}
               onPress={handleSubmit}
-              disabled={loading}
             >
-              <Text style={styles.signInButtonText}>
-                {loading ? 'Updating...' : 'Update Password'}
-              </Text>
+              <Text style={styles.signInButtonText}>Update Password</Text>
             </TouchableOpacity>
 
           </View>
