@@ -20,18 +20,24 @@ export default function EmailSignInScreen({ navigation, route }) {
   });
 
   const handleSignIn = async () => {
+    console.log('handleSignIn called');
 try {
+    console.log('Fetching...');
     const res = await fetch('https://sdcapp-backend-456970553309.asia-south1.run.app/auth/email/signin', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password })
     });
-
+    console.log('Response status:', res.status);
     const data = await res.json();
-
+    console.log('Data:', JSON.stringify(data));
     if (res.status === 200) {
       await SecureStore.setItemAsync('userToken', data.jwt);
       // Navigate based on role from backend
+      if(data.is_temp_password) {
+        console.log('Login response data:', JSON.stringify(data));
+        navigation.navigate('ChangePassword')
+      }else {
       if (data.role === 'admin' || data.role === 'teacher' || data.role === 'owner') {
         navigation.navigate('AdminTabs', getAdminRouteParams(data.role));
       } else if (data.role === 'parent') {
@@ -39,9 +45,11 @@ try {
       } else {
         navigation.navigate('BatchSelection');
       }
-    } else {
+    } 
+  }else {
       alert(data.error || 'Signin failed');
     }
+
   } catch (err) {
     console.error('Signin error:', err);
     alert('Something went wrong. Please try again.');

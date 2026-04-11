@@ -73,7 +73,7 @@ router.post('/signin', async (req, res) => {
     );
 
     console.log(`Email signin successful for ${email}`);
-    res.json({ jwt: jwtToken, role: user.role });
+    res.json({ jwt: jwtToken, role: user.role, is_temp_password: user.is_temp_password });
 
   } catch (err) {
     console.error('Email signin error:', err.message);

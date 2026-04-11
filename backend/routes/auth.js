@@ -3,7 +3,7 @@ const router = express.Router();
 const { OAuth2Client } = require('google-auth-library');
 const jwt = require('jsonwebtoken');
 const pool = require('../db');
-
+const verifyToken = require('../middleware/verifyToken');
 const googleClient = new OAuth2Client(process.env.GOOGLE_ANDROID_CLIENT_ID);
 
 router.post('/google', async (req, res) => {
@@ -80,5 +80,27 @@ router.post('/google', async (req, res) => {
     res.status(401).json({ error: 'Google authentication failed' });
   }
 });
+
+
+
+
+// To check if the password is temporary or not
+
+router.get('/is-temp-password', verifyToken, async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT is_temp_password FROM auth WHERE id = $1',
+      [req.user.authId]
+    );
+    res.json({ 
+  jwt: token, 
+  role: user.role,
+  is_temp_password: user.is_temp_password 
+});
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to check password status' });
+  }
+});
+
 
 module.exports = router;
