@@ -1,4 +1,7 @@
 import React, { useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import * as SecureStore from 'expo-secure-store';
+const API_URL = 'https://sdcapp-backend-456970553309.asia-south1.run.app';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -11,6 +14,7 @@ export default function ChangePasswordScreen({ navigation }) {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+  const handleSubmit = async () => {
   const handleSubmit = () => {
     if (!newPassword || !confirmPassword) {
       alert('Please fill all fields');
@@ -22,6 +26,34 @@ export default function ChangePasswordScreen({ navigation }) {
       return;
     }
 
+   if (!newPassword || newPassword.length < 6) {
+    return alert('Password must be at least 6 characters');
+  }
+
+  try {
+    const token = await SecureStore.getItemAsync('userToken');
+    const res = await fetch(`${API_URL}/auth/change-password`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ newPassword })
+    });
+    console.log('Fetching:', `${API_URL}/auth/change-password`);
+    const data = await res.json();
+
+    if (res.status === 200) {
+      alert('Password changed successfully!');
+      navigation.navigate('BatchSelection');
+    } else {
+      alert(data.error || 'Failed to change password');
+    }
+  } catch (err) {
+    alert('Something went wrong. Please try again.');
+    console.log('Change password error:', err);
+  }
+};
     alert('Password updated successfully');
     navigation.navigate('Login');
   };

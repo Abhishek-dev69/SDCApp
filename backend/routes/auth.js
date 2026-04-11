@@ -5,6 +5,9 @@ const jwt = require('jsonwebtoken');
 const pool = require('../db');
 const verifyToken = require('../middleware/verifyToken');
 const googleClient = new OAuth2Client(process.env.GOOGLE_ANDROID_CLIENT_ID);
+const bcrypt = require('bcrypt');
+
+// Google Sign-In route
 
 router.post('/google', async (req, res) => {
 
@@ -84,6 +87,9 @@ router.post('/google', async (req, res) => {
 
 
 
+
+
+
 // To check if the password is temporary or not
 
 router.get('/is-temp-password', verifyToken, async (req, res) => {
@@ -102,5 +108,29 @@ router.get('/is-temp-password', verifyToken, async (req, res) => {
   }
 });
 
+
+
+
+
+// Changing password Route 
+router.post('/change-password', verifyToken, async (req, res) => {
+  const { newPassword } = req.body;
+
+  if (!newPassword || newPassword.length < 6) {
+    return res.status(400).json({ error: 'Password must be at least 6 characters' });
+  }
+
+  try {
+    const hash = await bcrypt.hash(newPassword, 10);
+    await pool.query(
+      'UPDATE auth SET password_hash = $1, is_temp_password = FALSE WHERE id = $2',
+      [hash, req.user.authId]
+    );
+    res.json({ message: 'Password updated successfully' });
+  } catch (err) {
+    console.error('Change password error:', err.message);
+    res.status(500).json({ error: 'Failed to update password' });
+  }
+});
 
 module.exports = router;
