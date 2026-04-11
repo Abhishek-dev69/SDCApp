@@ -6,7 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 
 import RoleSelectionScreen from './src/screens/RoleSelectionScreen';
 import LoginScreen from './src/screens/LoginScreen';
-import ChangePasswordScreen from './src/screens/ChangePasswordScreen';
+import ChangePasswordScreen from './src/screens/auth/ChangePasswordScreen';
 import BatchSelectionScreen from './src/screens/student/BatchSelectionScreen';
 import StudentTabNavigator from './src/navigation/StudentTabNavigator';
 import AdminTabNavigator from './src/navigation/AdminTabNavigator';
