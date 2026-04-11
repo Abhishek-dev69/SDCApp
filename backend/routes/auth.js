@@ -4,7 +4,7 @@ const { OAuth2Client } = require('google-auth-library');
 const jwt = require('jsonwebtoken');
 const pool = require('../db');
 
-const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+const googleClient = new OAuth2Client(process.env.GOOGLE_ANDROID_CLIENT_ID);
 
 router.post('/google', async (req, res) => {
 
@@ -16,7 +16,7 @@ router.post('/google', async (req, res) => {
   try {
     const ticket = await googleClient.verifyIdToken({
       idToken: token,
-      audience: process.env.GOOGLE_CLIENT_ID
+      audience: process.env.GOOGLE_ANDROID_CLIENT_ID
     });
 
     const payload = ticket.getPayload();
