@@ -27,20 +27,21 @@ router.post('/signin', async (req, res) => {
   if (!email || !password) {
     return res.status(400).json({ error: 'Email and password are required' });
   }
-
+  
   try {
     const result = await pool.query(
-      'SELECT * FROM auth WHERE email = $1 AND auth_provider = $2',
-      [email, 'email']
+      'SELECT * FROM auth WHERE email = $1',
+      [email]
     );
-    
-
     if (result.rows.length === 0) {
-      return res.status(401).json({ error: 'Invalid email or password' });
+  return res.status(401).json({ error: 'No account found with this email.' });
     }
 
     const user = result.rows[0];
-
+    // Then check provider
+    if (user.auth_provider !== 'email') {
+      return res.status(401).json({ error: 'This account uses Google login. Please sign in with Google instead.' });
+    }
     // Check email is verified
     if (!user.email_verified) {
       
@@ -257,7 +258,7 @@ router.post('/forgot-password', async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(200).json({ message: 'If this email exists, a temporary password has been sent.' });
     }
-    
+
     if (result.rows[0].auth_provider !== 'email') {
       return res.status(200).json({ 
         error: 'This account uses Google login. Please sign in with Google instead.' 
