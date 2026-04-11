@@ -1,19 +1,27 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 const API_URL = 'https://sdcapp-backend-456970553309.asia-south1.run.app';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 export default function ChangePasswordScreen({ navigation }) {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async () => {
     if (!newPassword || !confirmPassword) {
-      alert('Please fill all fields');
+      Alert.alert('Error', 'Please fill all fields');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      Alert.alert('Error', 'Password must be at least 6 characters');
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      alert('Passwords do not match');
+      Alert.alert('Error', 'Passwords do not match');
       return;
     }
 
@@ -47,33 +55,62 @@ export default function ChangePasswordScreen({ navigation }) {
 };
   return (
     <View style={styles.container}>
-      <View style={styles.card}>
-        <Text style={styles.title}>Change Password</Text>
+      <LinearGradient
+        colors={['#2b58ed', '#1e3a8a']}
+        style={styles.gradient}
+      />
 
-        <Text style={styles.subtitle}>
-          You are using a temporary password. Please set a new password to continue.
-        </Text>
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.scrollContent}>
 
-        <TextInput
-          placeholder="New Password"
-          secureTextEntry
-          style={styles.input}
-          value={newPassword}
-          onChangeText={setNewPassword}
-        />
+          <View style={styles.headerContainer}>
+            <Text style={styles.headerTitle}>Change Password</Text>
+            <Text style={styles.headerSubtitle}>
+              Set a new password to continue
+            </Text>
+          </View>
 
-        <TextInput
-          placeholder="Confirm Password"
-          secureTextEntry
-          style={styles.input}
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-        />
+          <View style={styles.formContainer}>
 
-        <TouchableOpacity style={styles.button} onPress={handleSubmit}>
-          <Text style={styles.buttonText}>Update Password</Text>
-        </TouchableOpacity>
-      </View>
+            <View style={styles.inputWrapper}>
+              <TextInput
+                placeholder="New Password"
+                placeholderTextColor="rgba(255,255,255,0.6)"
+                secureTextEntry
+                style={styles.input}
+                value={newPassword}
+                onChangeText={setNewPassword}
+              />
+            </View>
+
+            <View style={styles.inputWrapper}>
+              <TextInput
+                placeholder="Confirm Password"
+                placeholderTextColor="rgba(255,255,255,0.6)"
+                secureTextEntry
+                style={styles.input}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+              />
+            </View>
+
+            <TouchableOpacity
+              style={[
+                styles.signInButton,
+                loading && { opacity: 0.6 }
+              ]}
+              onPress={handleSubmit}
+              disabled={loading}
+            >
+              <Text style={styles.signInButtonText}>
+                {loading ? 'Updating...' : 'Update Password'}
+              </Text>
+            </TouchableOpacity>
+
+          </View>
+
+        </View>
+      </SafeAreaView>
     </View>
   );
 }
@@ -81,41 +118,64 @@ export default function ChangePasswordScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f3f4f6',
-    justifyContent: 'center',
-    padding: 20,
   },
-  card: {
-    backgroundColor: '#ffffff',
-    padding: 20,
-    borderRadius: 16,
-    elevation: 4,
+  gradient: {
+    ...StyleSheet.absoluteFillObject,
   },
-  title: {
-    fontSize: 22,
+  safeArea: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    paddingBottom: 40,
+  },
+  headerContainer: {
+    marginBottom: 40,
+  },
+  headerTitle: {
+    fontSize: 32,
     fontWeight: 'bold',
+    color: '#FFFFFF',
     marginBottom: 8,
   },
-  subtitle: {
-    fontSize: 14,
-    color: '#6b7280',
-    marginBottom: 20,
+  headerSubtitle: {
+    fontSize: 16,
+    color: 'rgba(255, 255, 255, 0.7)',
+  },
+  formContainer: {
+    gap: 20,
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   input: {
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    padding: 12,
-    borderRadius: 10,
-    marginBottom: 12,
+    flex: 1,
+    color: '#FFFFFF',
+    fontSize: 16,
   },
-  button: {
-    backgroundColor: '#2b58ed',
-    padding: 14,
-    borderRadius: 10,
+  signInButton: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 50,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginTop: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
   },
-  buttonText: {
-    color: '#ffffff',
-    textAlign: 'center',
-    fontWeight: '600',
+  signInButtonText: {
+    color: '#1e3a8a',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
 });
