@@ -6,6 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 
 import RoleSelectionScreen from './src/screens/RoleSelectionScreen';
 import LoginScreen from './src/screens/LoginScreen';
+import ChangePasswordScreen from './src/screens/ChangePasswordScreen';
 import BatchSelectionScreen from './src/screens/student/BatchSelectionScreen';
 import StudentTabNavigator from './src/navigation/StudentTabNavigator';
 import AdminTabNavigator from './src/navigation/AdminTabNavigator';
@@ -48,6 +49,7 @@ export default function App() {
             <Stack.Screen name="PhoneLogin" component={PhoneLoginScreen} />
             <Stack.Screen name="OTPVerification" component={OTPVerificationScreen} />
             <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+            <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
           </Stack.Navigator>
         </NavigationContainer>
       </SafeAreaProvider>
