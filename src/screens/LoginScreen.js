@@ -55,25 +55,33 @@ export default function LoginScreen({ navigation, route }) {
   };
 
   const handleGoogleToken = async (googleToken) => {
-    try {
-      const res = await fetch(`${API_URL}/auth/google`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: googleToken }),
-      });
+  try {
+    const res = await fetch(`${API_URL}/auth/google`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: googleToken }),
+    });
 
-      const data = await res.json();
+    const data = await res.json();
 
-      if (data.jwt) {
-        await SecureStore.setItemAsync('userToken', data.jwt);
-        navigatePostLogin();
+    if (data.jwt) {
+      await SecureStore.setItemAsync('userToken', data.jwt);
+
+      
+      if (data.forceChangePassword) {
+        navigation.navigate('ChangePassword');
       } else {
-        console.log('No JWT received, backend error:', data.error);
+        navigatePostLogin();
       }
-    } catch (err) {
-      console.log('Google login failed:', err);
+
+    } else {
+      console.log('No JWT received, backend error:', data.error);
     }
-  };
+  } catch (err) {
+    console.log('Google login failed:', err);
+  }
+};
+
 
   const handleGoogleSignIn = async () => {
     try {
