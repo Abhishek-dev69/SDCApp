@@ -234,4 +234,72 @@ router.get('/verify', async (req, res) => {
 
 
 
+
+
+
+
+
+// Forgot password
+
+router.post('/forgot-password', async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) return res.status(400).json({ error: 'Email is required' });
+
+  try {
+    // Check if user exists
+    const result = await pool.query(
+      'SELECT * FROM auth WHERE email = $1',
+      [email]
+    );
+
+    
+    if (result.rows.length === 0) {
+      return res.status(200).json({ message: 'If this email exists, a temporary password has been sent.' });
+    }
+    
+    if (result.rows[0].auth_provider !== 'email') {
+      return res.status(200).json({ 
+        error: 'This account uses Google login. Please sign in with Google instead.' 
+      });
+    }
+
+    // Generate 8 char temp password
+    const tempPassword = crypto.randomBytes(4).toString('hex'); // e.g. "a3f8c2d1"
+    const tempHash = await bcrypt.hash(tempPassword, 10);
+
+    // Store it and mark as temp
+    await pool.query(
+      'UPDATE auth SET password_hash = $1, is_temp_password = TRUE WHERE email = $2',
+      [tempHash, email]
+    );
+
+    // Send email
+    await resend.emails.send({
+      from: 'SDCApp <noreply@sureshdaniclasses.com>',
+      to: email,
+      subject: 'Your temporary SDCApp password',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #2b58ed;">Password Reset</h2>
+          <p>Here is your temporary password for SDCApp:</p>
+          <div style="background-color: #f4f4f4; padding: 16px; border-radius: 8px; font-size: 24px; font-weight: bold; letter-spacing: 4px; text-align: center; margin: 16px 0;">
+            ${tempPassword}
+          </div>
+          <p>Use this to log in, you will be asked to set a new password immediately.</p>
+          <p style="color: #666;">This password can only be used once.</p>
+          <p style="color: #666;">If you didn't request this, please contact your admin.</p>
+        </div>
+      `
+    });
+
+    res.status(200).json({ message: 'If this email exists, a temporary password has been sent.' });
+
+  } catch (err) {
+    console.error('Forgot password error:', err.message);
+    res.status(500).json({ error: 'Failed to process request' });
+  }
+});
+
+
 module.exports = router;
