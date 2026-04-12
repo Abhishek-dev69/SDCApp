@@ -13,9 +13,9 @@ const authRoutes = require('./routes/auth');
 const usersRouter = require('./routes/users');
 const emailRoutes = require('./routes/email');
 const announcementRoutes = require('./routes/announcements');
+const pdfviewRoutes = require('./routes/pdfview');
 
-
-
+app.use('/pdfview', pdfviewRoutes);
 app.use('/announcements', announcementRoutes);
 app.use('/auth/email', emailRoutes);
 app.use('/auth', authRoutes);  
