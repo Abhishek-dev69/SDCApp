@@ -264,9 +264,22 @@ router.post('/forgot-password', async (req, res) => {
         error: 'This account uses Google login. Please sign in with Google instead.' 
       });
     }
+    const upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const lower = 'abcdefghijklmnopqrstuvwxyz';
+    const numbers = '0123456789';
+    const special = '!@#$%^&*';
 
-    // Generate 8 char temp password
-    const tempPassword = crypto.randomBytes(4).toString('hex'); // e.g. "a3f8c2d1"
+    const getRandom = (chars) => chars[crypto.randomInt(chars.length)];
+
+    // Guarantee at least one of each
+    const tempPassword = [
+      getRandom(upper),
+      getRandom(numbers),
+      getRandom(special),
+      ...Array.from({ length: 5 }, () => getRandom(upper + lower + numbers))
+    ].sort(() => Math.random() - 0.5).join('');
+    // // Generate 8 char temp password
+    // const tempPassword = crypto.randomBytes(4).toString('hex'); // e.g. "a3f8c2d1"
     const tempHash = await bcrypt.hash(tempPassword, 10);
 
     // Store it and mark as temp
