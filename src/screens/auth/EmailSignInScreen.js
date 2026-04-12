@@ -97,6 +97,7 @@ try {
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
+                autoCapitalize="none"
               />
               <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
                 {showPassword ? <EyeOff size={20} color="#fff" /> : <Eye size={20} color="#fff" />}

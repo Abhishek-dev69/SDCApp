@@ -98,6 +98,7 @@ export default function EmailSignUpScreen({ navigation, route }) {
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
+                autoCapitalize="none"
               />
               <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
                 {showPassword ? <EyeOff size={20} color="#fff" /> : <Eye size={20} color="#fff" />}
@@ -113,6 +114,7 @@ export default function EmailSignUpScreen({ navigation, route }) {
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
                 secureTextEntry={!showConfirmPassword}
+                autoCapitalize="none"
               />
               <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
                 {showConfirmPassword ? <EyeOff size={20} color="#fff" /> : <Eye size={20} color="#fff" />}

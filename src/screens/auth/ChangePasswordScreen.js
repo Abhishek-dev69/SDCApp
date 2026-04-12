@@ -86,6 +86,7 @@ export default function ChangePasswordScreen({ navigation }) {
                 style={styles.input}
                 value={newPassword}
                 onChangeText={setNewPassword}
+                
               />
 
               <TouchableOpacity onPress={() => setShowNewPassword(!showNewPassword)}>
