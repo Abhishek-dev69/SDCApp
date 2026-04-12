@@ -12,9 +12,24 @@ export default function EmailSignUpScreen({ navigation, route }) {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const validatePassword = (password) => {
+    if (password.length < 8) return 'At least 8 characters';
+    if (!/[A-Z]/.test(password)) return 'At least one capital letter';
+    if (!/[0-9]/.test(password)) return 'At least one number';
+    if (!/[^a-zA-Z0-9]/.test(password)) return 'At least one special character';
+    if (/\s/.test(password)) return 'No spaces allowed';
+    return null; // null means valid
+  };
+
+
 
   const handleSignUp = async () => {
     // Validation logic here
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      alert(passwordError);
+      return;
+    }
     if (password !== confirmPassword) {
       alert("Passwords don't match");
       return;

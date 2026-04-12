@@ -19,9 +19,23 @@ export default function EmailSignInScreen({ navigation, route }) {
         : 'Admin',
   });
 
+  const validatePassword = (password) => {
+    if (password.length < 8) return 'At least 8 characters';
+    if (!/[A-Z]/.test(password)) return 'At least one capital letter';
+    if (!/[0-9]/.test(password)) return 'At least one number';
+    if (!/[^a-zA-Z0-9]/.test(password)) return 'At least one special character';
+    if (/\s/.test(password)) return 'No spaces allowed';
+    return null; // null means valid
+  };
+
   const handleSignIn = async () => {
     console.log('handleSignIn called');
 try {
+     const error = validatePassword(password);
+      if (error) {
+        alert(error);
+        return;
+      }
     console.log('Fetching...');
     const res = await fetch('https://sdcapp-backend-456970553309.asia-south1.run.app/auth/email/signin', {
       method: 'POST',
