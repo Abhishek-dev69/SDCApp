@@ -35,7 +35,7 @@ export default function ProfileScreen({ navigation }) {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.navyHeader}>
-        <SafeAreaView edges={['top']}>
+        <SafeAreaView edges={['top']} style={styles.navyHeader}>
           <View style={styles.headerTop}>
             <Text style={styles.headerTitle}>Profile</Text>
           </View>
@@ -144,9 +144,11 @@ const styles = StyleSheet.create({
   },
   navyHeader: {
     backgroundColor: '#28388f',
-    height: 180,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
+    paddingTop: 0.5,
+    paddingBottom: 0.1,
+    paddingHorizontal: 10,
   },
   headerTop: {
     flexDirection: 'row',
@@ -163,14 +165,13 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 20,
     paddingBottom: 20,
-    marginTop: -80,
+    marginTop: -40,
   },
   profileCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
-    padding: 24,
+    padding: 20,
     marginBottom: 24,
-    // shadow
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.1,
@@ -181,6 +182,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 20,
+    marginTop: 24,
   },
   avatarContainer: {
     width: 64,

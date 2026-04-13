@@ -8,9 +8,8 @@ import {
   FlaskConical,
   Ruler,
   Dna,
-  BookOpen,
-  NotebookPen,
 } from 'lucide-react-native';
+
 import { useStudentSession } from '../../context/StudentSessionContext';
 import {
   getAvailableMaterialTabs,
@@ -25,11 +24,6 @@ const SUBJECT_ICONS = {
   biology: Dna,
 };
 
-const NOTES_BADGES = {
-  physics: { label: 'Updated', backgroundColor: '#DBEAFE', textColor: '#2563EB' },
-  biology: { label: 'AI Curated', backgroundColor: '#F3E8FF', textColor: '#9333EA' },
-};
-
 const SUBJECT_SHORT_NAMES = {
   physics: 'Physics',
   chemistry: 'Chemistry',
@@ -38,23 +32,16 @@ const SUBJECT_SHORT_NAMES = {
 };
 
 function getStudentDescriptor(batch) {
-  if (!batch) {
-    return '12th Science';
-  }
+  if (!batch) return '12th Science';
 
-  const programLabel = batch.program === 'CET'
-    ? 'JEE Batch'
-    : batch.program === 'NEET'
+  const programLabel =
+    batch.program === 'CET'
+      ? 'JEE Batch'
+      : batch.program === 'NEET'
       ? 'NEET Batch'
       : `${batch.program} Batch`;
 
   return `12th Science • ${programLabel} ${batch.label}`;
-}
-
-function getSourceIntro(source) {
-  return source === 'ncert'
-    ? 'NCERT focus for NEET preparation'
-    : 'Maharashtra board focus for CET/JEE preparation';
 }
 
 function getTextbookItemTitle(source, subject) {
@@ -64,11 +51,14 @@ function getTextbookItemTitle(source, subject) {
 
 export default function LecturesScreen({ navigation }) {
   const { selectedBatch } = useStudentSession();
+
   const notesSection = getNotesSectionForBatch(selectedBatch);
   const materialTabs = getAvailableMaterialTabs(selectedBatch);
   const textbookSections = getTextbookSectionsForBatch(selectedBatch);
 
-  const defaultSource = materialTabs.find((tab) => tab.enabled)?.id || 'maharashtra';
+  const defaultSource =
+    materialTabs.find((tab) => tab.enabled)?.id || 'maharashtra';
+
   const [activeSource, setActiveSource] = useState(defaultSource);
 
   useEffect(() => {
@@ -76,105 +66,88 @@ export default function LecturesScreen({ navigation }) {
   }, [defaultSource]);
 
   const activeTextbookSection = useMemo(
-    () => textbookSections.find((section) => section.source === activeSource) || textbookSections[0],
+    () =>
+      textbookSections.find(
+        (section) => section.source === activeSource
+      ) || textbookSections[0],
     [activeSource, textbookSections]
   );
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+
         <View style={styles.heroCard}>
           <LinearGradient
             colors={['#2b58ed', '#2552cf']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
             style={styles.heroGradient}
           />
-          <SafeAreaView edges={['top']}>
-            <Text style={styles.heroTitle}>Study Material</Text>
-            <Text style={styles.heroSubtitle}>{getStudentDescriptor(selectedBatch)}</Text>
 
-            <View style={styles.segmentedControl}>
-              {materialTabs.map((tab) => {
-                const isActive = tab.id === activeSource;
-                const isDisabled = !tab.enabled;
+          <Text style={styles.heroTitle}>Study Material</Text>
+          <Text style={styles.heroSubtitle}>
+            {getStudentDescriptor(selectedBatch)}
+          </Text>
 
-                return (
-                  <TouchableOpacity
-                    key={tab.id}
-                    style={[
-                      styles.segmentButton,
-                      isActive && styles.segmentButtonActive,
-                      isDisabled && styles.segmentButtonDisabled,
-                    ]}
-                    disabled={isDisabled}
-                    onPress={() => setActiveSource(tab.id)}
-                  >
-                    <Text
-                      style={[
-                        styles.segmentButtonText,
-                        isActive && styles.segmentButtonTextActive,
-                        isDisabled && styles.segmentButtonTextDisabled,
-                      ]}
-                    >
-                      {tab.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </SafeAreaView>
-        </View>
-
-        {activeTextbookSection && (
-          <View style={[styles.sectionCard, styles.booksCard]}>
-            <View style={styles.sectionHeader}>
-              <View style={[styles.sectionIconWrap, styles.booksIconWrap]}>
-                <BookOpen size={18} color="#7C3AED" />
-              </View>
-              <View style={styles.sectionTextWrap}>
-                <Text style={styles.sectionTitle}>Books & Textbooks</Text>
-                <Text style={styles.sectionSubtitle}>{getSourceIntro(activeTextbookSection.source)}</Text>
-              </View>
-            </View>
-
-            {activeTextbookSection.subjects.map((subject, index) => {
-              const IconComponent = SUBJECT_ICONS[subject.id];
-              const badge = index === 0
-                ? { label: 'Primary', backgroundColor: '#DCFCE7', textColor: '#16A34A' }
-                : null;
+          <View style={styles.segmentedControl}>
+            {materialTabs.map((tab) => {
+              const isActive = tab.id === activeSource;
 
               return (
                 <TouchableOpacity
-                  key={`${activeTextbookSection.id}-${subject.id}`}
+                  key={tab.id}
+                  style={[
+                    styles.segmentButton,
+                    isActive && styles.segmentButtonActive,
+                  ]}
+                  onPress={() => setActiveSource(tab.id)}
+                >
+                  <Text
+                    style={[
+                      styles.segmentButtonText,
+                      isActive && styles.segmentButtonTextActive,
+                    ]}
+                  >
+                    {tab.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* 📚 TEXTBOOK */}
+        {activeTextbookSection && (
+          <View style={[styles.sectionCard, styles.booksCard]}>
+            {activeTextbookSection.subjects.map((subject) => {
+              const IconComponent = SUBJECT_ICONS[subject.id];
+
+              return (
+                <TouchableOpacity
+                  key={subject.id}
                   style={styles.materialRow}
                   onPress={() =>
-                    navigation.navigate('ChapterList', {
-                      subject: subject.title,
-                      materialSource: activeTextbookSection.title,
+                    navigation.navigate('MaterialFilter', {
+                      subjectId: subject.id,
+                      type: 'textbook',
+                      source: activeSource, // 🔥 IMPORTANT
                     })
                   }
                 >
                   <View style={styles.rowLeft}>
-                    <View style={[styles.rowIconWrap, { backgroundColor: `${subject.accentColor}18` }]}>
-                      <IconComponent size={24} color={subject.accentColor} />
+                    <View style={styles.rowIconWrap}>
+                      <IconComponent size={22} color="#2b58ed" />
                     </View>
-                    <View style={styles.rowTextWrap}>
-                      <View style={styles.rowTitleLine}>
-                        <Text style={styles.rowTitle}>
-                          {getTextbookItemTitle(activeTextbookSection.source, subject)}
-                        </Text>
-                        {badge && (
-                          <View style={[styles.inlineBadge, { backgroundColor: badge.backgroundColor }]}>
-                            <Text style={[styles.inlineBadgeText, { color: badge.textColor }]}>
-                              {badge.label}
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-                      <Text style={styles.rowMeta}>{subject.chapters}</Text>
+
+                    <View>
+                      <Text style={styles.rowTitle}>
+                        {getTextbookItemTitle(activeTextbookSection.source, subject)}
+                      </Text>
+                      <Text style={styles.rowMeta}>
+                        {subject.chapters}
+                      </Text>
                     </View>
                   </View>
+
                   <ChevronRight size={20} color="#94A3B8" />
                 </TouchableOpacity>
               );
@@ -182,59 +155,40 @@ export default function LecturesScreen({ navigation }) {
           </View>
         )}
 
+        {/* 📝 NOTES */}
         <View style={styles.sectionCard}>
-          <View style={styles.sectionHeader}>
-            <View style={[styles.sectionIconWrap, styles.notesIconWrap]}>
-              <NotebookPen size={18} color="#FFFFFF" />
-            </View>
-            <View style={styles.sectionTextWrap}>
-              <Text style={styles.sectionTitle}>{notesSection.title}</Text>
-              <Text style={styles.sectionSubtitle}>Chapter-wise curated notes</Text>
-            </View>
-          </View>
-
           {notesSection.subjects.map((subject) => {
             const IconComponent = SUBJECT_ICONS[subject.id];
-            const badge = NOTES_BADGES[subject.id];
 
             return (
               <TouchableOpacity
-                key={`${notesSection.id}-${subject.id}`}
+                key={subject.id}
                 style={styles.notesRow}
                 onPress={() =>
-                  navigation.navigate('ChapterList', {
-                    subject: subject.title,
-                    materialSource: notesSection.title,
+                  navigation.navigate('MaterialFilter', {
+                    subjectId: subject.id,
+                    type: 'notes',
                   })
                 }
               >
-                <View style={[styles.notesAccentBar, { backgroundColor: subject.borderColor }]} />
                 <View style={styles.rowLeft}>
-                  <View style={[styles.rowIconWrap, { backgroundColor: `${subject.accentColor}18` }]}>
-                    <IconComponent size={22} color={subject.accentColor} />
+                  <View style={styles.rowIconWrap}>
+                    <IconComponent size={22} color="#10B981" />
                   </View>
-                  <View style={styles.rowTextWrap}>
-                    <View style={styles.rowTitleLine}>
-                      <Text style={styles.rowTitle}>{SUBJECT_SHORT_NAMES[subject.id]} Notes</Text>
-                      {badge && (
-                        <View style={[styles.inlineBadge, { backgroundColor: badge.backgroundColor }]}>
-                          <Text style={[styles.inlineBadgeText, { color: badge.textColor }]}>
-                            {badge.label}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                    <Text style={styles.rowMeta}>{subject.chapters} Notes Available</Text>
+
+                  <View>
+                    <Text style={styles.rowTitle}>
+                      {SUBJECT_SHORT_NAMES[subject.id]} Notes
+                    </Text>
                   </View>
                 </View>
-                <View style={styles.rowActionWrap}>
-                  <Text style={styles.rowActionText}>View Notes</Text>
-                  <ChevronRight size={18} color="#94A3B8" />
-                </View>
+
+                <ChevronRight size={18} color="#94A3B8" />
               </TouchableOpacity>
             );
           })}
         </View>
+
       </ScrollView>
     </SafeAreaView>
   );

@@ -21,6 +21,9 @@ import PhoneLoginScreen from './src/screens/auth/PhoneLoginScreen';
 import OTPVerificationScreen from './src/screens/auth/OTPVerificationScreen';
 import ForgotPasswordScreen from './src/screens/auth/ForgotPasswordScreen';
 import { StudentSessionProvider } from './src/context/StudentSessionContext';
+import MaterialFilterScreen from './src/screens/student/MaterialFilterScreen';  
+import LecturesScreen from './src/screens/student/LecturesScreen';
+import PdfViewerScreen from './src/screens/student/PdfViewerScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -50,6 +53,9 @@ export default function App() {
             <Stack.Screen name="OTPVerification" component={OTPVerificationScreen} />
             <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
             <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
+            <Stack.Screen name="Lectures" component={LecturesScreen} />
+            <Stack.Screen name="PDFViewer" component={PdfViewerScreen} />
+            <Stack.Screen name="MaterialFilter" component={MaterialFilterScreen} />
           </Stack.Navigator>
         </NavigationContainer>
       </SafeAreaProvider>
