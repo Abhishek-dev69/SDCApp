@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import PDF_DATA from '../../data/PDF_DATA';
 import {
   ChevronRight,
   Search,
@@ -19,129 +20,6 @@ import {
   ClipboardList,
 } from 'lucide-react-native';
 
-const PDF_DATA = {
-  physics: {
-    textbook: {
-      ncert: [
-        { id: 1, title: 'NCERT Chapter 1', url: 'https://yourlink.com/ncert-phy-1.pdf' },
-        { id: 2, title: 'NCERT Chapter 2', url: 'https://yourlink.com/ncert-phy-2.pdf' },
-        { id: 3, title: 'NCERT Chapter 3', url: 'https://yourlink.com/ncert-phy-3.pdf' },
-        { id: 4, title: 'NCERT Chapter 4', url: 'https://yourlink.com/ncert-phy-4.pdf' },
-        { id: 5, title: 'NCERT Chapter 5', url: 'https://yourlink.com/ncert-phy-5.pdf' },
-        { id: 6, title: 'NCERT Chapter 6', url: 'https://yourlink.com/ncert-phy-6.pdf' },
-        { id: 7, title: 'NCERT Chapter 7', url: 'https://yourlink.com/ncert-phy-7.pdf' },
-        { id: 8, title: 'NCERT Chapter 8', url: 'https://yourlink.com/ncert-phy-8.pdf' },
-        { id: 9, title: 'NCERT Chapter 9', url: 'https://yourlink.com/ncert-phy-9.pdf' },
-        { id: 10, title: 'NCERT Chapter 10', url: 'https://yourlink.com/ncert-phy-10.pdf' },
-        { id: 11, title: 'NCERT Chapter 11', url: 'https://yourlink.com/ncert-phy-11.pdf' },
-        { id: 12, title: 'NCERT Chapter 12', url: 'https://yourlink.com/ncert-phy-12.pdf' },
-      ],
-      maharashtra: [
-        { id: 1, title: 'MH Chapter 1', url: 'https://yourlink.com/mh-phy-1.pdf' },
-        { id: 2, title: 'MH Chapter 2', url: 'https://yourlink.com/mh-phy-2.pdf' },
-        { id: 3, title: 'MH Chapter 3', url: 'https://yourlink.com/mh-phy-3.pdf' },
-        { id: 4, title: 'MH Chapter 4', url: 'https://yourlink.com/mh-phy-4.pdf' },
-        { id: 5, title: 'MH Chapter 5', url: 'https://yourlink.com/mh-phy-5.pdf' },
-        { id: 6, title: 'MH Chapter 6', url: 'https://yourlink.com/mh-phy-6.pdf' },
-        { id: 7, title: 'MH Chapter 7', url: 'https://yourlink.com/mh-phy-7.pdf' },
-        { id: 8, title: 'MH Chapter 8', url: 'https://yourlink.com/mh-phy-8.pdf' },
-        { id: 9, title: 'MH Chapter 9', url: 'https://yourlink.com/mh-phy-9.pdf' },
-        { id: 10, title: 'MH Chapter 10', url: 'https://yourlink.com/mh-phy-10.pdf' },
-        { id: 11, title: 'MH Chapter 11', url: 'https://yourlink.com/mh-phy-11.pdf' },
-        { id: 12, title: 'MH Chapter 12', url: 'https://yourlink.com/mh-phy-12.pdf' },
-
-      ],
-    },
-    notes: {
-      notes: 'https://yourlink.com/phy-notes.pdf',
-      pyq: 'https://yourlink.com/phy-pyq.pdf',
-      assignment: 'https://yourlink.com/phy-assignment.pdf',
-      video: 'https://yourlink.com/phy-video.pdf',
-    },
-  },
-  chemistry: {
-    textbook: {
-      ncert: [
-        { id: 1, title: 'NCERT Chapter 1', url: 'https://yourlink.com/ncert-che-1.pdf' },
-        { id: 2, title: 'NCERT Chapter 2', url: 'https://yourlink.com/ncert-che-2.pdf' },
-        { id: 3, title: 'NCERT Chapter 3', url: 'https://yourlink.com/ncert-che-3.pdf' },
-        { id: 4, title: 'NCERT Chapter 4', url: 'https://yourlink.com/ncert-che-4.pdf' },
-        { id: 5, title: 'NCERT Chapter 5', url: 'https://yourlink.com/ncert-che-5.pdf' },
-        { id: 6, title: 'NCERT Chapter 6', url: 'https://yourlink.com/ncert-che-6.pdf' },
-        { id: 7, title: 'NCERT Chapter 7', url: 'https://yourlink.com/ncert-che-7.pdf' },
-        { id: 8, title: 'NCERT Chapter 8', url: 'https://yourlink.com/ncert-che-8.pdf' },
-        { id: 9, title: 'NCERT Chapter 9', url: 'https://yourlink.com/ncert-che-9.pdf' },
-        { id: 10, title: 'NCERT Chapter 10', url: 'https://yourlink.com/ncert-che-10.pdf' },
-      ],
-      maharashtra: [
-        { id: 1, title: 'MH Chapter 1', url: 'https://yourlink.com/mh-che-1.pdf' },
-        { id: 2, title: 'MH Chapter 2', url: 'https://yourlink.com/mh-che-2.pdf' },
-        { id: 3, title: 'MH Chapter 3', url: 'https://yourlink.com/mh-che-3.pdf' },
-        { id: 4, title: 'MH Chapter 4', url: 'https://yourlink.com/mh-che-4.pdf' },
-        { id: 5, title: 'MH Chapter 5', url: 'https://yourlink.com/mh-che-5.pdf' },
-        { id: 6, title: 'MH Chapter 6', url: 'https://yourlink.com/mh-che-6.pdf' },
-        { id: 7, title: 'MH Chapter 7', url: 'https://yourlink.com/mh-che-7.pdf' },
-        { id: 8, title: 'MH Chapter 8', url: 'https://yourlink.com/mh-che-8.pdf' },
-        { id: 9, title: 'MH Chapter 9', url: 'https://yourlink.com/mh-che-9.pdf' },
-        { id: 10, title: 'MH Chapter 10', url: 'https://yourlink.com/mh-che-10.pdf' },
-        { id: 11, title: 'MH Chapter 11', url: 'https://yourlink.com/mh-che-11.pdf' },
-      ],
-    },
-    notes: {
-      notes: 'https://yourlink.com/che-notes.pdf',
-      pyq: 'https://yourlink.com/che-pyq.pdf',
-      assignment: 'https://yourlink.com/che-assignment.pdf',
-      video: 'https://yourlink.com/che-video.pdf',
-    },
-  },    
-  mathematics: {
-    textbook: {
-      ncert: [
-        { id: 1, title: 'NCERT Chapter 1', url: 'https://yourlink.com/ncert-math-1.pdf' },
-        { id: 2, title: 'NCERT Chapter 2', url: 'https://yourlink.com/ncert-math-2.pdf' },
-        { id: 3, title: 'NCERT Chapter 3', url: 'https://yourlink.com/ncert-math-3.pdf' },
-        { id: 4, title: 'NCERT Chapter 4', url: 'https://yourlink.com/ncert-math-4.pdf' },
-        { id: 5, title: 'NCERT Chapter 5', url: 'https://yourlink.com/ncert-math-5.pdf' },
-        { id: 6, title: 'NCERT Chapter 6', url: 'https://yourlink.com/ncert-math-6.pdf' },
-      ],
-        maharashtra: [
-        { id: 1, title: 'MH Chapter 1', url: 'https://yourlink.com/mh-math-1.pdf' },
-        { id: 2, title: 'MH Chapter 2', url: 'https://yourlink.com/mh-math-2.pdf' },
-        { id: 3, title: 'MH Chapter 3', url: 'https://yourlink.com/mh-math-3.pdf' },
-        { id: 4, title: 'MH Chapter 4', url: 'https://yourlink.com/mh-math-4.pdf' },
-        { id: 5, title: 'MH Chapter 5', url: 'https://yourlink.com/mh-math-5.pdf' },
-        { id: 6, title: 'MH Chapter 6', url: 'https://yourlink.com/mh-math-6.pdf' },
-      ],
-    },
-    notes: {
-      notes: 'https://yourlink.com/math-notes.pdf',
-      pyq: 'https://yourlink.com/math-pyq.pdf',
-      assignment: 'https://yourlink.com/math-assignment.pdf',
-      video: 'https://yourlink.com/math-video.pdf',
-    },
-  },
-  biology: {
-    textbook: {
-      ncert: [
-        { id: 1, title: 'NCERT Chapter 1', url: 'https://yourlink.com/ncert-bio-1.pdf' },
-        { id: 2, title: 'NCERT Chapter 2', url: 'https://yourlink.com/ncert-bio-2.pdf' },
-        { id: 3, title: 'NCERT Chapter 3', url: 'https://yourlink.com/ncert-bio-3.pdf' },
-        ],
-        maharashtra: [
-        { id: 1, title: 'MH Chapter 1', url: 'https://yourlink.com/mh-bio-1.pdf' },
-        { id: 2, title: 'MH Chapter 2', url: 'https://yourlink.com/mh-bio-2.pdf' },
-        { id: 3, title: 'MH Chapter 3', url: 'https://yourlink.com/mh-bio-3.pdf' },
-      ],    
-    },
-    notes: {
-      notes: 'https://yourlink.com/bio-notes.pdf',
-      pyq: 'https://yourlink.com/bio-pyq.pdf',
-      assignment: 'https://yourlink.com/bio-assignment.pdf',
-      video: 'https://yourlink.com/bio-video.pdf',
-    },
-  },
-};
-
 const TYPE_CONFIG = {
   textbook: { icon: BookOpen, color: '#3B82F6', bg: '#DBEAFE' },
   notes: { icon: NotebookPen, color: '#10B981', bg: '#D1FAE5' },
@@ -151,13 +29,16 @@ const TYPE_CONFIG = {
 };
 
 export default function MaterialFilterScreen({ route, navigation }) {
-  const { subjectId, type, source } = route.params;
+  const { subjectId, type, source, class: selectedClass } = route.params;
 
   const [query, setQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('notes');
 
   const chapters =
-    PDF_DATA[subjectId]?.textbook?.[source] || [];
+    PDF_DATA?.[subjectId]?.textbook?.ncert?.[selectedClass] || [];
+
+  const noteData =
+    PDF_DATA?.[subjectId]?.notes?.[selectedClass] || {};
 
   const noteTypes = [
     { id: 'notes', label: 'Notes' },
@@ -220,7 +101,7 @@ export default function MaterialFilterScreen({ route, navigation }) {
           <View style={styles.sectionCard}>
             {chapters
               .filter((c) =>
-                c.title.toLowerCase().includes(query.toLowerCase())
+                c?.title?.toLowerCase().includes(query.toLowerCase())
               )
               .map((chapter) => {
                 const config = TYPE_CONFIG.textbook;
@@ -267,8 +148,7 @@ export default function MaterialFilterScreen({ route, navigation }) {
                   style={styles.materialRow}
                   onPress={() =>
                     navigation.navigate('PdfViewer', {
-                      pdfUrl:
-                        PDF_DATA[subjectId]?.notes[activeFilter],
+                      pdfUrl: noteData?.[activeFilter] || '',
                       type: 'notes',
                     })
                   }
