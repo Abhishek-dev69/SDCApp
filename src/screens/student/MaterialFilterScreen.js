@@ -11,6 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import PDF_DATA from '../../data/PDF_DATA';
 import {
+  ChevronLeft,
   ChevronRight,
   Search,
   BookOpen,
@@ -28,17 +29,73 @@ const TYPE_CONFIG = {
   video: { icon: PlayCircle, color: '#EF4444', bg: '#FEE2E2' },
 };
 
+const CLASS_FILTERS = [
+  { id: 11, label: '11th' },
+  { id: 12, label: '12th' },
+];
+
+const NOTE_TYPE_LABELS = {
+  notes: 'Chapter Notes',
+  pyq: 'PYQs',
+  assignment: 'Assignments',
+  video: 'Videos',
+};
+
+const PYQ_YEAR_FILTERS = [2026, 2025, 2024, 2023];
+
+const PYQ_SORT_OPTIONS = [
+  { id: 'latest', label: 'Latest' },
+  { id: 'oldest', label: 'Oldest' },
+];
+
+function buildNotesItems(activeFilter, activeClass, noteData) {
+  if (activeFilter === 'pyq') {
+    return [
+      { id: 'pyq-1', title: 'Final Board Paper', year: 2026, examDate: '2026-03-12', pdfUrl: noteData?.pyq || '' },
+      { id: 'pyq-2', title: 'March Board Paper', year: 2025, examDate: '2025-03-09', pdfUrl: noteData?.pyq || '' },
+      { id: 'pyq-3', title: 'Practice Board Paper', year: 2024, examDate: '2024-02-28', pdfUrl: noteData?.pyq || '' },
+      { id: 'pyq-4', title: 'Revision Paper', year: 2023, examDate: '2023-03-05', pdfUrl: noteData?.pyq || '' },
+    ];
+  }
+
+  return [1, 2, 3].map((item) => ({
+    id: `${activeFilter}-${item}`,
+    title: `${NOTE_TYPE_LABELS[activeFilter]} ${item}`,
+    year: null,
+    examDate: null,
+    pdfUrl: noteData?.[activeFilter] || '',
+    classLabel: `Class ${activeClass}`,
+  }));
+}
+
 export default function MaterialFilterScreen({ route, navigation }) {
   const { subjectId, type, source, class: selectedClass } = route.params;
 
   const [query, setQuery] = useState('');
+  const [activeClass, setActiveClass] = useState(selectedClass || 12);
   const [activeFilter, setActiveFilter] = useState('notes');
+  const [activeYear, setActiveYear] = useState('all');
+  const [activeSort, setActiveSort] = useState('latest');
 
   const chapters =
-    PDF_DATA?.[subjectId]?.textbook?.ncert?.[selectedClass] || [];
+    PDF_DATA?.[subjectId]?.textbook?.[source]?.[activeClass] || [];
 
   const noteData =
-    PDF_DATA?.[subjectId]?.notes?.[selectedClass] || {};
+    PDF_DATA?.[subjectId]?.notes?.[activeClass] || {};
+
+  const resourceLabel = NOTE_TYPE_LABELS[activeFilter];
+  const noteItems = buildNotesItems(activeFilter, activeClass, noteData)
+    .filter((item) => activeFilter !== 'pyq' || activeYear === 'all' || item.year === activeYear)
+    .filter((item) => item.title.toLowerCase().includes(query.toLowerCase()))
+    .sort((a, b) => {
+      if (activeFilter !== 'pyq') {
+        return 0;
+      }
+
+      const first = new Date(a.examDate).getTime();
+      const second = new Date(b.examDate).getTime();
+      return activeSort === 'latest' ? second - first : first - second;
+    });
 
   const noteTypes = [
     { id: 'notes', label: 'Notes' },
@@ -57,6 +114,13 @@ export default function MaterialFilterScreen({ route, navigation }) {
             style={styles.heroGradient}
           />
 
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <ChevronLeft size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+
           <Text style={styles.heroTitle}>
             {type === 'textbook' ? 'Textbook' : 'Study Material'}
           </Text>
@@ -68,22 +132,23 @@ export default function MaterialFilterScreen({ route, navigation }) {
           <View style={styles.searchBox}>
             <Search size={18} color="#64748B" />
             <TextInput
-              placeholder="Search..."
+              placeholder={type === 'textbook' ? 'Search chapters...' : 'Search material...'}
               value={query}
               onChangeText={setQuery}
               style={styles.input}
             />
           </View>
 
-          {type === 'notes' && (
-            <ScrollView horizontal>
-              {noteTypes.map((item) => {
-                const isActive = activeFilter === item.id;
+          <View style={styles.filterRow}>
+            <Text style={styles.filterLabel}>Class</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {CLASS_FILTERS.map((item) => {
+                const isActive = activeClass === item.id;
 
                 return (
                   <TouchableOpacity
                     key={item.id}
-                    onPress={() => setActiveFilter(item.id)}
+                    onPress={() => setActiveClass(item.id)}
                     style={[styles.chip, isActive && styles.chipActive]}
                   >
                     <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
@@ -93,12 +158,92 @@ export default function MaterialFilterScreen({ route, navigation }) {
                 );
               })}
             </ScrollView>
+          </View>
+
+          {type === 'notes' && (
+            <View style={styles.filterRow}>
+              <Text style={styles.filterLabel}>Type</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                {noteTypes.map((item) => {
+                  const isActive = activeFilter === item.id;
+
+                  return (
+                    <TouchableOpacity
+                      key={item.id}
+                      onPress={() => setActiveFilter(item.id)}
+                      style={[styles.chip, isActive && styles.chipActive]}
+                    >
+                      <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
+                        {item.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          )}
+
+          {type === 'notes' && activeFilter === 'pyq' && (
+            <>
+              <View style={styles.filterRow}>
+                <Text style={styles.filterLabel}>Year</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <TouchableOpacity
+                    onPress={() => setActiveYear('all')}
+                    style={[styles.chip, activeYear === 'all' && styles.chipActive]}
+                  >
+                    <Text style={[styles.chipText, activeYear === 'all' && styles.chipTextActive]}>
+                      All
+                    </Text>
+                  </TouchableOpacity>
+                  {PYQ_YEAR_FILTERS.map((year) => {
+                    const isActive = activeYear === year;
+
+                    return (
+                      <TouchableOpacity
+                        key={year}
+                        onPress={() => setActiveYear(year)}
+                        style={[styles.chip, isActive && styles.chipActive]}
+                      >
+                        <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
+                          {year}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+
+              <View style={styles.filterRow}>
+                <Text style={styles.filterLabel}>Date</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  {PYQ_SORT_OPTIONS.map((option) => {
+                    const isActive = activeSort === option.id;
+
+                    return (
+                      <TouchableOpacity
+                        key={option.id}
+                        onPress={() => setActiveSort(option.id)}
+                        style={[styles.chip, isActive && styles.chipActive]}
+                      >
+                        <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
+                          {option.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            </>
           )}
         </View>
 
         {/* 📚 TEXTBOOK */}
         {type === 'textbook' && (
           <View style={styles.sectionCard}>
+            <Text style={styles.sectionCaption}>
+              {chapters.length} chapter{chapters.length === 1 ? '' : 's'} available
+            </Text>
             {chapters
               .filter((c) =>
                 c?.title?.toLowerCase().includes(query.toLowerCase())
@@ -114,6 +259,7 @@ export default function MaterialFilterScreen({ route, navigation }) {
                     onPress={() =>
                       navigation.navigate('PdfViewer', {
                         pdfUrl: chapter.url,
+                        title: chapter.title,
                         type: 'textbook',
                       })
                     }
@@ -132,23 +278,38 @@ export default function MaterialFilterScreen({ route, navigation }) {
                   </TouchableOpacity>
                 );
               })}
+
+            {!chapters
+              .filter((c) =>
+                c?.title?.toLowerCase().includes(query.toLowerCase())
+              ).length && (
+              <Text style={styles.emptyStateText}>
+                No chapters found for {activeClass}th with this search.
+              </Text>
+            )}
           </View>
         )}
 
         {/* 📝 NOTES */}
         {type === 'notes' && (
           <View style={styles.sectionCard}>
-            {[1, 2, 3].map((item) => {
+            <Text style={styles.sectionCaption}>
+              {activeFilter === 'pyq'
+                ? `${noteItems.length} PYQ paper${noteItems.length === 1 ? '' : 's'} available`
+                : `${resourceLabel} for Class ${activeClass}`}
+            </Text>
+            {noteItems.map((item) => {
               const config = TYPE_CONFIG[activeFilter];
               const Icon = config.icon;
 
               return (
                 <TouchableOpacity
-                  key={item}
+                  key={item.id}
                   style={styles.materialRow}
                   onPress={() =>
                     navigation.navigate('PdfViewer', {
-                      pdfUrl: noteData?.[activeFilter] || '',
+                      pdfUrl: item.pdfUrl,
+                      title: item.title,
                       type: 'notes',
                     })
                   }
@@ -159,8 +320,11 @@ export default function MaterialFilterScreen({ route, navigation }) {
                     </View>
 
                     <View>
-                      <Text style={styles.rowTitle}>
-                        {activeFilter.toUpperCase()} {item}
+                      <Text style={styles.rowTitle}>{item.title}</Text>
+                      <Text style={styles.rowMeta}>
+                        {activeFilter === 'pyq'
+                          ? `${item.year} • ${item.examDate}`
+                          : item.classLabel}
                       </Text>
                     </View>
                   </View>
@@ -169,6 +333,12 @@ export default function MaterialFilterScreen({ route, navigation }) {
                 </TouchableOpacity>
               );
             })}
+
+            {!noteItems.length && (
+              <Text style={styles.emptyStateText}>
+                No material found for this filter.
+              </Text>
+            )}
           </View>
         )}
 
@@ -193,6 +363,17 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 28,
     overflow: 'hidden',
     marginBottom: 16,
+  },
+
+  backButton: {
+    alignSelf: 'flex-start',
+    marginBottom: 14,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   heroGradient: {
@@ -224,6 +405,17 @@ const styles = StyleSheet.create({
     padding: 10,
   },
 
+  filterRow: {
+    marginBottom: 10,
+  },
+
+  filterLabel: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+
   chip: {
     paddingVertical: 6,
     paddingHorizontal: 12,
@@ -251,6 +443,14 @@ const styles = StyleSheet.create({
     padding: 14,
     borderRadius: 22,
     backgroundColor: '#fff',
+  },
+
+  sectionCaption: {
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '600',
+    marginBottom: 12,
+    marginLeft: 4,
   },
 
   materialRow: {
@@ -293,5 +493,12 @@ const styles = StyleSheet.create({
   rowMeta: {
     fontSize: 12,
     color: '#6B7280',
+  },
+
+  emptyStateText: {
+    textAlign: 'center',
+    color: '#94A3B8',
+    fontSize: 14,
+    paddingVertical: 20,
   },
 });
