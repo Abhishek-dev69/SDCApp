@@ -52,8 +52,7 @@ function getTextbookItemTitle(source, subject) {
 
 export default function LecturesScreen({ navigation }) {
   const { selectedBatch } = useStudentSession();
-
-  const [selectedClass, setSelectedClass] = useState(11);
+  const selectedClass = 12;
 
   const notesSection = getNotesSectionForBatch(selectedBatch);
   const materialTabs = getAvailableMaterialTabs(selectedBatch);
@@ -127,16 +126,6 @@ export default function LecturesScreen({ navigation }) {
                 </TouchableOpacity>
               );
             })}
-          </View>
-
-          <View style={{ flexDirection: 'row', marginTop: 10 }}>
-            <TouchableOpacity onPress={() => setSelectedClass(11)}>
-              <Text style={{ marginRight: 10 }}>11th</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity onPress={() => setSelectedClass(12)}>
-              <Text>12th</Text>
-            </TouchableOpacity>
           </View>
         </View>
 
