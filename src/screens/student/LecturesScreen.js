@@ -11,6 +11,7 @@ import {
 } from 'lucide-react-native';
 
 import { useStudentSession } from '../../context/StudentSessionContext';
+import PDF_DATA from '../../data/PDF_DATA';
 import {
   getAvailableMaterialTabs,
   getNotesSectionForBatch,
@@ -52,6 +53,8 @@ function getTextbookItemTitle(source, subject) {
 export default function LecturesScreen({ navigation }) {
   const { selectedBatch } = useStudentSession();
 
+  const [selectedClass, setSelectedClass] = useState(11);
+
   const notesSection = getNotesSectionForBatch(selectedBatch);
   const materialTabs = getAvailableMaterialTabs(selectedBatch);
   const textbookSections = getTextbookSectionsForBatch(selectedBatch);
@@ -65,13 +68,25 @@ export default function LecturesScreen({ navigation }) {
     setActiveSource(defaultSource);
   }, [defaultSource]);
 
-  const activeTextbookSection = useMemo(
-    () =>
+  const activeTextbookSection = useMemo(() => {
+    const section =
       textbookSections.find(
         (section) => section.source === activeSource
-      ) || textbookSections[0],
-    [activeSource, textbookSections]
-  );
+      ) || textbookSections?.[0] || { subjects: [] };
+
+    return {
+      ...section,
+      subjects: section?.subjects?.map((subject) => ({
+        ...subject,
+        chapters:
+          Array.isArray(
+            PDF_DATA?.[subject.id]?.textbook?.ncert?.[selectedClass]
+          )
+            ? PDF_DATA[subject.id].textbook.ncert[selectedClass]
+            : subject.chapters || [],
+              })) || [],
+    };
+  }, [activeSource, textbookSections, selectedClass]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -113,13 +128,24 @@ export default function LecturesScreen({ navigation }) {
               );
             })}
           </View>
+
+          <View style={{ flexDirection: 'row', marginTop: 10 }}>
+            <TouchableOpacity onPress={() => setSelectedClass(11)}>
+              <Text style={{ marginRight: 10 }}>11th</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={() => setSelectedClass(12)}>
+              <Text>12th</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* 📚 TEXTBOOK */}
         {activeTextbookSection && (
           <View style={[styles.sectionCard, styles.booksCard]}>
             {activeTextbookSection.subjects.map((subject) => {
-              const IconComponent = SUBJECT_ICONS[subject.id];
+              const IconComponent =
+                SUBJECT_ICONS[subject.id] || Zap;
 
               return (
                 <TouchableOpacity
@@ -129,7 +155,8 @@ export default function LecturesScreen({ navigation }) {
                     navigation.navigate('MaterialFilter', {
                       subjectId: subject.id,
                       type: 'textbook',
-                      source: activeSource, // 🔥 IMPORTANT
+                      source: activeSource,
+                      class: selectedClass,
                     })
                   }
                 >
@@ -143,7 +170,7 @@ export default function LecturesScreen({ navigation }) {
                         {getTextbookItemTitle(activeTextbookSection.source, subject)}
                       </Text>
                       <Text style={styles.rowMeta}>
-                        {subject.chapters}
+                        {subject.chapters?.length + " Chapters"}
                       </Text>
                     </View>
                   </View>
@@ -158,7 +185,8 @@ export default function LecturesScreen({ navigation }) {
         {/* 📝 NOTES */}
         <View style={styles.sectionCard}>
           {notesSection.subjects.map((subject) => {
-            const IconComponent = SUBJECT_ICONS[subject.id];
+            const IconComponent =
+              SUBJECT_ICONS[subject.id] || Zap;
 
             return (
               <TouchableOpacity
@@ -168,6 +196,7 @@ export default function LecturesScreen({ navigation }) {
                   navigation.navigate('MaterialFilter', {
                     subjectId: subject.id,
                     type: 'notes',
+                    class: selectedClass,
                   })
                 }
               >
@@ -193,7 +222,6 @@ export default function LecturesScreen({ navigation }) {
     </SafeAreaView>
   );
 }
-
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
