@@ -45,7 +45,9 @@ export default function LoginScreen({ navigation, route }) {
   }, [response]);
 
   const navigatePostLogin = () => {
-    if (role === 'admin' || role === 'teacher' || role === 'owner') {
+    if (role === 'owner') {
+      navigation.navigate('OwnerTabs', { displayName: 'Natik Sir' });
+    } else if (role === 'admin' || role === 'teacher') {
       navigation.navigate('AdminTabs', getAdminRouteParams(role));
     } else if (role === 'parent') {
       navigation.navigate('ParentTabs');
