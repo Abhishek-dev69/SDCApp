@@ -56,7 +56,9 @@ export default function OTPVerificationScreen({ navigation, route }) {
       return;
     }
     // Logic to verify OTP
-    if (role === 'admin' || role === 'teacher' || role === 'owner') {
+    if (role === 'owner') {
+      navigation.navigate('OwnerTabs', { displayName: 'Natik Sir' });
+    } else if (role === 'admin' || role === 'teacher') {
       navigation.navigate('AdminTabs', getAdminRouteParams(role));
     } else if (role === 'parent') {
       navigation.navigate('ParentTabs');
