@@ -10,6 +10,7 @@ import ChangePasswordScreen from './src/screens/auth/ChangePasswordScreen';
 import BatchSelectionScreen from './src/screens/student/BatchSelectionScreen';
 import StudentTabNavigator from './src/navigation/StudentTabNavigator';
 import AdminTabNavigator from './src/navigation/AdminTabNavigator';
+import OwnerTabNavigator from './src/navigation/OwnerTabNavigator';
 import ParentTabNavigator from './src/navigation/ParentTabNavigator';
 import AddStudentScreen from './src/screens/admin/AddStudentScreen';
 import AddTeacherScreen from './src/screens/admin/AddTeacherScreen';
@@ -42,6 +43,7 @@ export default function App() {
             <Stack.Screen name="BatchSelection" component={BatchSelectionScreen} />
             <Stack.Screen name="MainTabs" component={StudentTabNavigator} />
             <Stack.Screen name="AdminTabs" component={AdminTabNavigator} />
+            <Stack.Screen name="OwnerTabs" component={OwnerTabNavigator} />
             <Stack.Screen name="ParentTabs" component={ParentTabNavigator} />
             <Stack.Screen name="AddStudent" component={AddStudentScreen} />
             <Stack.Screen name="AddTeacher" component={AddTeacherScreen} />
