@@ -52,7 +52,9 @@ try {
         console.log('Login response data:', JSON.stringify(data));
         navigation.navigate('ChangePassword')
       }else {
-      if (data.role === 'admin' || data.role === 'teacher' || data.role === 'owner') {
+      if (data.role === 'owner') {
+        navigation.navigate('OwnerTabs', { displayName: 'Natik Sir' });
+      } else if (data.role === 'admin' || data.role === 'teacher') {
         navigation.navigate('AdminTabs', getAdminRouteParams(data.role));
       } else if (data.role === 'parent') {
         navigation.navigate('ParentTabs');
