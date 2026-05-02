@@ -3,10 +3,9 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { LayoutDashboard, BookOpen, BarChart3, Banknote, Settings } from 'lucide-react-native';
 import AdminDashboardScreen from '../screens/admin/AdminDashboardScreen';
 import AdminBatchesScreen from '../screens/admin/AdminBatchesScreen';
-import AdminAnalyticsScreen, { 
-  AdminFinancesScreen, 
-  AdminSettingsScreen 
-} from '../screens/admin/AdminAnalyticsScreen';
+import AdminAnalyticsScreen from '../screens/admin/AdminAnalyticsScreen';
+import AdminFinancesScreen from '../screens/admin/AdminFinancesScreen';
+import AdminSettingsScreen from '../screens/admin/AdminSettingsScreen';
 
 const Tab = createBottomTabNavigator();
 
