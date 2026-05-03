@@ -48,7 +48,11 @@ export default function AdminTabNavigator({ route }) {
       <Tab.Screen name="Batches" component={AdminBatchesScreen} />
       <Tab.Screen name="Analytics" component={AdminAnalyticsScreen} />
       <Tab.Screen name="Finances" component={AdminFinancesScreen} />
-      <Tab.Screen name="Settings" component={AdminSettingsScreen} />
+      <Tab.Screen
+        name="Settings"
+        component={AdminSettingsScreen}
+        initialParams={{ userRole, displayName }}
+      />
     </Tab.Navigator>
   );
 }
