@@ -4,9 +4,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronLeft, Mail, Lock, Eye, EyeOff } from 'lucide-react-native';
 import * as SecureStore from 'expo-secure-store';
+import Constants from 'expo-constants';
+
+const API_URL = Constants.expoConfig.extra.apiUrl;
+
 export default function EmailSignInScreen({ navigation, route }) {
   const { role } = route.params || {};
-  const [email, setEmail] = useState('');
+  const [studentId, setStudentId] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
@@ -19,58 +23,52 @@ export default function EmailSignInScreen({ navigation, route }) {
         : 'Admin',
   });
 
-  const validatePassword = (password) => {
-    if (password.length < 8) return 'At least 8 characters';
-    if (!/[A-Z]/.test(password)) return 'At least one capital letter';
-    if (!/[0-9]/.test(password)) return 'At least one number';
-    if (!/[^a-zA-Z0-9]/.test(password)) return 'At least one special character';
-    if (/\s/.test(password)) return 'No spaces allowed';
-    return null; // null means valid
-  };
-
   const handleSignIn = async () => {
-    console.log('handleSignIn called');
-try {
-     const error = validatePassword(password);
-      if (error) {
-        alert(error);
+    try {
+      const res = await fetch(`${API_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studentId, password })
+      });
+
+      const data = await res.json();
+
+      // backend should return: success, jwt, googleLinked, role, forceChangePassword
+
+      if (!data.success) {
+        alert('Invalid SDC ID or Password');
         return;
       }
-    console.log('Fetching...');
-    const res = await fetch('https://sdcapp-backend-456970553309.asia-south1.run.app/auth/email/signin', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
-    });
-    console.log('Response status:', res.status);
-    const data = await res.json();
-    console.log('Data:', JSON.stringify(data));
-    if (res.status === 200) {
-      await SecureStore.setItemAsync('userToken', data.jwt);
-      // Navigate based on role from backend
-      if(data.is_temp_password) {
-        console.log('Login response data:', JSON.stringify(data));
-        navigation.navigate('ChangePassword')
-      }else {
-      if (data.role === 'owner') {
-        navigation.navigate('OwnerTabs', { displayName: 'Natik Sir' });
-      } else if (data.role === 'admin' || data.role === 'teacher') {
-        navigation.navigate('AdminTabs', getAdminRouteParams(data.role));
-      } else if (data.role === 'parent') {
-        navigation.navigate('ParentTabs');
-      } else {
-        navigation.navigate('BatchSelection');
-      }
-    } 
-  }else {
-      alert(data.error || 'Signin failed');
-    }
 
-  } catch (err) {
-    console.error('Signin error:', err);
-    alert('Something went wrong. Please try again.');
-  }
-};
+      await SecureStore.setItemAsync('userToken', data.jwt);
+
+      if (!data.googleLinked) {
+        navigation.navigate('EmailSignUp', {
+          role,
+          isLinking: true,
+        });
+        return;
+      }
+
+      if (data.forceChangePassword) {
+        navigation.navigate('ChangePassword');
+      } else {
+        if (data.role === 'owner') {
+          navigation.navigate('OwnerTabs', { displayName: 'Natik Sir' });
+        } else if (data.role === 'admin' || data.role === 'teacher') {
+          navigation.navigate('AdminTabs', getAdminRouteParams(data.role));
+        } else if (data.role === 'parent') {
+          navigation.navigate('ParentTabs');
+        } else {
+          navigation.navigate('BatchSelection');
+        }
+      }
+
+    } catch (err) {
+      console.error('Signin error:', err);
+      alert('Something went wrong. Please try again.');
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -87,7 +85,7 @@ try {
 
           <View style={styles.headerContainer}>
             <Text style={styles.headerTitle}>Welcome Back</Text>
-            <Text style={styles.headerSubtitle}>Sign in with your email ID</Text>
+            <Text style={styles.headerSubtitle}>Sign in with your SDC ID</Text>
           </View>
 
           <View style={styles.formContainer}>
@@ -95,11 +93,10 @@ try {
               <Mail size={20} color="rgba(255, 255, 255, 0.6)" style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
-                placeholder="Email ID"
+                placeholder="SDC ID"
                 placeholderTextColor="rgba(255, 255, 255, 0.6)"
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
+                value={studentId}
+                onChangeText={setStudentId}
                 autoCapitalize="none"
               />
             </View>

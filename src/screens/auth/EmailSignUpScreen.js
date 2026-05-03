@@ -2,62 +2,91 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ChevronLeft, Mail, Lock, Eye, EyeOff } from 'lucide-react-native';
+import { ChevronLeft, Lock, Eye, EyeOff } from 'lucide-react-native';
+import * as SecureStore from 'expo-secure-store';
+import Constants from 'expo-constants';
+
+const API_URL = Constants.expoConfig.extra.apiUrl;
 
 export default function EmailSignUpScreen({ navigation, route }) {
-  const { role } = route.params || {};
-  const [email, setEmail] = useState('');
+  const { role, googleToken, isLinking } = route.params || {};
+
+  const [studentId, setStudentId] = useState('');
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   const validatePassword = (password) => {
     if (password.length < 8) return 'At least 8 characters';
     if (!/[A-Z]/.test(password)) return 'At least one capital letter';
     if (!/[0-9]/.test(password)) return 'At least one number';
     if (!/[^a-zA-Z0-9]/.test(password)) return 'At least one special character';
     if (/\s/.test(password)) return 'No spaces allowed';
-    return null; // null means valid
+    return null;
   };
 
-
-
   const handleSignUp = async () => {
-    // Validation logic here
-    const passwordError = validatePassword(password);
-    if (passwordError) {
-      alert(passwordError);
-      return;
-    }
-    if (password !== confirmPassword) {
-      alert("Passwords don't match");
-      return;
-    }
     try {
-    const res = await fetch('https://sdcapp-backend-456970553309.asia-south1.run.app/auth/email/signup', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password , role, name })
-    });
+      // Linking mode → only Google linking
+      if (isLinking) {
+        const res = await fetch(`${API_URL}/auth/link-google`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: googleToken }),
+        });
 
-    const data = await res.json();
+        const data = await res.json();
 
-    if (res.status === 201) {
-      alert('Account created! Please check your email to verify your account.');
-      navigation.navigate('EmailSignIn');
-    } else {
-      console.log('Signup failed, status:', res.status);
-      console.log('Error response:', JSON.stringify(data));
-      alert(data.error || 'Signup failed');
+        if (data.success) {
+          await SecureStore.setItemAsync('userToken', data.jwt);
+          navigation.navigate('BatchSelection');
+        } else {
+          alert('Google linking failed');
+        }
+        return;
+      }
+
+      // Setup mode → create account
+      const passwordError = validatePassword(password);
+      if (passwordError) {
+        alert(passwordError);
+        return;
+      }
+
+      if (password !== confirmPassword) {
+        alert("Passwords don't match");
+        return;
+      }
+
+      const res = await fetch(`${API_URL}/auth/setup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studentId,
+          password,
+          name,
+          role,
+          googleToken,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!data.success) {
+        alert(data.error || 'Setup failed');
+        return;
+      }
+
+      await SecureStore.setItemAsync('userToken', data.jwt);
+
+      navigation.navigate('BatchSelection');
+
+    } catch (err) {
+      console.error('Setup error:', err);
+      alert('Something went wrong. Please try again.');
     }
-
-  } catch (err) {
-    console.error('Signup error:', err);
-    alert('Something went wrong. Please try again.');
-  }
-
-    
   };
 
   return (
@@ -74,70 +103,74 @@ export default function EmailSignUpScreen({ navigation, route }) {
           </TouchableOpacity>
 
           <View style={styles.headerContainer}>
-            <Text style={styles.headerTitle}>Create Account</Text>
-            <Text style={styles.headerSubtitle}>Sign up with your email ID</Text>
+            <Text style={styles.headerTitle}>
+              {isLinking ? 'Link Google Account' : 'Create Account'}
+            </Text>
+            <Text style={styles.headerSubtitle}>
+              {isLinking ? 'Connect your Google account' : 'Create your SDC account'}
+            </Text>
           </View>
 
           <View style={styles.formContainer}>
-            <View style={styles.inputWrapper}>
-              <TextInput
-                style={styles.input}
-                placeholder="Full Name"
-                placeholderTextColor="rgba(255, 255, 255, 0.6)"
-                value={name}
-                onChangeText={setName}
-                autoCapitalize="none"
-              />
-            </View>
 
+            {!isLinking && (
+              <>
+                <View style={styles.inputWrapper}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Full Name"
+                    placeholderTextColor="rgba(255, 255, 255, 0.6)"
+                    value={name}
+                    onChangeText={setName}
+                  />
+                </View>
 
-            <View style={styles.inputWrapper}>
-              <Mail size={20} color="rgba(255, 255, 255, 0.6)" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Email ID"
-                placeholderTextColor="rgba(255, 255, 255, 0.6)"
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
-            </View>
+                <View style={styles.inputWrapper}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="SDC ID"
+                    placeholderTextColor="rgba(255, 255, 255, 0.6)"
+                    value={studentId}
+                    onChangeText={setStudentId}
+                  />
+                </View>
 
-            <View style={styles.inputWrapper}>
-              <Lock size={20} color="rgba(255, 255, 255, 0.6)" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Password"
-                placeholderTextColor="rgba(255, 255, 255, 0.6)"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-              />
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                {showPassword ? <EyeOff size={20} color="#fff" /> : <Eye size={20} color="#fff" />}
-              </TouchableOpacity>
-            </View>
+                <View style={styles.inputWrapper}>
+                  <Lock size={20} color="rgba(255, 255, 255, 0.6)" style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Password"
+                    placeholderTextColor="rgba(255, 255, 255, 0.6)"
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry={!showPassword}
+                  />
+                  <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                    {showPassword ? <EyeOff size={20} color="#fff" /> : <Eye size={20} color="#fff" />}
+                  </TouchableOpacity>
+                </View>
 
-            <View style={styles.inputWrapper}>
-              <Lock size={20} color="rgba(255, 255, 255, 0.6)" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Confirm Password"
-                placeholderTextColor="rgba(255, 255, 255, 0.6)"
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                secureTextEntry={!showConfirmPassword}
-                autoCapitalize="none"
-              />
-              <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
-                {showConfirmPassword ? <EyeOff size={20} color="#fff" /> : <Eye size={20} color="#fff" />}
-              </TouchableOpacity>
-            </View>
+                <View style={styles.inputWrapper}>
+                  <Lock size={20} color="rgba(255, 255, 255, 0.6)" style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Confirm Password"
+                    placeholderTextColor="rgba(255, 255, 255, 0.6)"
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    secureTextEntry={!showConfirmPassword}
+                  />
+                  <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
+                    {showConfirmPassword ? <EyeOff size={20} color="#fff" /> : <Eye size={20} color="#fff" />}
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
 
             <TouchableOpacity style={styles.signUpButton} onPress={handleSignUp}>
-              <Text style={styles.signUpButtonText}>Sign Up</Text>
+              <Text style={styles.signUpButtonText}>
+                {isLinking ? 'Link Google' : 'Create Account'}
+              </Text>
             </TouchableOpacity>
           </View>
 
@@ -147,6 +180,7 @@ export default function EmailSignUpScreen({ navigation, route }) {
               <Text style={styles.signInLink}>Sign In</Text>
             </TouchableOpacity>
           </View>
+
         </ScrollView>
       </SafeAreaView>
     </View>

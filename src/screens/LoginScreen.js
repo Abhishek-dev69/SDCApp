@@ -3,7 +3,6 @@ import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Phone, Mail } from 'lucide-react-native';
-import * as AuthSession from 'expo-auth-session';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import * as SecureStore from 'expo-secure-store';
@@ -11,7 +10,6 @@ import Constants from 'expo-constants';
 
 const API_URL = Constants.expoConfig.extra.apiUrl;
 
-console.log(AuthSession.makeRedirectUri({ useProxy: true }));
 WebBrowser.maybeCompleteAuthSession();
 
 export default function LoginScreen({ navigation, route }) {
@@ -19,9 +17,10 @@ export default function LoginScreen({ navigation, route }) {
 
   const getAdminRouteParams = (currentRole) => ({
     userRole: currentRole,
-    displayName: currentRole === 'owner'
-      ? 'Natik Sir'
-      : currentRole === 'teacher'
+    displayName:
+      currentRole === 'owner'
+        ? 'Natik Sir'
+        : currentRole === 'teacher'
         ? 'Teacher'
         : 'Admin',
   });
@@ -34,13 +33,10 @@ export default function LoginScreen({ navigation, route }) {
 
   useEffect(() => {
     if (response?.type === 'success') {
-      const idToken = response.authentication?.idToken || response.params?.id_token;
+      const idToken =
+        response.authentication?.idToken || response.params?.id_token;
 
-      if (idToken) {
-        handleGoogleToken(idToken);
-      } else {
-        console.log('Google auth completed without an id token');
-      }
+      if (idToken) handleGoogleToken(idToken);
     }
   }, [response]);
 
@@ -57,39 +53,50 @@ export default function LoginScreen({ navigation, route }) {
   };
 
   const handleGoogleToken = async (googleToken) => {
-  try {
-    const res = await fetch(`${API_URL}/auth/google`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: googleToken }),
-    });
+    try {
+      const res = await fetch(`${API_URL}/auth/google`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: googleToken }),
+      });
 
-    const data = await res.json();
+      const data = await res.json();
 
-    if (data.jwt) {
-      await SecureStore.setItemAsync('userToken', data.jwt);
+      // backend should return: userExists, jwt, googleLinked, forceChangePassword
 
-      
-      if (data.forceChangePassword) {
-        navigation.navigate('ChangePassword');
-      } else {
-        navigatePostLogin();
+      if (!data.userExists) {
+        navigation.navigate('EmailSignUp', { googleToken, role });
+        return;
       }
 
-    } else {
-      console.log('No JWT received, backend error:', data.error);
-    }
-  } catch (err) {
-    console.log('Google login failed:', err);
-  }
-};
+      if (data.jwt) {
+        await SecureStore.setItemAsync('userToken', data.jwt);
 
+        if (!data.googleLinked) {
+          navigation.navigate('EmailSignUp', {
+            googleToken,
+            role,
+            isLinking: true,
+          });
+          return;
+        }
+
+        if (data.forceChangePassword) {
+          navigation.navigate('ChangePassword');
+        } else {
+          navigatePostLogin();
+        }
+      }
+    } catch (err) {
+      console.log('Google login failed:', err);
+    }
+  };
 
   const handleGoogleSignIn = async () => {
     try {
       await promptAsync({ useProxy: true });
     } catch (err) {
-      console.log('Unable to start Google auth flow:', err);
+      console.log('Google auth error:', err);
     }
   };
 
@@ -103,10 +110,7 @@ export default function LoginScreen({ navigation, route }) {
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={['#2b58ed', '#1e3a8a']}
-        style={styles.gradient}
-      />
+      <LinearGradient colors={['#2b58ed', '#1e3a8a']} style={styles.gradient} />
 
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.content}>
@@ -118,34 +122,14 @@ export default function LoginScreen({ navigation, route }) {
 
           <View style={styles.headerContainer}>
             <Text style={styles.welcomeText}>Welcome Back</Text>
-            <Text style={styles.subtitleText}>Sign in to continue learning</Text>
+            <Text style={styles.subtitleText}>
+              Login using your SDC ID or continue with Google/Phone
+            </Text>
           </View>
 
           <View style={styles.buttonSection}>
-            <TouchableOpacity
-              style={styles.socialButton}
-              onPress={handleGoogleSignIn}
-              disabled={!request}
-            >
-              <View style={styles.iconWrapper}>
-                <Image
-                  source={{ uri: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/1024px-Google_%22G%22_logo.svg.png' }}
-                  style={styles.googleIcon}
-                />
-              </View>
-              <Text style={styles.buttonText}>Continue with Google</Text>
-            </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.socialButton}
-              onPress={handlePhonePress}
-            >
-              <View style={styles.iconWrapper}>
-                <Phone size={24} color="#10b981" fill="#10b981" />
-              </View>
-              <Text style={styles.buttonText}>Continue with Phone Number</Text>
-            </TouchableOpacity>
-
+            {/* SDC ID Login (Primary) */}
             <TouchableOpacity
               style={styles.socialButton}
               onPress={handleEmailPress}
@@ -153,13 +137,46 @@ export default function LoginScreen({ navigation, route }) {
               <View style={styles.iconWrapper}>
                 <Mail size={24} color="#2b58ed" fill="#2b58ed" />
               </View>
-              <Text style={styles.buttonText}>Continue with Email</Text>
+              <Text style={styles.buttonText}>Login with SDC ID</Text>
             </TouchableOpacity>
+
+            {/* Google Login */}
+            <TouchableOpacity
+              style={styles.socialButton}
+              onPress={handleGoogleSignIn}
+              disabled={!request}
+            >
+              <View style={styles.iconWrapper}>
+                <Image
+                  source={{
+                    uri: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/1024px-Google_%22G%22_logo.svg.png',
+                  }}
+                  style={styles.googleIcon}
+                />
+              </View>
+              <Text style={styles.buttonText}>Continue with Google</Text>
+            </TouchableOpacity>
+
+            {/* Phone Login */}
+            <TouchableOpacity
+              style={styles.socialButton}
+              onPress={handlePhonePress}
+            >
+              <View style={styles.iconWrapper}>
+                <Phone size={24} color="#10b981" fill="#10b981" />
+              </View>
+              <Text style={styles.buttonText}>
+                Continue with Phone Number
+              </Text>
+            </TouchableOpacity>
+
           </View>
 
           <View style={styles.footerContainer}>
-            <Text style={styles.footerText}>Don't have an account? </Text>
-            <TouchableOpacity onPress={() => navigation.navigate('RoleSelection')}>
+            <Text style={styles.footerText}>
+              Don't have an account?{' '}
+            </Text>
+            <TouchableOpacity onPress={() => navigation.navigate('EmailSignUp', { role })}>
               <Text style={styles.signUpLink}>Sign Up</Text>
             </TouchableOpacity>
           </View>
@@ -170,9 +187,7 @@ export default function LoginScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   gradient: {
     position: 'absolute',
     left: 0,
@@ -180,9 +195,7 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
   },
-  safeArea: {
-    flex: 1,
-  },
+  safeArea: { flex: 1 },
   content: {
     flex: 1,
     paddingHorizontal: 24,
