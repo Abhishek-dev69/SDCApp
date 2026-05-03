@@ -17,7 +17,7 @@ export default function OwnerTabNavigator({ route }) {
   return (
     <Tab.Navigator
       screenOptions={({ route: tabRoute }) => ({
-        tabBarIcon: ({ color, size }) => {
+        tabBarIcon: ({ color, focused }) => {
           let IconComponent = Home;
 
           if (tabRoute.name === 'Dashboard') IconComponent = Home;
@@ -26,37 +26,37 @@ export default function OwnerTabNavigator({ route }) {
           else if (tabRoute.name === 'Batches') IconComponent = Users;
           else if (tabRoute.name === 'Profile') IconComponent = User;
 
-          return <IconComponent size={size} color={color} />;
+          return <IconComponent size={focused ? 22 : 20} color={color} />;
         },
-        tabBarActiveTintColor: '#2748B3',
-        tabBarInactiveTintColor: '#6B7280',
+        tabBarActiveTintColor: '#28388F',
+        tabBarInactiveTintColor: '#64748B',
         tabBarHideOnKeyboard: true,
         tabBarStyle: {
           position: 'absolute',
-          left: 12,
-          right: 12,
+          left: 14,
+          right: 14,
           bottom: 12,
           backgroundColor: '#FFFFFF',
           borderTopWidth: 0,
-          height: 84,
+          height: 78,
           paddingBottom: 10,
-          paddingTop: 8,
-          borderRadius: 30,
+          paddingTop: 7,
+          borderRadius: 24,
           shadowColor: '#0F172A',
           shadowOffset: { width: 0, height: 8 },
-          shadowOpacity: 0.08,
+          shadowOpacity: 0.10,
           shadowRadius: 18,
           elevation: 12,
         },
         tabBarItemStyle: {
-          marginHorizontal: 4,
-          marginVertical: 6,
-          borderRadius: 22,
+          marginHorizontal: 3,
+          marginVertical: 5,
+          borderRadius: 18,
         },
         tabBarActiveBackgroundColor: '#EEF2FF',
         tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '600',
+          fontSize: 11,
+          fontWeight: '700',
           marginTop: 2,
         },
         headerShown: false,
@@ -66,10 +66,25 @@ export default function OwnerTabNavigator({ route }) {
         name="Dashboard"
         component={OwnerDashboardScreen}
         initialParams={{ displayName }}
+        options={{ tabBarLabel: 'Home' }}
       />
-      <Tab.Screen name="Analytics" component={OwnerAnalyticsScreen} />
-      <Tab.Screen name="Revenue" component={OwnerRevenueScreen} />
-      <Tab.Screen name="Batches" component={OwnerBatchesScreen} />
+      <Tab.Screen
+        name="Analytics"
+        component={OwnerAnalyticsScreen}
+        initialParams={{ displayName }}
+        options={{ tabBarLabel: 'Insights' }}
+      />
+      <Tab.Screen
+        name="Revenue"
+        component={OwnerRevenueScreen}
+        initialParams={{ displayName }}
+        options={{ tabBarLabel: 'Money' }}
+      />
+      <Tab.Screen
+        name="Batches"
+        component={OwnerBatchesScreen}
+        initialParams={{ displayName }}
+      />
       <Tab.Screen
         name="Profile"
         component={OwnerProfileScreen}
