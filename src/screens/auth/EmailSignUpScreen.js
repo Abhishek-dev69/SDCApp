@@ -2,19 +2,16 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ChevronLeft, Lock, Eye, EyeOff } from 'lucide-react-native';
-import * as SecureStore from 'expo-secure-store';
-import Constants from 'expo-constants';
-
-const API_URL = Constants.expoConfig.extra.apiUrl;
+import { ChevronLeft, Mail, Lock, Eye, EyeOff } from 'lucide-react-native';
 
 export default function EmailSignUpScreen({ navigation, route }) {
-  const { role, googleToken, isLinking } = route.params || {};
+  const { role } = route.params || {};
 
-  const [studentId, setStudentId] = useState('');
+  const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -28,150 +25,130 @@ export default function EmailSignUpScreen({ navigation, route }) {
   };
 
   const handleSignUp = async () => {
+    const passwordError = validatePassword(password);
+
+    if (passwordError) {
+      alert(passwordError);
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      alert("Passwords don't match");
+      return;
+    }
+
     try {
-      // Linking mode → only Google linking
-      if (isLinking) {
-        const res = await fetch(`${API_URL}/auth/link-google`, {
+      const res = await fetch(
+        'https://sdcapp-backend-456970553309.asia-south1.run.app/auth/email/signup',
+        {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token: googleToken }),
-        });
-
-        const data = await res.json();
-
-        if (data.success) {
-          await SecureStore.setItemAsync('userToken', data.jwt);
-          navigation.navigate('BatchSelection');
-        } else {
-          alert('Google linking failed');
+          body: JSON.stringify({ email, password, role, name })
         }
-        return;
-      }
-
-      // Setup mode → create account
-      const passwordError = validatePassword(password);
-      if (passwordError) {
-        alert(passwordError);
-        return;
-      }
-
-      if (password !== confirmPassword) {
-        alert("Passwords don't match");
-        return;
-      }
-
-      const res = await fetch(`${API_URL}/auth/setup`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          studentId,
-          password,
-          name,
-          role,
-          googleToken,
-        }),
-      });
+      );
 
       const data = await res.json();
 
-      if (!data.success) {
-        alert(data.error || 'Setup failed');
-        return;
+      if (res.status === 201) {
+        alert('Account created! Please check your email to verify your account.');
+        navigation.navigate('EmailSignIn');
+      } else {
+        console.log('Signup failed, status:', res.status);
+        console.log('Error response:', JSON.stringify(data));
+        alert(data.error || 'Signup failed');
       }
-
-      await SecureStore.setItemAsync('userToken', data.jwt);
-
-      navigation.navigate('BatchSelection');
-
     } catch (err) {
-      console.error('Setup error:', err);
+      console.error('Signup error:', err);
       alert('Something went wrong. Please try again.');
     }
   };
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={['#2b58ed', '#1e3a8a']}
-        style={styles.gradient}
-      />
-      
+      <LinearGradient colors={['#2b58ed', '#1e3a8a']} style={styles.gradient} />
+
       <SafeAreaView style={styles.safeArea}>
         <ScrollView contentContainerStyle={styles.scrollContent}>
+          
           <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
             <ChevronLeft size={28} color="#FFFFFF" />
           </TouchableOpacity>
 
           <View style={styles.headerContainer}>
-            <Text style={styles.headerTitle}>
-              {isLinking ? 'Link Google Account' : 'Create Account'}
-            </Text>
-            <Text style={styles.headerSubtitle}>
-              {isLinking ? 'Connect your Google account' : 'Create your SDC account'}
-            </Text>
+            <Text style={styles.headerTitle}>Create Account</Text>
+            <Text style={styles.headerSubtitle}>Sign up with your email ID</Text>
           </View>
 
           <View style={styles.formContainer}>
+            
+            <View style={styles.inputWrapper}>
+              <TextInput
+                style={styles.input}
+                placeholder="Full Name"
+                placeholderTextColor="rgba(255, 255, 255, 0.6)"
+                value={name}
+                onChangeText={setName}
+                autoCapitalize="none"
+              />
+            </View>
 
-            {!isLinking && (
-              <>
-                <View style={styles.inputWrapper}>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Full Name"
-                    placeholderTextColor="rgba(255, 255, 255, 0.6)"
-                    value={name}
-                    onChangeText={setName}
-                  />
-                </View>
+            <View style={styles.inputWrapper}>
+              <Mail size={20} color="rgba(255, 255, 255, 0.6)" style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Email ID"
+                placeholderTextColor="rgba(255, 255, 255, 0.6)"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            </View>
 
-                <View style={styles.inputWrapper}>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="SDC ID"
-                    placeholderTextColor="rgba(255, 255, 255, 0.6)"
-                    value={studentId}
-                    onChangeText={setStudentId}
-                  />
-                </View>
+            <View style={styles.inputWrapper}>
+              <Lock size={20} color="rgba(255, 255, 255, 0.6)" style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Password"
+                placeholderTextColor="rgba(255, 255, 255, 0.6)"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+                autoCapitalize="none"
+              />
+              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                {showPassword ? (
+                  <EyeOff size={20} color="#fff" />
+                ) : (
+                  <Eye size={20} color="#fff" />
+                )}
+              </TouchableOpacity>
+            </View>
 
-                <View style={styles.inputWrapper}>
-                  <Lock size={20} color="rgba(255, 255, 255, 0.6)" style={styles.inputIcon} />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Password"
-                    placeholderTextColor="rgba(255, 255, 255, 0.6)"
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry={!showPassword}
-                  />
-                  <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                    {showPassword ? <EyeOff size={20} color="#fff" /> : <Eye size={20} color="#fff" />}
-                  </TouchableOpacity>
-                </View>
-
-                <View style={styles.inputWrapper}>
-                  <Lock size={20} color="rgba(255, 255, 255, 0.6)" style={styles.inputIcon} />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Confirm Password"
-                    placeholderTextColor="rgba(255, 255, 255, 0.6)"
-                    value={confirmPassword}
-                    onChangeText={setConfirmPassword}
-                    secureTextEntry={!showConfirmPassword}
-                  />
-                  <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
-                    {showConfirmPassword ? <EyeOff size={20} color="#fff" /> : <Eye size={20} color="#fff" />}
-                  </TouchableOpacity>
-                </View>
-              </>
-            )}
+            <View style={styles.inputWrapper}>
+              <Lock size={20} color="rgba(255, 255, 255, 0.6)" style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Confirm Password"
+                placeholderTextColor="rgba(255, 255, 255, 0.6)"
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                secureTextEntry={!showConfirmPassword}
+                autoCapitalize="none"
+              />
+              <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
+                {showConfirmPassword ? (
+                  <EyeOff size={20} color="#fff" />
+                ) : (
+                  <Eye size={20} color="#fff" />
+                )}
+              </TouchableOpacity>
+            </View>
 
             <TouchableOpacity style={styles.signUpButton} onPress={handleSignUp}>
-              <Text style={styles.signUpButtonText}>
-                {isLinking ? 'Link Google' : 'Create Account'}
-              </Text>
+              <Text style={styles.signUpButtonText}>Sign Up</Text>
             </TouchableOpacity>
+
           </View>
 
           <View style={styles.footerContainer}>
@@ -188,39 +165,46 @@ export default function EmailSignUpScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
+
   gradient: {
     ...StyleSheet.absoluteFillObject,
   },
+
   safeArea: {
     flex: 1,
   },
+
   scrollContent: {
     paddingHorizontal: 24,
     paddingTop: 20,
     paddingBottom: 40,
   },
+
   backButton: {
     marginBottom: 40,
   },
+
   headerContainer: {
     marginBottom: 40,
   },
+
   headerTitle: {
     fontSize: 32,
     fontWeight: 'bold',
     color: '#FFFFFF',
     marginBottom: 8,
   },
+
   headerSubtitle: {
     fontSize: 16,
     color: 'rgba(255, 255, 255, 0.7)',
   },
+
   formContainer: {
     gap: 20,
   },
+
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -231,14 +215,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.2)',
   },
+
   inputIcon: {
     marginRight: 12,
   },
+
   input: {
     flex: 1,
     color: '#FFFFFF',
     fontSize: 16,
   },
+
   signUpButton: {
     backgroundColor: '#FFFFFF',
     borderRadius: 50,
@@ -251,20 +238,24 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 5,
   },
+
   signUpButtonText: {
     color: '#1e3a8a',
     fontSize: 18,
     fontWeight: 'bold',
   },
+
   footerContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     marginTop: 40,
   },
+
   footerText: {
     color: 'rgba(255, 255, 255, 0.8)',
     fontSize: 14,
   },
+
   signInLink: {
     color: '#FFFFFF',
     fontWeight: 'bold',
