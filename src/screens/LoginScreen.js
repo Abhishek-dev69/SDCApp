@@ -100,6 +100,10 @@ export default function LoginScreen({ navigation, route }) {
     navigation.navigate('PhoneLogin', { role });
   };
 
+  const handleSDCPress = () => {
+    navigation.navigate('SDCLogin', { role });
+  };
+
   return (
     <View style={styles.container}>
       <LinearGradient colors={['#2b58ed', '#1e3a8a']} style={styles.gradient} />
@@ -151,11 +155,18 @@ export default function LoginScreen({ navigation, route }) {
               <Text style={styles.buttonText}>Continue with Email</Text>
             </TouchableOpacity>
 
+            <TouchableOpacity style={styles.socialButton} onPress={handleSDCPress}>
+              <View style={styles.iconWrapper}>
+                <Text style={{ fontWeight: 'bold', color: '#2b58ed' }}>SDC</Text>
+              </View>
+              <Text style={styles.buttonText}>Continue with SDC ID</Text>
+            </TouchableOpacity>
+
           </View>
 
           <View style={styles.footerContainer}>
             <Text style={styles.footerText}>Don't have an account? </Text>
-            <TouchableOpacity onPress={() => navigation.navigate('RoleSelection')}>
+            <TouchableOpacity onPress={() => navigation.navigate("CreateAccount", { role})}>
               <Text style={styles.signUpLink}>Sign Up</Text>
             </TouchableOpacity>
           </View>

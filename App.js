@@ -25,6 +25,9 @@ import { StudentSessionProvider } from './src/context/StudentSessionContext';
 import MaterialFilterScreen from './src/screens/student/MaterialFilterScreen';  
 import LecturesScreen from './src/screens/student/LecturesScreen';
 import PdfViewerScreen from './src/screens/student/PdfViewerScreen';
+import CreateAccountScreen from './src/screens/auth/CreateAccountScreen';
+import LinkGoogleScreen from './src/screens/auth/LinkGoogleScreen';
+import SDCLoginScreen from './src/screens/auth/SDCLoginScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -58,6 +61,9 @@ export default function App() {
             <Stack.Screen name="Lectures" component={LecturesScreen} />
             <Stack.Screen name="PDFViewer" component={PdfViewerScreen} />
             <Stack.Screen name="MaterialFilter" component={MaterialFilterScreen} />
+            <Stack.Screen name="CreateAccount" component={CreateAccountScreen} />
+            <Stack.Screen name="LinkGoogle" component={LinkGoogleScreen} />
+            <Stack.Screen name="SDCLogin" component={SDCLoginScreen} />
           </Stack.Navigator>
         </NavigationContainer>
       </SafeAreaProvider>
