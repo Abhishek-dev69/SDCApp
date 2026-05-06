@@ -6,7 +6,7 @@ import { Eye, EyeOff } from 'lucide-react-native';
 
 export default function CreateAccountScreen({ navigation, route }) {
   const role = route?.params?.role || "student";
-
+  const API_URL = 'https://sdcapp-backend-456970553309.asia-south1.run.app';
   const [sdcId, setSdcId] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -21,28 +21,68 @@ export default function CreateAccountScreen({ navigation, route }) {
     return hasMinLength && hasLetter && hasNumber;
   };
 
-  const handleContinue = () => {
-    if (!sdcId || !password || !confirmPassword) {
-      alert("Please fill all fields");
-      return;
-    }
+  // const handleContinue = () => {
+  //   if (!sdcId || !password || !confirmPassword) {
+  //     alert("Please fill all fields");
+  //     return;
+  //   }
 
-    if (!validatePassword(password)) {
+  //   if (!validatePassword(password)) {
+  //   alert("Password must be at least 6 characters and include both letters and numbers");
+  //   return;
+  //   }
+
+  //   if (password !== confirmPassword) {
+  //     alert("Passwords do not match");
+  //     return;
+  //   }
+
+  //   navigation.replace("LinkGoogle", {
+  //     sdcId,
+  //     password,
+  //     role,
+  //   });
+  // };
+
+
+  const handleContinue = async () => {
+  console.log('API URL:', API_URL);
+  if (!sdcId || !password || !confirmPassword) {
+    alert("Please fill all fields");
+    return;
+  }
+
+  if (!validatePassword(password)) {
     alert("Password must be at least 6 characters and include both letters and numbers");
     return;
-    }
+  }
 
-    if (password !== confirmPassword) {
-      alert("Passwords do not match");
+  if (password !== confirmPassword) {
+    alert("Passwords do not match");
+    return;
+  }
+
+  try {
+    const response = await fetch(`${API_URL}/auth/sdc/setup-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ student_id: sdcId, password }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      alert(data.message || 'Something went wrong');
       return;
     }
 
-    navigation.replace("LinkGoogle", {
-      sdcId,
-      password,
-      role,
-    });
-  };
+    navigation.replace("LinkGoogle", { sdcId, password, role });
+
+  } catch (err) {
+    console.error('Setup password error:', err);
+    alert('Network error, please try again');
+  }
+};
 
   return (
     <View style={styles.container}>
