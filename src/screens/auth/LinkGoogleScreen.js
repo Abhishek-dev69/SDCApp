@@ -7,20 +7,50 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 WebBrowser.maybeCompleteAuthSession();
 
+const API_URL = 'https://sdcapp-backend-456970553309.asia-south1.run.app';
+
+
 export default function LinkGoogleScreen({ route, navigation }) {
-  const { role } = route?.params || {};
+  const { role ,sdcId } = route?.params || {};
 
   const [request, response, promptAsync] = Google.useAuthRequest({
-    androidClientId: 'YOUR_ANDROID_CLIENT_ID',
-    iosClientId: 'YOUR_IOS_CLIENT_ID',
-    webClientId: 'YOUR_WEB_CLIENT_ID',
-  });
+  androidClientId: '456970553309-14fk1ssbbm4po4iqrknss9l6ljulorgq.apps.googleusercontent.com',
+  iosClientId: '456970553309-e1vtskth15r0dpa7drnfpch747i64763.apps.googleusercontent.com',
+  webClientId: '456970553309-5f21m5egcqm0a5gdlkj80buqvmd363ef.apps.googleusercontent.com',
+});
 
-  useEffect(() => {
-    if (response?.type === 'success') {
-      handleNext();
+useEffect(() => {
+  if (response?.type === 'success') {
+    const idToken = response.authentication?.idToken || response.params?.id_token;
+    if (idToken) {
+      handleLinkGoogle(idToken);
+    } else {
+      console.log('Google auth completed without an id token');
     }
-  }, [response]);
+  }
+}, [response]);
+
+const handleLinkGoogle = async (googleToken) => {
+  try {
+    const res = await fetch(`${API_URL}/auth/sdc/link-google`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: googleToken, student_id: sdcId }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      alert(data.error || 'Failed to link Google account');
+      return;
+    }
+
+    handleNext();
+  } catch (err) {
+    console.error('Link Google error:', err);
+    alert('Network error, please try again');
+  }
+};
 
   const handleNext = () => {
     if (role === 'owner') {

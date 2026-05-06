@@ -3,6 +3,10 @@ const router = express.Router();
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const pool = require('../db');
+const { OAuth2Client } = require('google-auth-library');
+const googleClient = new OAuth2Client(process.env.GOOGLE_ANDROID_CLIENT_ID);
+
+// SETUP NEW PASSWORD ROUTE
 
 router.post('/setup-password', async (req, res) => {
   const { student_id, password } = req.body;
@@ -41,6 +45,21 @@ router.post('/setup-password', async (req, res) => {
 });
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// SIGNIN ROUTE
 router.post('/signin', async (req, res) => {
   const { student_id, password } = req.body;
 
@@ -73,5 +92,54 @@ router.post('/signin', async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
+
+
+
+
+
+
+
+
+
+
+// LINK GOOGLE ROUTE
+router.post('/link-google', async (req, res) => {
+  const { token, student_id } = req.body;
+
+  try {
+    const ticket = await googleClient.verifyIdToken({
+      idToken: token,
+      audience: process.env.GOOGLE_ANDROID_CLIENT_ID
+    });
+
+    const payload = ticket.getPayload();
+
+    await pool.query(
+      'UPDATE auth SET google_id = $1, email = $2, google_linked = TRUE WHERE student_id = $3',
+      [payload.sub, payload.email, student_id]
+    );
+
+    res.status(200).json({ message: 'Google account linked successfully' });
+  } catch (err) {
+    console.error('Link Google error:', err.message);
+    res.status(401).json({ error: 'Failed to link Google account' });
+  }
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 module.exports = router;
