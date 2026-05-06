@@ -5,6 +5,7 @@ const API_URL = 'https://sdcapp-backend-456970553309.asia-south1.run.app';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Eye, EyeOff } from 'lucide-react-native';
+import { validatePassword } from '../../utils/validation';
 
 export default function ChangePasswordScreen({ navigation }) {
   const [newPassword, setNewPassword] = useState('');
@@ -12,14 +13,7 @@ export default function ChangePasswordScreen({ navigation }) {
 
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const validatePassword = (password) => {
-    if (password.length < 8) return 'At least 8 characters';
-    if (!/[A-Z]/.test(password)) return 'At least one capital letter';
-    if (!/[0-9]/.test(password)) return 'At least one number';
-    if (!/[^a-zA-Z0-9]/.test(password)) return 'At least one special character';
-    if (/\s/.test(password)) return 'No spaces allowed';
-    return null; // null means valid
-  };
+
 
   const handleSubmit = async () => {
 

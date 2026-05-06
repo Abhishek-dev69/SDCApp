@@ -3,21 +3,43 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-nativ
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Eye, EyeOff } from 'lucide-react-native';
+import * as SecureStore from 'expo-secure-store';
+
+const API_URL = 'https://sdcapp-backend-456970553309.asia-south1.run.app';
 
 export default function SDCLoginScreen({ navigation }) {
   const [sdcId, setSdcId] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  const handleLogin = () => {
-    if (!sdcId || !password) {
-      alert("Please enter SDC ID and Password");
+  const handleLogin = async () => {
+  if (!sdcId || !password) {
+    alert("Please enter SDC ID and Password");
+    return;
+  }
+
+  try {
+    const response = await fetch(`${API_URL}/auth/sdc/signin`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ student_id: sdcId, password }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      alert(data.message || 'Something went wrong');
       return;
     }
 
+    await SecureStore.setItemAsync('token', data.token);
     navigation.replace('BatchSelection');
-  };
 
+  } catch (err) {
+    console.error('Signin error:', err);
+    alert('Network error, please try again');
+  }
+};
   return (
     <View style={styles.container}>
       <LinearGradient colors={['#3e59b1', '#3e59b1']} style={styles.gradient} />

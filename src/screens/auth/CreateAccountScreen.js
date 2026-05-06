@@ -3,6 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-nativ
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Eye, EyeOff } from 'lucide-react-native';
+import { validatePassword } from '../../utils/validation';
 
 export default function CreateAccountScreen({ navigation, route }) {
   const role = route?.params?.role || "student";
@@ -14,36 +15,6 @@ export default function CreateAccountScreen({ navigation, route }) {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const validatePassword = (pass) => {
-    const hasMinLength = pass.length >= 6;
-    const hasLetter = /[a-zA-Z]/.test(pass);
-    const hasNumber = /\d/.test(pass);
-    return hasMinLength && hasLetter && hasNumber;
-  };
-
-  // const handleContinue = () => {
-  //   if (!sdcId || !password || !confirmPassword) {
-  //     alert("Please fill all fields");
-  //     return;
-  //   }
-
-  //   if (!validatePassword(password)) {
-  //   alert("Password must be at least 6 characters and include both letters and numbers");
-  //   return;
-  //   }
-
-  //   if (password !== confirmPassword) {
-  //     alert("Passwords do not match");
-  //     return;
-  //   }
-
-  //   navigation.replace("LinkGoogle", {
-  //     sdcId,
-  //     password,
-  //     role,
-  //   });
-  // };
-
 
   const handleContinue = async () => {
   console.log('API URL:', API_URL);
@@ -52,8 +23,9 @@ export default function CreateAccountScreen({ navigation, route }) {
     return;
   }
 
-  if (!validatePassword(password)) {
-    alert("Password must be at least 6 characters and include both letters and numbers");
+  const passwordError = validatePassword(password);
+  if (passwordError) {
+    alert(passwordError);
     return;
   }
 
