@@ -1,6 +1,6 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-require('dotenv').config();
 
 const pool = require('./db');
 
@@ -14,7 +14,9 @@ const usersRouter = require('./routes/users');
 const emailRoutes = require('./routes/email');
 const announcementRoutes = require('./routes/announcements');
 const pdfviewRoutes = require('./routes/pdfview');
+const sdcAuthRoutes = require('./routes/sdcidauth');
 
+app.use('/auth/sdc', sdcAuthRoutes);
 app.use('/pdfview', pdfviewRoutes);
 app.use('/announcements', announcementRoutes);
 app.use('/auth/email', emailRoutes);
