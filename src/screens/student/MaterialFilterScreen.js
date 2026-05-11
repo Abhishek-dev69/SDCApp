@@ -7,6 +7,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -59,7 +60,7 @@ const NOTE_TYPES = [
   { id: 'video', label: 'Videos', helper: 'Lecture support' },
 ];
 
-const PYQ_YEAR_FILTERS = [2026, 2025, 2024, 2023];
+const PYQ_YEAR_FILTERS = [2024, 2023, 2022, 2021, 2020, 2019];
 
 const PYQ_SORT_OPTIONS = [
   { id: 'latest', label: 'Latest first' },
@@ -70,37 +71,11 @@ const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'S
 
 const API_URL = 'https://sdcapp-backend-456970553309.asia-south1.run.app';
 
-const [exam, setExam] = useState('JEE');
-const [pyqData, setPyqData] = useState([]);
-const [pyqLoading, setPyqLoading] = useState(false);
-const [activeMonth, setActiveMonth] = useState(null);
-const [activeSubject, setActiveSubject] = useState(null);
-
-const fetchPyqs = async () => {
-  setPyqLoading(true);
-  try {
-    const token = await SecureStore.getItemAsync('userToken');
-    const params = new URLSearchParams({ exam });
-    if (activeYear !== 'all') params.append('year', activeYear);
-    if (exam === 'JEE' && activeMonth) params.append('month', activeMonth);
-    if (exam === 'MHTCET' && activeSubject) params.append('subject', activeSubject);
-
-    const res = await fetch(`${API_URL}/pdfview?${params.toString()}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const data = await res.json();
-    setPyqData(data);
-  } catch (err) {
-    console.log('PYQ fetch error:', err);
-  } finally {
-    setPyqLoading(false);
-  }
-};
-
-useEffect(() => {
-  if (activeFilter === 'pyq') fetchPyqs();
-}, [exam, activeFilter, activeYear, activeMonth, activeSubject]);
-
+function formatPyqTitle(item) {
+  const month = item.month ? MONTH_LABELS[item.month - 1] : null;
+  const subject = item.subject ? ` ${item.subject}` : '';
+  return `${item.exam}${subject} ${item.year}${month ? ` ${month}` : ''} Paper ${item.paper_number}`;
+}
 
 function formatExamDate(examDate) {
   if (!examDate) return '';
@@ -112,10 +87,10 @@ function formatExamDate(examDate) {
 function buildNotesItems(activeFilter, activeClass, subjectLabel, noteData) {
   if (activeFilter === 'pyq') {
     return [
-      { id: 'pyq-2026-final', title: `${subjectLabel} Board Paper`, year: 2026, examDate: '2026-03-12', pdfUrl: noteData?.pyq || '' },
-      { id: 'pyq-2025-march', title: `${subjectLabel} March Paper`, year: 2025, examDate: '2025-03-09', pdfUrl: noteData?.pyq || '' },
-      { id: 'pyq-2024-practice', title: `${subjectLabel} Practice Paper`, year: 2024, examDate: '2024-02-28', pdfUrl: noteData?.pyq || '' },
-      { id: 'pyq-2023-revision', title: `${subjectLabel} Revision Paper`, year: 2023, examDate: '2023-03-05', pdfUrl: noteData?.pyq || '' },
+      { id: 'pyq-2024-final', title: `${subjectLabel} Board Paper`, year: 2024, examDate: '2024-03-12', pdfUrl: noteData?.pyq || '' },
+      { id: 'pyq-2023-march', title: `${subjectLabel} March Paper`, year: 2023, examDate: '2023-03-09', pdfUrl: noteData?.pyq || '' },
+      { id: 'pyq-2022-practice', title: `${subjectLabel} Practice Paper`, year: 2022, examDate: '2022-02-28', pdfUrl: noteData?.pyq || '' },
+      { id: 'pyq-2021-revision', title: `${subjectLabel} Revision Paper`, year: 2021, examDate: '2021-03-05', pdfUrl: noteData?.pyq || '' },
     ];
   }
 
@@ -161,6 +136,13 @@ export default function MaterialFilterScreen({ route, navigation }) {
   const [activeYear, setActiveYear] = useState('all');
   const [activeSort, setActiveSort] = useState('latest');
 
+  const [exam, setExam] = useState('JEE');
+  const [pyqData, setPyqData] = useState([]);
+  const [pyqLoading, setPyqLoading] = useState(false);
+  const [activeMonth, setActiveMonth] = useState(null);
+  const [activeSubject, setActiveSubject] = useState(null);
+
+
   const chapters = PDF_DATA?.[subjectId]?.textbook?.[source]?.[activeClass] || [];
   const noteData = PDF_DATA?.[subjectId]?.notes?.[activeClass] || {};
   const normalizedQuery = query.trim().toLowerCase();
@@ -182,7 +164,7 @@ export default function MaterialFilterScreen({ route, navigation }) {
       });
   }, [activeClass, activeFilter, activeSort, activeYear, normalizedQuery, noteData, subjectLabel]);
 
-  const resultCount = isTextbook ? textbookItems.length : noteItems.length;
+  const resultCount = isTextbook ? textbookItems.length : activeFilter === 'pyq' ? (pyqData || []).length : noteItems.length;
   const activeResourceLabel = isTextbook
     ? SOURCE_LABELS[source] || 'Textbook'
     : TYPE_CONFIG[activeFilter]?.label || 'Study Material';
@@ -209,13 +191,32 @@ export default function MaterialFilterScreen({ route, navigation }) {
     }
   };
 
-  // const openMaterial = (item, materialType) => {
-  //   navigation.navigate('PdfViewer', {
-  //     pdfUrl: item.pdfUrl || item.url,
-  //     title: item.title,
-  //     type: materialType,
-  //   });
-  // };
+  
+  
+  const fetchPyqs = async () => {
+    setPyqLoading(true);
+    try {
+      const token = await SecureStore.getItemAsync('userToken');
+      const params = new URLSearchParams({ exam });
+      if (activeYear !== 'all') params.append('year', activeYear);
+      if (exam === 'JEE' && activeMonth) params.append('month', activeMonth);
+      if (exam === 'MHTCET' && activeSubject) params.append('subject', activeSubject);
+
+      const res = await fetch(`${API_URL}/pdfview?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      setPyqData(data);
+    } catch (err) {
+      console.log('PYQ fetch error:', err);
+    } finally {
+      setPyqLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeFilter === 'pyq') fetchPyqs();
+  }, [exam, activeFilter, activeYear, activeMonth, activeSubject]);
 
   const openMaterial = async (item, materialType) => {
   if (materialType === 'pyq') {
@@ -225,7 +226,7 @@ export default function MaterialFilterScreen({ route, navigation }) {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
-      navigation.navigate('PdfViewer', { pdfUrl: data.url, title: item.title });
+      navigation.navigate('PdfViewer', { pdfUrl: data.url, title: formatPyqTitle(item) });
     } catch (err) {
       console.log('Signed URL error:', err);
     }
@@ -237,6 +238,7 @@ export default function MaterialFilterScreen({ route, navigation }) {
     });
   }
 };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -302,6 +304,18 @@ export default function MaterialFilterScreen({ route, navigation }) {
 
           {!isTextbook && (
             <>
+            <Text style={styles.filterGroupLabel}>Exam</Text>
+            <View style={styles.classSegment}>
+              {['JEE', 'MHTCET'].map((e) => (
+                <TouchableOpacity
+                  key={e}
+                  style={[styles.classOption, exam === e && styles.classOptionActive]}
+                  onPress={() => { setExam(e); setActiveMonth(null); setActiveSubject(null); }}
+                >
+                  <Text style={[styles.classLabel, exam === e && styles.classLabelActive]}>{e}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
               <Text style={styles.filterGroupLabel}>Resource Type</Text>
               <View style={styles.typeGrid}>
                 {NOTE_TYPES.map((item) => {
@@ -343,7 +357,16 @@ export default function MaterialFilterScreen({ route, navigation }) {
                   <FilterChip key={year} label={`${year}`} active={activeYear === year} onPress={() => setActiveYear(year)} />
                 ))}
               </ScrollView>
-
+                {exam === 'JEE' && (
+                  <>
+                    <Text style={styles.filterGroupLabel}>Month</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalChips}>
+                      <FilterChip label="All" active={activeMonth === null} onPress={() => setActiveMonth(null)} />
+                      <FilterChip label="January" active={activeMonth === 1} onPress={() => setActiveMonth(1)} />
+                      <FilterChip label="April" active={activeMonth === 4} onPress={() => setActiveMonth(4)} />
+                    </ScrollView>
+                  </>
+                )}
               <Text style={styles.filterGroupLabel}>Date Order</Text>
               <View style={styles.sortSegment}>
                 {PYQ_SORT_OPTIONS.map((option) => {
@@ -406,7 +429,13 @@ export default function MaterialFilterScreen({ route, navigation }) {
             );
           })}
 
-          {!isTextbook && noteItems.map((item) => {
+          {!isTextbook && (activeFilter === 'pyq' 
+            ? [...(pyqData || [])].sort((a, b) => {
+                if (a.year !== b.year) return activeSort === 'latest' ? b.year - a.year : a.year - b.year;
+                return activeSort === 'latest' ? (b.month || 0) - (a.month || 0) : (a.month || 0) - (b.month || 0);
+              })
+            : noteItems
+          ).map((item) => {
             const config = TYPE_CONFIG[activeFilter];
             const Icon = config.icon;
 
@@ -422,23 +451,50 @@ export default function MaterialFilterScreen({ route, navigation }) {
                   </View>
 
                   <View style={styles.rowCopy}>
-                    <Text style={styles.rowTitle}>{item.title}</Text>
-                    <Text style={styles.rowMeta}>
-                      {activeFilter === 'pyq'
-                        ? `${item.year} / ${formatExamDate(item.examDate)}`
-                        : `${item.classLabel} / ${activeResourceLabel}`}
+                    <Text style={styles.rowTitle}>
+                      {activeFilter === 'pyq' ? formatPyqTitle(item) : item.title}
                     </Text>
+                    {activeFilter !== 'pyq' && (
+                      <Text style={styles.rowMeta}>
+                        {`${item.classLabel} / ${activeResourceLabel}`}
+                      </Text>
+                    )}
                   </View>
                 </View>
 
-                <View style={styles.openButton}>
+                {/* <View style={styles.openButton}>
                   <Text style={styles.openButtonText}>Open</Text>
                   <ChevronRight size={16} color="#28388F" />
-                </View>
+                </View> */}
+
+
+                {activeFilter === 'pyq' ? (
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <TouchableOpacity
+                      style={styles.openButton}
+                      onPress={() => openMaterial(item, 'pyq', 'paper')}
+                    >
+                      <Text style={styles.openButtonText}>Ques</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.openButton}
+                      onPress={() => openMaterial(item, 'pyq', 'solution')}
+                    >
+                      <Text style={styles.openButtonText}>Ans</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <View style={styles.openButton}>
+                    <Text style={styles.openButtonText}>Open</Text>
+                    <ChevronRight size={16} color="#28388F" />
+                  </View>
+                )}
               </TouchableOpacity>
             );
           })}
-
+          {activeFilter === 'pyq' && pyqLoading && (
+            <ActivityIndicator color="#28388F" style={{ marginTop: 24 }} />
+          )}
           {!resultCount && (
             <View style={styles.emptyState}>
               <View style={styles.emptyIcon}>
