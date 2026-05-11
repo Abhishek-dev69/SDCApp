@@ -8,7 +8,7 @@ import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import * as SecureStore from 'expo-secure-store';
 import Constants from 'expo-constants';
-
+import { FontAwesome } from '@expo/vector-icons';
 const API_URL = Constants.expoConfig.extra.apiUrl;
 
 console.log(AuthSession.makeRedirectUri({ useProxy: true }));
@@ -123,6 +123,16 @@ export default function LoginScreen({ navigation, route }) {
           </View>
 
           <View style={styles.buttonSection}>
+            
+
+            <TouchableOpacity style={styles.socialButton} onPress={handleSDCPress}>
+              <View style={styles.iconWrapper}>
+                <Text style={{ fontWeight: 'bold', color: '#2b58ed' }}>SDC</Text>
+              </View>
+              <Text style={styles.buttonText}>Continue with SDC ID</Text>
+            </TouchableOpacity>
+
+
 
             <TouchableOpacity
               style={styles.socialButton}
@@ -130,18 +140,12 @@ export default function LoginScreen({ navigation, route }) {
               disabled={!request}
             >
               <View style={styles.iconWrapper}>
-                <Image
-                  source={{
-                    uri:
-                      'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/1024px-Google_%22G%22_logo.svg.png',
-                  }}
-                  style={styles.googleIcon}
-                />
+                <FontAwesome name="google" size={24} color="#2b58ed" />
               </View>
               <Text style={styles.buttonText}>Continue with Google</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.socialButton} onPress={handlePhonePress}>
+            {/* <TouchableOpacity style={styles.socialButton} onPress={handlePhonePress}>
               <View style={styles.iconWrapper}>
                 <Phone size={24} color="#10b981" fill="#10b981" />
               </View>
@@ -153,14 +157,9 @@ export default function LoginScreen({ navigation, route }) {
                 <Mail size={24} color="#2b58ed" fill="#2b58ed" />
               </View>
               <Text style={styles.buttonText}>Continue with Email</Text>
-            </TouchableOpacity>
+            </TouchableOpacity> */}
 
-            <TouchableOpacity style={styles.socialButton} onPress={handleSDCPress}>
-              <View style={styles.iconWrapper}>
-                <Text style={{ fontWeight: 'bold', color: '#2b58ed' }}>SDC</Text>
-              </View>
-              <Text style={styles.buttonText}>Continue with SDC ID</Text>
-            </TouchableOpacity>
+            
 
           </View>
 
