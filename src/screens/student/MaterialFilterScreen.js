@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
+import * as SecureStore from 'expo-secure-store';
 import {
   ScrollView,
   StyleSheet,
@@ -66,6 +67,40 @@ const PYQ_SORT_OPTIONS = [
 ];
 
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+const API_URL = 'https://sdcapp-backend-456970553309.asia-south1.run.app';
+
+const [exam, setExam] = useState('JEE');
+const [pyqData, setPyqData] = useState([]);
+const [pyqLoading, setPyqLoading] = useState(false);
+const [activeMonth, setActiveMonth] = useState(null);
+const [activeSubject, setActiveSubject] = useState(null);
+
+const fetchPyqs = async () => {
+  setPyqLoading(true);
+  try {
+    const token = await SecureStore.getItemAsync('userToken');
+    const params = new URLSearchParams({ exam });
+    if (activeYear !== 'all') params.append('year', activeYear);
+    if (exam === 'JEE' && activeMonth) params.append('month', activeMonth);
+    if (exam === 'MHTCET' && activeSubject) params.append('subject', activeSubject);
+
+    const res = await fetch(`${API_URL}/pdfview?${params.toString()}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json();
+    setPyqData(data);
+  } catch (err) {
+    console.log('PYQ fetch error:', err);
+  } finally {
+    setPyqLoading(false);
+  }
+};
+
+useEffect(() => {
+  if (activeFilter === 'pyq') fetchPyqs();
+}, [exam, activeFilter, activeYear, activeMonth, activeSubject]);
+
 
 function formatExamDate(examDate) {
   if (!examDate) return '';
@@ -174,14 +209,34 @@ export default function MaterialFilterScreen({ route, navigation }) {
     }
   };
 
-  const openMaterial = (item, materialType) => {
+  // const openMaterial = (item, materialType) => {
+  //   navigation.navigate('PdfViewer', {
+  //     pdfUrl: item.pdfUrl || item.url,
+  //     title: item.title,
+  //     type: materialType,
+  //   });
+  // };
+
+  const openMaterial = async (item, materialType) => {
+  if (materialType === 'pyq') {
+    try {
+      const token = await SecureStore.getItemAsync('userToken');
+      const res = await fetch(`${API_URL}/pdfview/${item.id}/url?type=paper`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      navigation.navigate('PdfViewer', { pdfUrl: data.url, title: item.title });
+    } catch (err) {
+      console.log('Signed URL error:', err);
+    }
+  } else {
     navigation.navigate('PdfViewer', {
       pdfUrl: item.pdfUrl || item.url,
       title: item.title,
       type: materialType,
     });
-  };
-
+  }
+};
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
