@@ -41,23 +41,8 @@ router.post('/google', async (req, res) => {
       authUser = existingUser.rows[0];
 
     } else {
-      console.log('New user, creating auth record...');
-      const student = await pool.query(
-        'SELECT * FROM students WHERE email_address = $1',
-        [email]
-      );
-      const studentId = student.rows.length > 0 ? student.rows[0].id : null;
-
-      const newUser = await pool.query(
-        `INSERT INTO auth 
-          (student_id, name, email, google_id, auth_provider, role)
-         VALUES 
-          ($1, $2, $3, $4, 'google', 'student')
-         RETURNING *`,
-        [studentId, name, email, googleId]
-      );
-      authUser = newUser.rows[0];
-    }
+  return res.status(403).json({ error: 'No SDC account linked to this Google account. Please sign in with your SDC ID first.' });
+}
 
     await pool.query(
       'UPDATE auth SET last_login = NOW() WHERE id = $1',
@@ -76,7 +61,7 @@ router.post('/google', async (req, res) => {
     );
 
     console.log('Login successful, sending JWT...');
-    res.json({ jwt: jwtToken });
+    res.json({ jwt: jwtToken, forceChangePassword: authUser.is_temp_password });
 
   } catch (err) {
     console.error('Google auth error:', err.message);
@@ -98,11 +83,12 @@ router.get('/is-temp-password', verifyToken, async (req, res) => {
       'SELECT is_temp_password FROM auth WHERE id = $1',
       [req.user.authId]
     );
-    res.json({ 
-  jwt: token, 
-  role: user.role,
-  is_temp_password: user.is_temp_password 
-});
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({ is_temp_password: result.rows[0].is_temp_password });
   } catch (err) {
     res.status(500).json({ error: 'Failed to check password status' });
   }
@@ -111,14 +97,16 @@ router.get('/is-temp-password', verifyToken, async (req, res) => {
 
 
 
-
 // Changing password Route 
 router.post('/change-password', verifyToken, async (req, res) => {
   const { newPassword } = req.body;
 
-  if (!newPassword || newPassword.length < 6) {
-    return res.status(400).json({ error: 'Password must be at least 6 characters' });
-  }
+  const passwordRegex = /^(?=.*[A-Z])(?=.*[0-9])(?=.*[^a-zA-Z0-9])(?!.*\s).{8,}$/;
+if (!newPassword || !passwordRegex.test(newPassword)) {
+  return res.status(400).json({ 
+    error: 'Password must be 8+ characters with one capital letter, one number, and one special character' 
+  });
+}
 
   try {
     const hash = await bcrypt.hash(newPassword, 10);

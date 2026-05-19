@@ -67,6 +67,10 @@ export default function LoginScreen({ navigation, route }) {
       });
 
       const data = await res.json();
+      if (res.status === 403) {
+          Alert.alert('Error', 'No SDC account linked. Please sign in with your SDC ID first.');
+          return;
+        }
 
       if (data.jwt) {
         await SecureStore.setItemAsync('userToken', data.jwt);

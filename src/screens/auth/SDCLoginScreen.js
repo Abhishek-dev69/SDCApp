@@ -33,6 +33,11 @@ export default function SDCLoginScreen({ navigation }) {
     }
 
     await SecureStore.setItemAsync('token', data.token);
+    if (!data.google_linked) {
+      navigation.replace('LinkGoogle', { role: data.role});
+      return;
+    }
+
     navigation.replace('BatchSelection');
 
   } catch (err) {

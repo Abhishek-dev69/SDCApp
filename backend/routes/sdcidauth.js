@@ -3,6 +3,7 @@ const router = express.Router();
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const pool = require('../db');
+const verifyToken = require('../middleware/verifyToken');
 const { OAuth2Client } = require('google-auth-library');
 const googleClient = new OAuth2Client(process.env.GOOGLE_ANDROID_CLIENT_ID);
 
@@ -10,7 +11,10 @@ const googleClient = new OAuth2Client(process.env.GOOGLE_ANDROID_CLIENT_ID);
 
 router.post('/setup-password', async (req, res) => {
   const { student_id, password } = req.body;
-
+  const passwordRegex = /^(?=.*[A-Z])(?=.*[0-9])(?=.*[^a-zA-Z0-9])(?!.*\s).{8,}$/;
+if (!password || !passwordRegex.test(password)) {
+  return res.status(400).json({ error: 'Password must be 8+ characters with one capital, one number, and one special character' });
+}
   try {
     // Check student exists
     const student = await pool.query(
@@ -80,13 +84,14 @@ router.post('/signin', async (req, res) => {
       return res.status(401).json({ message: 'Incorrect password' });
     }
 
-    const token = jwt.sign(
-      { userId: user.id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: '7d' }
-    );
+const token = jwt.sign(
+  { authId: user.id, studentId: user.student_id, role: user.role, name: user.student_name },
+  process.env.JWT_SECRET,
+  { expiresIn: '7d' }
+);
 
-    res.status(200).json({ token, name: user.name, role: user.role });
+
+    res.status(200).json({ token, name: user.name, role: user.role, google_linked: user.google_linked  });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
@@ -103,8 +108,8 @@ router.post('/signin', async (req, res) => {
 
 
 // LINK GOOGLE ROUTE
-router.post('/link-google', async (req, res) => {
-  const { token, student_id } = req.body;
+router.post('/link-google',verifyToken, async (req, res) => {
+  const { token } = req.body;
 
   try {
     const ticket = await googleClient.verifyIdToken({
@@ -116,7 +121,7 @@ router.post('/link-google', async (req, res) => {
 
     await pool.query(
       'UPDATE auth SET google_id = $1, email = $2, google_linked = TRUE WHERE student_id = $3',
-      [payload.sub, payload.email, student_id]
+      [payload.sub, payload.email, req.user.studentId]
     );
 
     res.status(200).json({ message: 'Google account linked successfully' });

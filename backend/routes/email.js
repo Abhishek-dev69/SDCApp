@@ -39,9 +39,7 @@ router.post('/signin', async (req, res) => {
 
     const user = result.rows[0];
     // Then check provider
-    if (user.auth_provider !== 'email') {
-      return res.status(401).json({ error: 'This account uses Google login. Please sign in with Google instead.' });
-    }
+    
     // Check email is verified
     if (!user.email_verified) {
       
@@ -246,7 +244,10 @@ router.post('/forgot-password', async (req, res) => {
   const { email } = req.body;
 
   if (!email) return res.status(400).json({ error: 'Email is required' });
-
+   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+if (!emailRegex.test(email)) {
+  return res.status(400).json({ error: 'Invalid email address' });
+}
   try {
     // Check if user exists
     const result = await pool.query(
@@ -259,11 +260,6 @@ router.post('/forgot-password', async (req, res) => {
       return res.status(200).json({ message: 'If this email exists, a temporary password has been sent.' });
     }
 
-    if (result.rows[0].auth_provider !== 'email') {
-      return res.status(200).json({ 
-        error: 'This account uses Google login. Please sign in with Google instead.' 
-      });
-    }
     const upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
     const lower = 'abcdefghijklmnopqrstuvwxyz';
     const numbers = '0123456789';

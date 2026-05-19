@@ -4,7 +4,7 @@ import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-
+import * as SecureStore from 'expo-secure-store';
 WebBrowser.maybeCompleteAuthSession();
 
 const API_URL = 'https://sdcapp-backend-456970553309.asia-south1.run.app';
@@ -32,10 +32,13 @@ useEffect(() => {
 
 const handleLinkGoogle = async (googleToken) => {
   try {
+    const token = await SecureStore.getItemAsync('token');
     const res = await fetch(`${API_URL}/auth/sdc/link-google`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: googleToken, student_id: sdcId }),
+      headers: { 'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}`
+       },
+      body: JSON.stringify({ token: googleToken }),
     });
 
     const data = await res.json();
