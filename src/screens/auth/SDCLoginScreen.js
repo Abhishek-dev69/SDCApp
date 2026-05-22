@@ -22,7 +22,7 @@ export default function SDCLoginScreen({ navigation }) {
     const response = await fetch(`${API_URL}/auth/sdc/signin`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ student_id: sdcId, password }),
+      body: JSON.stringify({ sdcId: sdcId, password }),
     });
 
     const data = await response.json();

@@ -62,7 +62,7 @@ router.post('/signin', async (req, res) => {
     const jwtToken = jwt.sign(
       {
         authId: user.id,
-        studentId: user.student_id,
+        sdcId: user.sdc_id,
         role: user.role,
         name: user.name
       },
@@ -96,73 +96,73 @@ router.post('/signin', async (req, res) => {
 
 
 
-// POST /auth/email/signup
-router.post('/signup', async (req, res) => {
-  const { email, password , role, name} = req.body;
+// // POST /auth/email/signup
+// router.post('/signup', async (req, res) => {
+//   const { email, password , role, name} = req.body;
 
-  if (!email || !password) {
-    return res.status(400).json({ error: 'Email and password are required' });
-  }
+//   if (!email || !password) {
+//     return res.status(400).json({ error: 'Email and password are required' });
+//   }
 
-  try {
-    // Check if email already exists
-    const existing = await pool.query(
-      'SELECT * FROM auth WHERE email = $1',
-      [email]
-    );
-    if (existing.rows.length > 0) {
-      return res.status(409).json({ error: 'Email already registered' });
-    }
+//   try {
+//     // Check if email already exists
+//     const existing = await pool.query(
+//       'SELECT * FROM auth WHERE email = $1',
+//       [email]
+//     );
+//     if (existing.rows.length > 0) {
+//       return res.status(409).json({ error: 'Email already registered' });
+//     }
 
-    // Hash password
-    const passwordHash = await bcrypt.hash(password, 10);
+//     // Hash password
+//     const passwordHash = await bcrypt.hash(password, 10);
 
-    // Generate verification token
-    const verificationToken = crypto.randomBytes(32).toString('hex');
-    const tokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+//     // Generate verification token
+//     const verificationToken = crypto.randomBytes(32).toString('hex');
+//     const tokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
-    // Check if student exists with this email
-    const student = await pool.query(
-      'SELECT * FROM students WHERE email_address = $1',
-      [email]
-    );
-    const studentId = student.rows.length > 0 ? student.rows[0].id : null;
+//     // Check if student exists with this email
+//     const student = await pool.query(
+//       'SELECT * FROM students WHERE email_address = $1',
+//       [email]
+//     );
+//     const studentId = student.rows.length > 0 ? student.rows[0].id : null;
 
-    // Insert into auth table
-    await pool.query(
+//     // Insert into auth table
+//     await pool.query(
    
-    `INSERT INTO auth 
-        (student_id, email, name, auth_provider, role, password_hash, email_verified, verification_token, verification_token_expires_at)
-    VALUES 
-        ($1, $2, $3, $4, $5, $6, false, $7, $8)`,
-    [studentId, email, name, 'email', role, passwordHash, verificationToken, tokenExpiry]
-    );
-    // Send verification email
-    const emailResult = await resend.emails.send({
-      from: 'SDCApp <noreply@sureshdaniclasses.com>', // swap with noreply@ksneducation.in later
-      to: email,
-      subject: 'Verify your SDCApp email',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #2b58ed;">Welcome to SDCApp!</h2>
-          <p>Please verify your email address by clicking the button below:</p>
-          <a href="https://sdcapp-backend-456970553309.asia-south1.run.app/auth/email/verify?token=${verificationToken}"
-             style="background-color: #2b58ed; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; margin: 16px 0;">
-            Verify Email
-          </a>
-          <p style="color: #666;">This link expires in 24 hours.</p>
-          <p style="color: #666;">If you didn't create an account, ignore this email.</p>
-        </div>
-      `
-    });
+//     `INSERT INTO auth 
+//         (student_id, email, name, auth_provider, role, password_hash, email_verified, verification_token, verification_token_expires_at)
+//     VALUES 
+//         ($1, $2, $3, $4, $5, $6, false, $7, $8)`,
+//     [studentId, email, name, 'email', role, passwordHash, verificationToken, tokenExpiry]
+//     );
+//     // Send verification email
+//     const emailResult = await resend.emails.send({
+//       from: 'SDCApp <noreply@sureshdaniclasses.com>', // swap with noreply@ksneducation.in later
+//       to: email,
+//       subject: 'Verify your SDCApp email',
+//       html: `
+//         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+//           <h2 style="color: #2b58ed;">Welcome to SDCApp!</h2>
+//           <p>Please verify your email address by clicking the button below:</p>
+//           <a href="https://sdcapp-backend-456970553309.asia-south1.run.app/auth/email/verify?token=${verificationToken}"
+//              style="background-color: #2b58ed; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; margin: 16px 0;">
+//             Verify Email
+//           </a>
+//           <p style="color: #666;">This link expires in 24 hours.</p>
+//           <p style="color: #666;">If you didn't create an account, ignore this email.</p>
+//         </div>
+//       `
+//     });
     
-    res.status(201).json({ message: JSON.stringify(emailResult) });
+//     res.status(201).json({ message: JSON.stringify(emailResult) });
 
-  } catch (err) {
-    console.error('Email signup error:', err.message);
-    res.status(500).json({ error: 'Signup failed' });
-  }
-});
+//   } catch (err) {
+//     console.error('Email signup error:', err.message);
+//     res.status(500).json({ error: 'Signup failed' });
+//   }
+// });
 
 
 

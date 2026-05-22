@@ -52,7 +52,7 @@ router.post('/google', async (req, res) => {
     const jwtToken = jwt.sign(
       {
         authId: authUser.id,
-        studentId: authUser.student_id,
+        sdcId: authUser.sdc_id,
         role: authUser.role,
         name: authUser.name
       },

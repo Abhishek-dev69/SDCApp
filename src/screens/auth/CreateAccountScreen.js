@@ -38,7 +38,7 @@ export default function CreateAccountScreen({ navigation, route }) {
     const response = await fetch(`${API_URL}/auth/sdc/setup-password`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ student_id: sdcId, password }),
+      body: JSON.stringify({ sdcId: sdcId, password }),
     });
 
     const data = await response.json();
