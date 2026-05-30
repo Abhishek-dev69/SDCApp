@@ -32,13 +32,23 @@ export default function SDCLoginScreen({ navigation }) {
       return;
     }
 
-    await SecureStore.setItemAsync('token', data.token);
+    await SecureStore.setItemAsync('userToken', data.token);
     if (!data.google_linked) {
       navigation.replace('LinkGoogle', { role: data.role});
       return;
     }
 
-    navigation.replace('BatchSelection');
+
+    const roleRoutes = {
+      student: 'MainTabs',
+      admin: 'AdminTabs',
+      owner: 'OwnerTabs',
+      parent: 'ParentTabs',
+    };
+
+    navigation.replace(roleRoutes[data.role] || 'MainTabs');
+
+    // navigation.replace('BatchSelection');
 
   } catch (err) {
     console.error('Signin error:', err);
