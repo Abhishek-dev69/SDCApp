@@ -181,6 +181,66 @@ router.post('/signin', async (req, res) => {
 
 
 
+// POST /auth/email/signup
+router.post('/signup', async (req, res) => {
+  const { email, password, role = 'student', name } = req.body;
+
+  if (!email || !password || !name) {
+    return res.status(400).json({ error: 'Name, email, and password are required' });
+  }
+
+  const passwordRegex = /^(?=.*[A-Z])(?=.*[0-9])(?=.*[^a-zA-Z0-9])(?!.*\s).{8,}$/;
+  if (!passwordRegex.test(password)) {
+    return res.status(400).json({
+      error: 'Password must be 8+ characters with one capital letter, one number, and one special character'
+    });
+  }
+
+  try {
+    const existing = await pool.query('SELECT id FROM auth WHERE email = $1', [email]);
+    if (existing.rows.length > 0) {
+      return res.status(409).json({ error: 'Email already registered' });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    const tokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    await pool.query(
+      `INSERT INTO auth
+        (email, name, auth_provider, role, password_hash, email_verified, verification_token, verification_token_expires_at)
+       VALUES ($1, $2, 'email', $3, $4, false, $5, $6)`,
+      [email, name, role, passwordHash, verificationToken, tokenExpiry]
+    );
+
+    const backendUrl = process.env.PUBLIC_BACKEND_URL || 'https://sdcapp-backend-456970553309.asia-south1.run.app';
+
+    if (process.env.RESEND_API_KEY) {
+      await resend.emails.send({
+        from: 'SDCApp <noreply@sureshdaniclasses.com>',
+        to: email,
+        subject: 'Verify your SDCApp email',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #2b58ed;">Welcome to SDCApp!</h2>
+            <p>Please verify your email address by clicking the button below:</p>
+            <a href="${backendUrl}/auth/email/verify?token=${verificationToken}"
+               style="background-color: #2b58ed; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; margin: 16px 0;">
+              Verify Email
+            </a>
+            <p style="color: #666;">This link expires in 24 hours.</p>
+          </div>
+        `
+      });
+    }
+
+    res.status(201).json({ message: 'Signup created. Please verify your email.' });
+  } catch (err) {
+    console.error('Email signup error:', err.message);
+    res.status(500).json({ error: 'Signup failed' });
+  }
+});
+
 // GET /auth/email/verify?token=xxx
 router.get('/verify', async (req, res) => {
   const { token } = req.query;

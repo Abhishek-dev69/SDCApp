@@ -37,7 +37,24 @@ try {
       [password_hash, sdcId]
     );
 
-    res.status(200).json({ message: 'Password set successfully' });
+    const token = jwt.sign(
+      {
+        authId: student.rows[0].id,
+        sdcId: student.rows[0].sdc_id,
+        role: student.rows[0].role,
+        name: student.rows[0].name
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    res.status(200).json({
+      message: 'Password set successfully',
+      token,
+      role: student.rows[0].role,
+      name: student.rows[0].name,
+      google_linked: student.rows[0].google_linked
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
@@ -147,7 +164,7 @@ router.post('/link-google',verifyToken, async (req, res) => {
     const payload = ticket.getPayload();
 
     await pool.query(
-      'UPDATE auth SET google_id = $1, email = $2, google_linked = TRUE WHERE sdc_id = $3',
+      'UPDATE auth SET google_id = $1, email = $2, google_linked = TRUE WHERE id = $3',
       [payload.sub, payload.email, req.user.authId]
     );
 
