@@ -2,7 +2,6 @@ import React from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { CommonActions } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import * as SecureStore from 'expo-secure-store';
 import {
   Bell,
   BookOpen,
@@ -19,6 +18,7 @@ import {
   Users,
 } from 'lucide-react-native';
 import { getAdminBatchTotals, getBranchSummaries } from '../../data/adminBatchOverview';
+import { clearAuthToken } from '../../services/api';
 
 const ACCOUNT_OPTIONS = [
   { id: 'edit-profile', title: 'Profile Details', subtitle: 'Update name, phone, and admin contact info', icon: UserCog },
@@ -91,7 +91,7 @@ export default function AdminSettingsScreen({ navigation, route }) {
           text: 'Logout',
           style: 'destructive',
           onPress: async () => {
-            await SecureStore.deleteItemAsync('userToken');
+            await clearAuthToken();
             getRootNavigation(navigation).dispatch(
               CommonActions.reset({
                 index: 0,

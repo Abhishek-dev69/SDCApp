@@ -1,5 +1,4 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import * as SecureStore from 'expo-secure-store';
 import {
   ScrollView,
   StyleSheet,
@@ -26,7 +25,8 @@ import {
   PlayCircle,
   Search,
 } from 'lucide-react-native';
-import PDF_DATA from '../../data/PDF_DATA';
+import { apiRequest } from '../../services/api';
+import { useStudentSession } from '../../context/StudentSessionContext';
 
 const SUBJECT_LABELS = {
   physics: 'Physics',
@@ -68,8 +68,6 @@ const PYQ_SORT_OPTIONS = [
 ];
 
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-const API_URL = 'https://sdcapp-backend-456970553309.asia-south1.run.app';
 
 function formatPyqTitle(item) {
   const month = item.month ? MONTH_LABELS[item.month - 1] : null;
@@ -125,6 +123,7 @@ function ProgressPill({ text }) {
 
 export default function MaterialFilterScreen({ route, navigation }) {
   const { subjectId, type, source, class: selectedClass } = route.params;
+  const { selectedBatch } = useStudentSession();
 
   const subjectLabel = SUBJECT_LABELS[subjectId] || 'Subject';
   const isTextbook = type === 'textbook';
@@ -141,28 +140,33 @@ export default function MaterialFilterScreen({ route, navigation }) {
   const [pyqLoading, setPyqLoading] = useState(false);
   const [activeMonth, setActiveMonth] = useState(null);
   const [activeSubject, setActiveSubject] = useState(null);
+  const [materials, setMaterials] = useState([]);
+  const [materialsLoading, setMaterialsLoading] = useState(false);
 
 
-  const chapters = PDF_DATA?.[subjectId]?.textbook?.[source]?.[activeClass] || [];
-  const noteData = PDF_DATA?.[subjectId]?.notes?.[activeClass] || {};
   const normalizedQuery = query.trim().toLowerCase();
 
+  const materialItems = useMemo(() => {
+    return (materials || []).map((item) => ({
+      ...item,
+      fromBackend: true,
+      classLabel: `Class ${item.classLevel || activeClass}`,
+    }));
+  }, [activeClass, materials]);
+
   const textbookItems = useMemo(() => {
-    return chapters.filter((chapter) => chapter?.title?.toLowerCase().includes(normalizedQuery));
-  }, [chapters, normalizedQuery]);
+    return materialItems.filter((chapter) => chapter?.title?.toLowerCase().includes(normalizedQuery));
+  }, [materialItems, normalizedQuery]);
 
   const noteItems = useMemo(() => {
-    return buildNotesItems(activeFilter, activeClass, subjectLabel, noteData)
-      .filter((item) => activeFilter !== 'pyq' || activeYear === 'all' || item.year === activeYear)
+    return materialItems
       .filter((item) => item.title.toLowerCase().includes(normalizedQuery))
       .sort((firstItem, secondItem) => {
-        if (activeFilter !== 'pyq') return 0;
-
-        const first = new Date(firstItem.examDate).getTime();
-        const second = new Date(secondItem.examDate).getTime();
+        const first = new Date(firstItem.uploadedAt || 0).getTime();
+        const second = new Date(secondItem.uploadedAt || 0).getTime();
         return activeSort === 'latest' ? second - first : first - second;
       });
-  }, [activeClass, activeFilter, activeSort, activeYear, normalizedQuery, noteData, subjectLabel]);
+  }, [activeSort, materialItems, normalizedQuery]);
 
   const resultCount = isTextbook ? textbookItems.length : activeFilter === 'pyq' ? (pyqData || []).length : noteItems.length;
   const activeResourceLabel = isTextbook
@@ -196,16 +200,12 @@ export default function MaterialFilterScreen({ route, navigation }) {
   const fetchPyqs = async () => {
     setPyqLoading(true);
     try {
-      const token = await SecureStore.getItemAsync('userToken');
       const params = new URLSearchParams({ exam });
       if (activeYear !== 'all') params.append('year', activeYear);
       if (exam === 'JEE' && activeMonth) params.append('month', activeMonth);
       if (exam === 'MHTCET' && activeSubject) params.append('subject', activeSubject);
 
-      const res = await fetch(`${API_URL}/pdfview?${params.toString()}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
+      const data = await apiRequest(`/pdfview?${params.toString()}`);
       setPyqData(data);
     } catch (err) {
       console.log('PYQ fetch error:', err);
@@ -218,24 +218,53 @@ export default function MaterialFilterScreen({ route, navigation }) {
     if (activeFilter === 'pyq') fetchPyqs();
   }, [exam, activeFilter, activeYear, activeMonth, activeSubject]);
 
-  const openMaterial = async (item, materialType) => {
+  const fetchMaterials = async () => {
+    if (!isTextbook && activeFilter === 'pyq') return;
+
+    setMaterialsLoading(true);
+    try {
+      const params = new URLSearchParams({
+        subject: subjectId,
+        type: isTextbook ? 'textbook' : activeFilter,
+        class: String(activeClass),
+      });
+
+      if (source) params.append('source', source);
+      if (selectedBatch?.label) params.append('batch', selectedBatch.label);
+
+      const data = await apiRequest(`/materials?${params.toString()}`);
+      setMaterials(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.log('Material fetch error:', err);
+      setMaterials([]);
+    } finally {
+      setMaterialsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchMaterials();
+  }, [activeClass, activeFilter, source, subjectId, selectedBatch?.label, type]);
+
+  const openMaterial = async (item, materialType, pyqType = 'paper') => {
   if (materialType === 'pyq') {
     try {
-      const token = await SecureStore.getItemAsync('userToken');
-      const res = await fetch(`${API_URL}/pdfview/${item.id}/url?type=paper`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
+      const data = await apiRequest(`/pdfview/${item.id}/url?type=${pyqType}`);
       navigation.navigate('PdfViewer', { pdfUrl: data.url, title: formatPyqTitle(item) });
     } catch (err) {
       console.log('Signed URL error:', err);
     }
   } else {
-    navigation.navigate('PdfViewer', {
-      pdfUrl: item.pdfUrl || item.url,
-      title: item.title,
-      type: materialType,
-    });
+    try {
+      const data = await apiRequest(`/materials/${item.id}/download`);
+      navigation.navigate('PdfViewer', {
+        pdfUrl: data.url,
+        title: data.title || item.title,
+        type: materialType,
+      });
+    } catch (err) {
+      console.log('Material URL error:', err);
+    }
   }
 };
 
@@ -495,7 +524,10 @@ export default function MaterialFilterScreen({ route, navigation }) {
           {activeFilter === 'pyq' && pyqLoading && (
             <ActivityIndicator color="#28388F" style={{ marginTop: 24 }} />
           )}
-          {!resultCount && (
+          {activeFilter !== 'pyq' && materialsLoading && (
+            <ActivityIndicator color="#28388F" style={{ marginTop: 24 }} />
+          )}
+          {!resultCount && !pyqLoading && !materialsLoading && (
             <View style={styles.emptyState}>
               <View style={styles.emptyIcon}>
                 <FilterX size={24} color="#64748B" />

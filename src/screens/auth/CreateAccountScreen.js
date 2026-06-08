@@ -4,10 +4,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Eye, EyeOff } from 'lucide-react-native';
 import { validatePassword } from '../../utils/validation';
+import { apiRequest, saveAuthToken } from '../../services/api';
 
 export default function CreateAccountScreen({ navigation, route }) {
   const role = route?.params?.role || "student";
-  const API_URL = 'https://sdcapp-backend-456970553309.asia-south1.run.app';
   const [sdcId, setSdcId] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -17,7 +17,6 @@ export default function CreateAccountScreen({ navigation, route }) {
 
 
   const handleContinue = async () => {
-  console.log('API URL:', API_URL);
   if (!sdcId || !password || !confirmPassword) {
     alert("Please fill all fields");
     return;
@@ -35,24 +34,21 @@ export default function CreateAccountScreen({ navigation, route }) {
   }
 
   try {
-    const response = await fetch(`${API_URL}/auth/sdc/setup-password`, {
+    const data = await apiRequest('/auth/sdc/setup-password', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sdcId: sdcId, password }),
+      auth: false,
+      body: { sdcId: sdcId, password },
     });
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      alert(data.message || 'Something went wrong');
-      return;
+    if (data.token) {
+      await saveAuthToken(data.token);
     }
 
     navigation.replace("LinkGoogle", { sdcId, password, role });
 
   } catch (err) {
     console.error('Setup password error:', err);
-    alert('Network error, please try again');
+    alert(err.message || 'Network error, please try again');
   }
 };
 

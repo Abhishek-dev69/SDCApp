@@ -4,11 +4,8 @@ import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as SecureStore from 'expo-secure-store';
+import { apiRequest } from '../../services/api';
 WebBrowser.maybeCompleteAuthSession();
-
-const API_URL = 'https://sdcapp-backend-456970553309.asia-south1.run.app';
-
 
 export default function LinkGoogleScreen({ route, navigation }) {
   const { role ,sdcId } = route?.params || {};
@@ -32,26 +29,15 @@ useEffect(() => {
 
 const handleLinkGoogle = async (googleToken) => {
   try {
-    const token = await SecureStore.getItemAsync('token');
-    const res = await fetch(`${API_URL}/auth/sdc/link-google`, {
+    await apiRequest('/auth/sdc/link-google', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${token}`
-       },
-      body: JSON.stringify({ token: googleToken }),
+      body: { token: googleToken },
     });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      alert(data.error || 'Failed to link Google account');
-      return;
-    }
 
     handleNext();
   } catch (err) {
     console.error('Link Google error:', err);
-    alert('Network error, please try again');
+    alert(err.message || 'Network error, please try again');
   }
 };
 

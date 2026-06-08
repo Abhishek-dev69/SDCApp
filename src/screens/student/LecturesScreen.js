@@ -11,7 +11,6 @@ import {
 } from 'lucide-react-native';
 
 import { useStudentSession } from '../../context/StudentSessionContext';
-import PDF_DATA from '../../data/PDF_DATA';
 import {
   getAvailableMaterialTabs,
   getNotesSectionForBatch,
@@ -68,24 +67,10 @@ export default function LecturesScreen({ navigation }) {
   }, [defaultSource]);
 
   const activeTextbookSection = useMemo(() => {
-    const section =
-      textbookSections.find(
-        (section) => section.source === activeSource
-      ) || textbookSections?.[0] || { subjects: [] };
-
-    return {
-      ...section,
-      subjects: section?.subjects?.map((subject) => ({
-        ...subject,
-        chapters:
-          Array.isArray(
-            PDF_DATA?.[subject.id]?.textbook?.ncert?.[selectedClass]
-          )
-            ? PDF_DATA[subject.id].textbook.ncert[selectedClass]
-            : subject.chapters || [],
-              })) || [],
-    };
-  }, [activeSource, textbookSections, selectedClass]);
+    return textbookSections.find((section) => section.source === activeSource)
+      || textbookSections?.[0]
+      || { subjects: [] };
+  }, [activeSource, textbookSections]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -159,7 +144,7 @@ export default function LecturesScreen({ navigation }) {
                         {getTextbookItemTitle(activeTextbookSection.source, subject)}
                       </Text>
                       <Text style={styles.rowMeta}>
-                        {subject.chapters?.length + " Chapters"}
+                        Class {selectedClass} material
                       </Text>
                     </View>
                   </View>

@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
+  ActivityIndicator,
+  Alert,
   View, 
   Text, 
   StyleSheet, 
@@ -20,31 +22,57 @@ import {
   Clock,
   Calendar
 } from 'lucide-react-native';
+import { apiRequest } from '../../services/api';
 
 const { width } = Dimensions.get('window');
-
-const MOCK_BATCHES = [
-  { id: '1', name: 'NEET A7', class: 'Class 12th', studentCount: 42, teacherCount: 5, timing: '08:00 AM - 12:00 PM' },
-  { id: '2', name: 'JEE K8', class: 'Class 11th', studentCount: 38, teacherCount: 4, timing: '12:30 PM - 04:30 PM' },
-  { id: '3', name: 'Foundation B3', class: 'Class 10th', studentCount: 25, teacherCount: 3, timing: '05:00 PM - 07:00 PM' },
-];
-
-const MOCK_STUDENTS = [
-  { id: '1', name: 'Manasvi Gawli', rollNo: '1204', status: 'Present', attendance: '94%' },
-  { id: '2', name: 'Aarav Patel', rollNo: '1208', status: 'Absent', attendance: '88%' },
-  { id: '3', name: 'Ishita Sharma', rollNo: '1215', status: 'Present', attendance: '91%' },
-  { id: '4', name: 'Kabir Singh', rollNo: '1222', status: 'Present', attendance: '85%' },
-];
-
-const MOCK_TEACHERS = [
-  { id: '1', name: 'Dr. Vivek Sharma', subject: 'Physics', experience: '12 Years', status: 'On Duty' },
-  { id: '2', name: 'Prof. Anjali Roy', subject: 'Chemistry', experience: '8 Years', status: 'On Duty' },
-  { id: '3', name: 'Sanjay Gupta', subject: 'Biology', experience: '15 Years', status: 'Leave' },
-];
 
 export default function AdminBatchesScreen({ navigation }) {
   const [selectedBatch, setSelectedBatch] = useState(null);
   const [activeSegment, setActiveSegment] = useState('students'); // 'students' or 'teachers'
+  const [batches, setBatches] = useState([]);
+  const [students, setStudents] = useState([]);
+  const [teachers, setTeachers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [detailLoading, setDetailLoading] = useState(false);
+
+  const loadBatches = async () => {
+    setLoading(true);
+    try {
+      const data = await apiRequest('/admin/batches');
+      setBatches(Array.isArray(data) ? data : []);
+    } catch (err) {
+      Alert.alert('Unable to Load Batches', err.message || 'Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadBatchPeople = async (batch) => {
+    setDetailLoading(true);
+    try {
+      const data = await apiRequest(`/admin/batches/${encodeURIComponent(batch.id)}/people`);
+      setStudents(data.students || []);
+      setTeachers(data.teachers || []);
+    } catch (err) {
+      Alert.alert('Unable to Load Batch Details', err.message || 'Please try again.');
+      setStudents([]);
+      setTeachers([]);
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', loadBatches);
+    loadBatches();
+    return unsubscribe;
+  }, [navigation]);
+
+  useEffect(() => {
+    if (selectedBatch) {
+      loadBatchPeople(selectedBatch);
+    }
+  }, [selectedBatch]);
 
   const handleCreateBatch = () => {
     navigation.navigate('AddBatch');
@@ -59,14 +87,14 @@ export default function AdminBatchesScreen({ navigation }) {
         <View style={styles.batchHeaderRow}>
           <Text style={styles.batchName}>{item.name}</Text>
           <View style={styles.classBadge}>
-            <Text style={styles.classBadgeText}>{item.class}</Text>
+            <Text style={styles.classBadgeText}>{item.stream || item.program}</Text>
           </View>
         </View>
         
         <View style={styles.batchDetailRow}>
           <View style={styles.batchDetailItem}>
             <Clock size={14} color="#64748b" />
-            <Text style={styles.batchDetailText}>{item.timing}</Text>
+            <Text style={styles.batchDetailText}>{item.timing || `${item.branch} • ${item.program}`}</Text>
           </View>
         </View>
 
@@ -90,12 +118,12 @@ export default function AdminBatchesScreen({ navigation }) {
       <View style={styles.personAvatar}>
         <Text style={styles.avatarText}>{item.name.charAt(0)}</Text>
       </View>
-      <View style={styles.personInfo}>
-        <Text style={styles.personName}>{item.name}</Text>
-        <Text style={styles.personSubtext}>Roll No: {item.rollNo} • Attendance: {item.attendance}</Text>
+        <View style={styles.personInfo}>
+          <Text style={styles.personName}>{item.name}</Text>
+        <Text style={styles.personSubtext}>Roll No: {item.rollNo || 'N/A'} • Batch: {item.batch}</Text>
       </View>
-      <View style={[styles.statusBadge, item.status === 'Present' ? styles.presentBadge : styles.absentBadge]}>
-        <Text style={[styles.statusBadgeText, item.status === 'Present' ? styles.presentText : styles.absentText]}>{item.status}</Text>
+      <View style={[styles.statusBadge, item.status === 'Active' ? styles.presentBadge : styles.absentBadge]}>
+        <Text style={[styles.statusBadgeText, item.status === 'Active' ? styles.presentText : styles.absentText]}>{item.status}</Text>
       </View>
     </View>
   );
@@ -122,11 +150,11 @@ export default function AdminBatchesScreen({ navigation }) {
           <TouchableOpacity onPress={() => setSelectedBatch(null)} style={styles.backButton}>
             <ChevronLeft size={24} color="#1e293b" />
           </TouchableOpacity>
-          <View style={styles.headerTitleContainer}>
-            <Text style={styles.headerTitle}>{selectedBatch.name}</Text>
-            <Text style={styles.headerSubtitle}>{selectedBatch.class} • {selectedBatch.timing}</Text>
-          </View>
-          <TouchableOpacity style={styles.actionButton}>
+        <View style={styles.headerTitleContainer}>
+          <Text style={styles.headerTitle}>{selectedBatch.name}</Text>
+            <Text style={styles.headerSubtitle}>{selectedBatch.branch} • {selectedBatch.program}</Text>
+        </View>
+          <TouchableOpacity style={styles.actionButton} onPress={() => navigation.navigate(activeSegment === 'students' ? 'AddStudent' : 'AddTeacher')}>
             <Plus size={24} color="#1e293b" />
           </TouchableOpacity>
         </View>
@@ -146,13 +174,20 @@ export default function AdminBatchesScreen({ navigation }) {
           </TouchableOpacity>
         </View>
 
-        <FlatList
-          data={activeSegment === 'students' ? MOCK_STUDENTS : MOCK_TEACHERS}
-          keyExtractor={item => item.id}
-          renderItem={activeSegment === 'students' ? renderStudentItem : renderTeacherItem}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-        />
+        {detailLoading ? (
+          <View style={styles.centerState}>
+            <ActivityIndicator color="#28388f" />
+          </View>
+        ) : (
+          <FlatList
+            data={activeSegment === 'students' ? students : teachers}
+            keyExtractor={item => item.id}
+            renderItem={activeSegment === 'students' ? renderStudentItem : renderTeacherItem}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            ListEmptyComponent={<Text style={styles.emptyText}>No {activeSegment} assigned yet.</Text>}
+          />
+        )}
       </SafeAreaView>
     );
   }
@@ -171,13 +206,20 @@ export default function AdminBatchesScreen({ navigation }) {
         </View>
       </View>
 
-      <FlatList
-        data={MOCK_BATCHES}
-        keyExtractor={item => item.id}
-        renderItem={renderBatchItem}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-      />
+      {loading ? (
+        <View style={styles.centerState}>
+          <ActivityIndicator color="#28388f" />
+        </View>
+      ) : (
+        <FlatList
+          data={batches}
+          keyExtractor={item => item.id}
+          renderItem={renderBatchItem}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={<Text style={styles.emptyText}>No batches found. Create your first batch.</Text>}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -389,5 +431,17 @@ const styles = StyleSheet.create({
   },
   absentText: {
     color: '#dc2626',
+  },
+  centerState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 32,
+  },
+  emptyText: {
+    textAlign: 'center',
+    color: '#64748b',
+    paddingVertical: 40,
+    fontSize: 14,
   },
 });

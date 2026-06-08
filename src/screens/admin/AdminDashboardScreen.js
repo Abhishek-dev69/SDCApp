@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { 
+import {
   BarChart3, 
   Users, 
   Banknote, 
@@ -19,6 +19,7 @@ import {
   Star,
   ChevronRight
 } from 'lucide-react-native';
+import { apiRequest } from '../../services/api';
 
 const { width } = Dimensions.get('window');
 
@@ -55,11 +56,58 @@ const TEACHERS = [
 export default function AdminDashboardScreen({ navigation, route }) {
   const userRole = route?.params?.userRole || 'admin';
   const displayName = route?.params?.displayName || 'Admin';
+  const [overview, setOverview] = useState(null);
+  const [recentStudents, setRecentStudents] = useState(RECENT_STUDENTS);
+  const [teachers, setTeachers] = useState(TEACHERS);
   const roleBadgeText = userRole === 'owner'
     ? 'Owner View'
     : userRole === 'teacher'
       ? 'Teacher View'
       : 'Admin View';
+
+  const loadDashboard = async () => {
+    try {
+      const [overviewData, studentData, teacherData] = await Promise.all([
+        apiRequest('/admin/overview'),
+        apiRequest('/admin/students'),
+        apiRequest('/admin/teachers'),
+      ]);
+
+      setOverview(overviewData);
+      setRecentStudents((studentData || []).slice(0, 2).map((student, index) => ({
+        id: student.id,
+        name: student.name,
+        class: student.currentClass ? `Class ${student.currentClass}` : 'Class N/A',
+        batch: student.batch || 'Unassigned',
+        score: 'Live',
+        status: student.status || 'Active',
+        color: index % 2 === 0 ? '#3B82F6' : '#10B981',
+      })));
+      setTeachers((teacherData || []).slice(0, 2).map((teacher) => ({
+        id: teacher.id,
+        name: teacher.name,
+        subject: teacher.subject || 'Subject',
+        students: teacher.batch && teacher.batch !== 'Unassigned' ? 'Assigned' : '0',
+        rating: 'Live',
+        color: '#8B5CF6',
+      })));
+    } catch (err) {
+      console.log('Admin dashboard fetch failed:', err.message);
+    }
+  };
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', loadDashboard);
+    loadDashboard();
+    return unsubscribe;
+  }, [navigation]);
+
+  const coreMetrics = [
+    { id: '1', title: 'Total Students', value: `${overview?.totalStudents ?? '...'}`, trend: 'Live', icon: Users, color: '#3B82F6', trendColor: '#10B981' },
+    { id: '2', title: 'Total Teachers', value: `${overview?.totalTeachers ?? '...'}`, trend: 'Live', icon: UserCheck, color: '#10B981', trendColor: '#10B981' },
+    { id: '3', title: 'Active Batches', value: `${overview?.activeBatches ?? '...'}`, trend: 'Live', icon: BookOpen, color: '#8B5CF6', trendColor: '#10B981' },
+    { id: '4', title: 'Pending Reports', value: '0', trend: 'Live', icon: FileText, color: '#F97316', trendColor: '#10B981' },
+  ];
 
   const handleAction = (id) => {
     switch(id) {
@@ -123,7 +171,7 @@ export default function AdminDashboardScreen({ navigation, route }) {
       <View style={styles.content}>
         {/* Core Metrics Grid */}
         <View style={styles.metricsGrid}>
-          {CORE_METRICS.map((metric) => {
+          {coreMetrics.map((metric) => {
             const Icon = metric.icon;
             return (
               <View key={metric.id} style={styles.metricCard}>
@@ -192,7 +240,7 @@ export default function AdminDashboardScreen({ navigation, route }) {
               <Text style={styles.viewAllText}>View All</Text>
             </TouchableOpacity>
           </View>
-          {RECENT_STUDENTS.map((student) => (
+          {recentStudents.map((student) => (
             <TouchableOpacity key={student.id} style={styles.studentCard}>
               <View style={[styles.avatar, { backgroundColor: `${student.color}15` }]}>
                 <Text style={[styles.avatarText, { color: student.color }]}>{student.name.charAt(0)}</Text>
@@ -227,7 +275,7 @@ export default function AdminDashboardScreen({ navigation, route }) {
               <Text style={styles.viewAllText}>View All</Text>
             </TouchableOpacity>
           </View>
-          {TEACHERS.map((teacher) => (
+          {teachers.map((teacher) => (
             <TouchableOpacity key={teacher.id} style={styles.teacherCard}>
               <View style={styles.teacherInfo}>
                 <Text style={styles.teacherName}>{teacher.name}</Text>

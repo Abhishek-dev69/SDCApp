@@ -8,10 +8,12 @@ import {
   ScrollView, 
   KeyboardAvoidingView, 
   Platform,
-  Alert
+  Alert,
+  ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronLeft, User, Phone, BookOpen, Clock } from 'lucide-react-native';
+import { apiRequest } from '../../services/api';
 
 export default function AddTeacherScreen({ navigation }) {
   const [formData, setFormData] = useState({
@@ -20,15 +22,29 @@ export default function AddTeacherScreen({ navigation }) {
     experience: '',
     phone: ''
   });
+  const [saving, setSaving] = useState(false);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.fullName || !formData.subject || !formData.phone) {
       Alert.alert('Required Fields', 'Please fill in the teacher name, subject, and phone number.');
       return;
     }
-    Alert.alert('Success', 'Teacher added successfully!', [
-      { text: 'OK', onPress: () => navigation.goBack() }
-    ]);
+
+    setSaving(true);
+    try {
+      const teacher = await apiRequest('/admin/teachers', {
+        method: 'POST',
+        body: formData,
+      });
+
+      Alert.alert('Teacher Added', `${teacher.name} was registered successfully.`, [
+        { text: 'OK', onPress: () => navigation.goBack() },
+      ]);
+    } catch (err) {
+      Alert.alert('Unable to Add Teacher', err.message || 'Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const InputField = ({ label, icon: Icon, placeholder, value, onChangeText, keyboardType = 'default' }) => (
@@ -97,8 +113,12 @@ export default function AddTeacherScreen({ navigation }) {
             />
           </View>
 
-          <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-            <Text style={styles.saveButtonText}>Register Teacher</Text>
+          <TouchableOpacity style={styles.saveButton} onPress={handleSave} disabled={saving}>
+            {saving ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.saveButtonText}>Register Teacher</Text>
+            )}
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>

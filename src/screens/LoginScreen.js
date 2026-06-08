@@ -1,15 +1,13 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { Alert, View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Phone, Mail } from 'lucide-react-native';
 import * as AuthSession from 'expo-auth-session';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
-import * as SecureStore from 'expo-secure-store';
-import Constants from 'expo-constants';
 import { FontAwesome } from '@expo/vector-icons';
-const API_URL = Constants.expoConfig.extra.apiUrl;
+import { apiRequest, saveAuthToken } from '../services/api';
 
 console.log(AuthSession.makeRedirectUri({ useProxy: true }));
 WebBrowser.maybeCompleteAuthSession();
@@ -60,20 +58,14 @@ export default function LoginScreen({ navigation, route }) {
 
   const handleGoogleToken = async (googleToken) => {
     try {
-      const res = await fetch(`${API_URL}/auth/google`, {
+      const data = await apiRequest('/auth/google', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: googleToken }),
+        auth: false,
+        body: { token: googleToken },
       });
 
-      const data = await res.json();
-      if (res.status === 403) {
-          Alert.alert('Error', 'No SDC account linked. Please sign in with your SDC ID first.');
-          return;
-        }
-
       if (data.jwt) {
-        await SecureStore.setItemAsync('userToken', data.jwt);
+        await saveAuthToken(data.jwt);
 
         if (data.forceChangePassword) {
           navigation.navigate('ChangePassword');
@@ -84,6 +76,10 @@ export default function LoginScreen({ navigation, route }) {
         console.log('No JWT received, backend error:', data.error);
       }
     } catch (err) {
+      if (err.status === 403) {
+        Alert.alert('Error', 'No SDC account linked. Please sign in with your SDC ID first.');
+        return;
+      }
       console.log('Google login failed:', err);
     }
   };

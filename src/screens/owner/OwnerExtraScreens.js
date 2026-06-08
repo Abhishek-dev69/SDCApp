@@ -3,7 +3,6 @@ import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'rea
 import { CommonActions } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as SecureStore from 'expo-secure-store';
 import {
   AlertTriangle,
   ArrowUpRight,
@@ -30,6 +29,7 @@ import {
   getAdminBatchTotals,
   getBranchSummaries,
 } from '../../data/adminBatchOverview';
+import { clearAuthToken } from '../../services/api';
 
 function getRootNavigation(navigation) {
   return navigation.getParent?.()?.getParent?.() || navigation.getParent?.() || navigation;
@@ -329,7 +329,7 @@ export function OwnerProfileScreen({ route, navigation }) {
           text: 'Logout',
           style: 'destructive',
           onPress: async () => {
-            await SecureStore.deleteItemAsync('userToken');
+            await clearAuthToken();
             getRootNavigation(navigation).dispatch(
               CommonActions.reset({
                 index: 0,

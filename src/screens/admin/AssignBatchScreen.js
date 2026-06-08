@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
+  ActivityIndicator,
   View, 
   Text, 
   StyleSheet, 
@@ -10,41 +11,78 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronLeft, Search, Users, UserCheck, Plus } from 'lucide-react-native';
-
-const MOCK_STUDENTS = [
-  { id: '1', name: 'Kabir Singh', batch: 'Unassigned', currentClass: '12th' },
-  { id: '2', name: 'Ishita Sharma', batch: 'NEET A7', currentClass: '12th' },
-  { id: '3', name: 'Rahul Verma', batch: 'Unassigned', currentClass: '11th' },
-];
-
-const MOCK_TEACHERS = [
-  { id: '1', name: 'Sanjay Gupta', subject: 'Biology', batch: 'NEET A7' },
-  { id: '2', name: 'Dr. Meera Rao', subject: 'Physics', batch: 'Unassigned' },
-];
-
-const MOCK_BATCHES = ['NEET A7', 'JEE K8', 'Foundation B3'];
+import { apiRequest } from '../../services/api';
 
 export default function AssignBatchScreen({ navigation }) {
   const [activeSegment, setActiveSegment] = useState('students');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPerson, setSelectedPerson] = useState(null);
+  const [students, setStudents] = useState([]);
+  const [teachers, setTeachers] = useState([]);
+  const [batches, setBatches] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const loadAssignmentData = async () => {
+    setLoading(true);
+    try {
+      const [studentData, teacherData, batchData] = await Promise.all([
+        apiRequest('/admin/students'),
+        apiRequest('/admin/teachers'),
+        apiRequest('/admin/batches'),
+      ]);
+
+      setStudents(Array.isArray(studentData) ? studentData : []);
+      setTeachers(Array.isArray(teacherData) ? teacherData : []);
+      setBatches(Array.isArray(batchData) ? batchData : []);
+    } catch (err) {
+      Alert.alert('Unable to Load Assignments', err.message || 'Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', loadAssignmentData);
+    loadAssignmentData();
+    return unsubscribe;
+  }, [navigation]);
 
   const handleAssign = (batch) => {
     Alert.alert(
       'Confirm Assignment',
-      `Assign ${selectedPerson.name} to batch ${batch}?`,
+      `Assign ${selectedPerson.name} to batch ${batch.label}?`,
       [
         { text: 'Cancel', style: 'cancel' },
         { 
           text: 'Assign', 
-          onPress: () => {
-            Alert.alert('Success', 'Assignment updated successfully!');
-            setSelectedPerson(null);
+          onPress: async () => {
+            try {
+              await apiRequest('/admin/assignments', {
+                method: 'POST',
+                body: {
+                  personType: activeSegment === 'students' ? 'student' : 'teacher',
+                  personId: selectedPerson.id,
+                  batchId: batch.id,
+                },
+              });
+              Alert.alert('Success', 'Assignment updated successfully!');
+              setSelectedPerson(null);
+              loadAssignmentData();
+            } catch (err) {
+              Alert.alert('Unable to Assign Batch', err.message || 'Please try again.');
+            }
           }
         }
       ]
     );
   };
+
+  const currentPeople = activeSegment === 'students' ? students : teachers;
+  const filteredPeople = currentPeople.filter((item) =>
+    `${item.name} ${item.batch} ${item.currentClass || ''} ${item.subject || ''}`
+      .toLowerCase()
+      .includes(searchQuery.toLowerCase())
+  );
 
   const renderPerson = ({ item }) => (
     <TouchableOpacity 
@@ -106,12 +144,16 @@ export default function AssignBatchScreen({ navigation }) {
       </View>
 
       <FlatList
-        data={activeSegment === 'students' ? MOCK_STUDENTS : MOCK_TEACHERS}
+        data={loading ? [] : filteredPeople}
         keyExtractor={item => item.id}
         renderItem={renderPerson}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={
-          <Text style={styles.emptyText}>No {activeSegment} found matching your search.</Text>
+          loading ? (
+            <ActivityIndicator color="#28388f" style={{ marginTop: 40 }} />
+          ) : (
+            <Text style={styles.emptyText}>No {activeSegment} found matching your search.</Text>
+          )
         }
       />
 
@@ -119,14 +161,14 @@ export default function AssignBatchScreen({ navigation }) {
         <View style={styles.assignmentPanel}>
           <Text style={styles.panelTitle}>Assign {selectedPerson.name} to:</Text>
           <View style={styles.batchGrid}>
-            {MOCK_BATCHES.map((batch) => (
+            {batches.map((batch) => (
               <TouchableOpacity 
-                key={batch} 
+                key={batch.id} 
                 style={styles.batchChip}
                 onPress={() => handleAssign(batch)}
               >
                 <Plus size={16} color="#28388f" />
-                <Text style={styles.batchChipText}>{batch}</Text>
+                <Text style={styles.batchChipText}>{batch.label}</Text>
               </TouchableOpacity>
             ))}
           </View>

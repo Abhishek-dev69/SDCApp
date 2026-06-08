@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView } from 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronLeft, Mail, Lock, Eye, EyeOff } from 'lucide-react-native';
-import * as SecureStore from 'expo-secure-store';
+import { apiRequest, saveAuthToken } from '../../services/api';
 
 export default function EmailSignInScreen({ navigation, route }) {
   const { role } = route.params || {};
@@ -43,23 +43,16 @@ export default function EmailSignInScreen({ navigation, route }) {
 
       console.log('Fetching...');
 
-      const res = await fetch(
-        'https://sdcapp-backend-456970553309.asia-south1.run.app/auth/email/signin',
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password }),
-        }
-      );
-
-      console.log('Response status:', res.status);
-
-      const data = await res.json();
+      const data = await apiRequest('/auth/email/signin', {
+        method: 'POST',
+        auth: false,
+        body: { email, password },
+      });
 
       console.log('Data:', JSON.stringify(data));
 
-      if (res.status === 200) {
-        await SecureStore.setItemAsync('userToken', data.jwt);
+      if (data.jwt) {
+        await saveAuthToken(data.jwt);
 
         if (data.is_temp_password) {
           console.log('Login response data:', JSON.stringify(data));
@@ -75,12 +68,10 @@ export default function EmailSignInScreen({ navigation, route }) {
             navigation.navigate('BatchSelection');
           }
         }
-      } else {
-        alert(data.error || 'Signin failed');
       }
     } catch (err) {
       console.error('Signin error:', err);
-      alert('Something went wrong. Please try again.');
+      alert(err.message || 'Something went wrong. Please try again.');
     }
   };
 

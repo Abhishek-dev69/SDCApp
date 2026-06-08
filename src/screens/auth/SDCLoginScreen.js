@@ -3,14 +3,34 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-nativ
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Eye, EyeOff } from 'lucide-react-native';
-import * as SecureStore from 'expo-secure-store';
-
-const API_URL = 'https://sdcapp-backend-456970553309.asia-south1.run.app';
+import { apiRequest, saveAuthToken } from '../../services/api';
 
 export default function SDCLoginScreen({ navigation }) {
   const [sdcId, setSdcId] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+
+  const getAdminRouteParams = (currentRole) => ({
+    userRole: currentRole,
+    displayName:
+      currentRole === 'owner'
+        ? 'Natik Sir'
+        : currentRole === 'teacher'
+        ? 'Teacher'
+        : 'Admin',
+  });
+
+  const navigateForRole = (role) => {
+    if (role === 'owner') {
+      navigation.replace('OwnerTabs', { displayName: 'Natik Sir' });
+    } else if (role === 'admin' || role === 'teacher') {
+      navigation.replace('AdminTabs', getAdminRouteParams(role));
+    } else if (role === 'parent') {
+      navigation.replace('ParentTabs');
+    } else {
+      navigation.replace('BatchSelection');
+    }
+  };
 
   const handleLogin = async () => {
   if (!sdcId || !password) {
@@ -19,40 +39,23 @@ export default function SDCLoginScreen({ navigation }) {
   }
 
   try {
-    const response = await fetch(`${API_URL}/auth/sdc/signin`, {
+    const data = await apiRequest('/auth/sdc/signin', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sdcId: sdcId, password }),
+      auth: false,
+      body: { sdcId: sdcId, password },
     });
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      alert(data.message || 'Something went wrong');
-      return;
-    }
-
-    await SecureStore.setItemAsync('userToken', data.token);
+    await saveAuthToken(data.token);
     if (!data.google_linked) {
       navigation.replace('LinkGoogle', { role: data.role});
       return;
     }
 
-
-    const roleRoutes = {
-      student: 'MainTabs',
-      admin: 'AdminTabs',
-      owner: 'OwnerTabs',
-      parent: 'ParentTabs',
-    };
-
-    navigation.replace(roleRoutes[data.role] || 'MainTabs');
-
-    // navigation.replace('BatchSelection');
+    navigateForRole(data.role);
 
   } catch (err) {
     console.error('Signin error:', err);
-    alert('Network error, please try again');
+    alert(err.message || 'Network error, please try again');
   }
 };
   return (
