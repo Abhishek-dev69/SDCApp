@@ -38,7 +38,7 @@ export default function App() {
         <StatusBar style="auto" />
         <NavigationContainer>
           <Stack.Navigator 
-            initialRouteName="RoleSelection"
+            initialRouteName="SDCLogin"
             screenOptions={{ headerShown: false }}
           >
             <Stack.Screen name="RoleSelection" component={RoleSelectionScreen} />
