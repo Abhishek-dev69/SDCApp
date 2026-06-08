@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
-import * as SecureStore from 'expo-secure-store';
-const API_URL = 'https://sdcapp-backend-456970553309.asia-south1.run.app';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Eye, EyeOff } from 'lucide-react-native';
 import { validatePassword } from '../../utils/validation';
+import { apiRequest } from '../../services/api';
 
 export default function ChangePasswordScreen({ navigation }) {
   const [newPassword, setNewPassword] = useState('');
@@ -37,30 +36,16 @@ export default function ChangePasswordScreen({ navigation }) {
     }
 
     try {
-      const token = await SecureStore.getItemAsync('userToken');
-
-      const res = await fetch(`${API_URL}/auth/change-password`, {
+      await apiRequest('/auth/change-password', {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ newPassword })
+        body: { newPassword }
       });
 
-      console.log('Fetching:', `${API_URL}/auth/change-password`);
-
-      const data = await res.json();
-
-      if (res.status === 200) {
-        alert('Password changed successfully!');
-        navigation.navigate('BatchSelection');
-      } else {
-        alert(data.error || 'Failed to change password');
-      }
+      alert('Password changed successfully!');
+      navigation.navigate('BatchSelection');
 
     } catch (err) {
-      alert('Something went wrong. Please try again.');
+      alert(err.message || 'Something went wrong. Please try again.');
       console.log('Change password error:', err);
     }
   };

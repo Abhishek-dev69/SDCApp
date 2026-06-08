@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView } from 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronLeft, Mail, Lock, Eye, EyeOff } from 'lucide-react-native';
+import { apiRequest } from '../../services/api';
 
 export default function EmailSignUpScreen({ navigation, route }) {
   const { role } = route.params || {};
@@ -38,28 +39,17 @@ export default function EmailSignUpScreen({ navigation, route }) {
     }
 
     try {
-      const res = await fetch(
-        'https://sdcapp-backend-456970553309.asia-south1.run.app/auth/email/signup',
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password, role, name })
-        }
-      );
+      await apiRequest('/auth/email/signup', {
+        method: 'POST',
+        auth: false,
+        body: { email, password, role, name },
+      });
 
-      const data = await res.json();
-
-      if (res.status === 201) {
-        alert('Account created! Please check your email to verify your account.');
-        navigation.navigate('EmailSignIn');
-      } else {
-        console.log('Signup failed, status:', res.status);
-        console.log('Error response:', JSON.stringify(data));
-        alert(data.error || 'Signup failed');
-      }
+      alert('Account created! Please check your email to verify your account.');
+      navigation.navigate('EmailSignIn');
     } catch (err) {
       console.error('Signup error:', err);
-      alert('Something went wrong. Please try again.');
+      alert(err.message || 'Something went wrong. Please try again.');
     }
   };
 

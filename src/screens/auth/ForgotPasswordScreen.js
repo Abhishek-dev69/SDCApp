@@ -3,8 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView } from 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronLeft, Mail } from 'lucide-react-native';
-import Constants from 'expo-constants';
-const API_URL = Constants.expoConfig.extra.apiUrl;
+import { apiRequest } from '../../services/api';
 
 export default function ForgotPasswordScreen({ navigation }) {
   const [email, setEmail] = useState('');
@@ -13,17 +12,16 @@ export default function ForgotPasswordScreen({ navigation }) {
     if (!email) return alert('Please enter your email');
   
   try {
-    const response = await fetch(`${API_URL}/auth/email/forgot-password`, {
+    await apiRequest('/auth/email/forgot-password', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email })
+      auth: false,
+      body: { email }
     });
 
-    const data = await response.json();
     alert('If this email exists, a temporary password has been sent.');
     navigation.goBack();
   } catch (err) {
-    alert('Something went wrong. Please try again.');
+    alert(err.message || 'Something went wrong. Please try again.');
   }
 };
 
