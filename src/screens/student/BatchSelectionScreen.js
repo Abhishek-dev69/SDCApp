@@ -1,22 +1,40 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStudentSession } from '../../context/StudentSessionContext';
-import { BATCHES, findBatchById } from '../../data/studentBatches';
+import { apiRequest } from '../../services/api';
 
 export default function BatchSelectionScreen({ navigation }) {
   const [selectedBatch, setSelectedBatch] = useState(null);
   const [searchText, setSearchText] = useState('');
+  const [batches, setBatches] = useState([]);
+  const [loading, setLoading] = useState(true);
   const { setSelectedBatch: setSessionBatch } = useStudentSession();
+
+  const loadBatches = async () => {
+    setLoading(true);
+    try {
+      const data = await apiRequest('/batches');
+      setBatches(Array.isArray(data) ? data : []);
+    } catch (err) {
+      Alert.alert('Unable to Load Batches', err.message || 'Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadBatches();
+  }, []);
 
   const handleContinue = () => {
     if (selectedBatch) {
-      setSessionBatch(findBatchById(selectedBatch));
+      setSessionBatch(batches.find((batch) => batch.id === selectedBatch) || null);
       navigation.navigate('MainTabs');
     }
   };
 
-  const filteredBatches = BATCHES.filter(batch =>
+  const filteredBatches = batches.filter(batch =>
     [batch.label, batch.branch, batch.program, batch.stream]
       .join(' ')
       .toLowerCase()
@@ -57,6 +75,11 @@ export default function BatchSelectionScreen({ navigation }) {
       </View>
 
       {/* Batch List */}
+      {loading ? (
+        <View style={styles.loadingState}>
+          <ActivityIndicator color="#2c4fb4" />
+        </View>
+      ) : (
       <ScrollView style={styles.listContainer}>
         {Object.entries(groupedBatches).map(([branch, branchBatches]) => (
           <View key={branch} style={styles.branchSection}>
@@ -97,6 +120,7 @@ export default function BatchSelectionScreen({ navigation }) {
         )}
 
       </ScrollView>
+      )}
 
       {/* Footer */}
       <View style={styles.footer}>
@@ -229,6 +253,12 @@ textAlign:"center",
 color:"#64748b",
 fontSize:14,
 paddingVertical:24
+},
+
+loadingState:{
+flex:1,
+alignItems:"center",
+justifyContent:"center"
 },
 
 arrow:{
