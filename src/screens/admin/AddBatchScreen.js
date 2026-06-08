@@ -8,10 +8,12 @@ import {
   ScrollView, 
   KeyboardAvoidingView, 
   Platform,
-  Alert
+  Alert,
+  ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronLeft, BookOpen, Calendar, CheckSquare, Square } from 'lucide-react-native';
+import { apiRequest } from '../../services/api';
 
 const SUBJECTS_LIST = ['Physics', 'Chemistry', 'Mathematics', 'Biology'];
 
@@ -21,6 +23,7 @@ export default function AddBatchScreen({ navigation }) {
     startDate: '',
     selectedSubjects: []
   });
+  const [saving, setSaving] = useState(false);
 
   const toggleSubject = (subject) => {
     setFormData(prev => ({
@@ -31,14 +34,27 @@ export default function AddBatchScreen({ navigation }) {
     }));
   };
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!formData.batchName) {
       Alert.alert('Required Fields', 'Please fill in the batch name.');
       return;
     }
-    Alert.alert('Success', `Batch "${formData.batchName}" created successfully!`, [
-      { text: 'OK', onPress: () => navigation.goBack() }
-    ]);
+
+    setSaving(true);
+    try {
+      const batch = await apiRequest('/admin/batches', {
+        method: 'POST',
+        body: formData,
+      });
+
+      Alert.alert('Batch Created', `${batch.name || batch.label} is now available.`, [
+        { text: 'OK', onPress: () => navigation.goBack() },
+      ]);
+    } catch (err) {
+      Alert.alert('Unable to Create Batch', err.message || 'Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const InputField = ({ label, icon: Icon, placeholder, value, onChangeText }) => (
@@ -108,8 +124,12 @@ export default function AddBatchScreen({ navigation }) {
             </View>
           </View>
 
-          <TouchableOpacity style={styles.createButton} onPress={handleCreate}>
-            <Text style={styles.createButtonText}>Initialize Batch</Text>
+          <TouchableOpacity style={styles.createButton} onPress={handleCreate} disabled={saving}>
+            {saving ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.createButtonText}>Initialize Batch</Text>
+            )}
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>

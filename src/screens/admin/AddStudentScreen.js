@@ -8,10 +8,12 @@ import {
   ScrollView, 
   KeyboardAvoidingView, 
   Platform,
-  Alert
+  Alert,
+  ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronLeft, User, Phone, Users } from 'lucide-react-native';
+import { apiRequest } from '../../services/api';
 
 export default function AddStudentScreen({ navigation }) {
   const [formData, setFormData] = useState({
@@ -20,15 +22,33 @@ export default function AddStudentScreen({ navigation }) {
     phone: '',
     batch: ''
   });
+  const [saving, setSaving] = useState(false);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.fullName || !formData.phone || !formData.batch) {
       Alert.alert('Required Fields', 'Please fill in the student name, phone number, and batch.');
       return;
     }
-    Alert.alert('Success', 'Student added successfully!', [
-      { text: 'OK', onPress: () => navigation.goBack() }
-    ]);
+
+    setSaving(true);
+    try {
+      const student = await apiRequest('/admin/students', {
+        method: 'POST',
+        body: formData,
+      });
+
+      Alert.alert(
+        'Student Added',
+        student.sdcId
+          ? `${student.name} was added successfully.\nSDC ID: ${student.sdcId}`
+          : `${student.name} was added successfully.`,
+        [{ text: 'OK', onPress: () => navigation.goBack() }]
+      );
+    } catch (err) {
+      Alert.alert('Unable to Add Student', err.message || 'Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const InputField = ({ label, icon: Icon, placeholder, value, onChangeText, keyboardType = 'default' }) => (
@@ -97,8 +117,12 @@ export default function AddStudentScreen({ navigation }) {
             />
           </View>
 
-          <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-            <Text style={styles.saveButtonText}>Save Student Record</Text>
+          <TouchableOpacity style={styles.saveButton} onPress={handleSave} disabled={saving}>
+            {saving ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.saveButtonText}>Save Student Record</Text>
+            )}
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
