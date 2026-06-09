@@ -21,7 +21,7 @@ import EmailSignInScreen from './src/screens/auth/EmailSignInScreen';
 import PhoneLoginScreen from './src/screens/auth/PhoneLoginScreen';
 import OTPVerificationScreen from './src/screens/auth/OTPVerificationScreen';
 import ForgotPasswordScreen from './src/screens/auth/ForgotPasswordScreen';
-import { StudentSessionProvider } from './src/context/StudentSessionContext';
+import { UserSessionProvider } from './src/context/UserSessionContext';
 import MaterialFilterScreen from './src/screens/student/MaterialFilterScreen';  
 import LecturesScreen from './src/screens/student/LecturesScreen';
 import PdfViewerScreen from './src/screens/student/PdfViewerScreen';
@@ -33,7 +33,7 @@ const Stack = createNativeStackNavigator();
 
 export default function App() {
   return (
-    <StudentSessionProvider>
+    <UserSessionProvider>
       <SafeAreaProvider>
         <StatusBar style="auto" />
         <NavigationContainer>
@@ -67,6 +67,6 @@ export default function App() {
           </Stack.Navigator>
         </NavigationContainer>
       </SafeAreaProvider>
-    </StudentSessionProvider>
+    </UserSessionProvider>
   );
 }

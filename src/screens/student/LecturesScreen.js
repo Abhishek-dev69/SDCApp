@@ -10,7 +10,7 @@ import {
   Dna,
 } from 'lucide-react-native';
 
-import { useStudentSession } from '../../context/StudentSessionContext';
+import { useUserSession } from '../../context/UserSessionContext';
 import {
   getAvailableMaterialTabs,
   getNotesSectionForBatch,
@@ -50,7 +50,7 @@ function getTextbookItemTitle(source, subject) {
 }
 
 export default function LecturesScreen({ navigation }) {
-  const { selectedBatch } = useStudentSession();
+  const { selectedBatch } = useUserSession();
   const selectedClass = 12;
 
   const notesSection = getNotesSectionForBatch(selectedBatch);

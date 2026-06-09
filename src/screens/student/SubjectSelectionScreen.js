@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Zap, FlaskConical, TriangleRight, Dna } from 'lucide-react-native';
-import { useStudentSession } from '../../context/StudentSessionContext';
+import { useUserSession } from '../../context/UserSessionContext';
 import { getSubjectsForBatch } from '../../data/studentBatches';
 
 const SUBJECT_ICONS = {
@@ -14,7 +14,7 @@ const SUBJECT_ICONS = {
 
 export default function SubjectSelectionScreen({ navigation }) {
   const [selectedSubjects, setSelectedSubjects] = useState([]);
-  const { selectedBatch } = useStudentSession();
+  const { selectedBatch } = useUserSession();
   const subjects = getSubjectsForBatch(selectedBatch);
 
   const toggleSubject = (id) => {

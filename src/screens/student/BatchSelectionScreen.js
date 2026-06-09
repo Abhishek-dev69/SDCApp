@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useStudentSession } from '../../context/StudentSessionContext';
+import { useUserSession } from '../../context/UserSessionContext';
 import { apiRequest } from '../../services/api';
 
 export default function BatchSelectionScreen({ navigation }) {
@@ -9,7 +9,7 @@ export default function BatchSelectionScreen({ navigation }) {
   const [searchText, setSearchText] = useState('');
   const [batches, setBatches] = useState([]);
   const [loading, setLoading] = useState(true);
-  const { setSelectedBatch: setSessionBatch } = useStudentSession();
+  const { setSelectedBatch: setSessionBatch } = useUserSession();
 
   const loadBatches = async () => {
     setLoading(true);

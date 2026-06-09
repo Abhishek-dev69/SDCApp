@@ -26,7 +26,7 @@ import {
   Search,
 } from 'lucide-react-native';
 import { apiRequest } from '../../services/api';
-import { useStudentSession } from '../../context/StudentSessionContext';
+import { useUserSession } from '../../context/UserSessionContext';
 
 const SUBJECT_LABELS = {
   physics: 'Physics',
@@ -123,7 +123,7 @@ function ProgressPill({ text }) {
 
 export default function MaterialFilterScreen({ route, navigation }) {
   const { subjectId, type, source, class: selectedClass } = route.params;
-  const { selectedBatch } = useStudentSession();
+  const { selectedBatch } = useUserSession();
 
   const subjectLabel = SUBJECT_LABELS[subjectId] || 'Subject';
   const isTextbook = type === 'textbook';
