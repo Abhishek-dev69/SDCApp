@@ -15,16 +15,6 @@ WebBrowser.maybeCompleteAuthSession();
 export default function LoginScreen({ navigation, route }) {
   const { role } = route.params || {};
 
-  const getAdminRouteParams = (currentRole) => ({
-    userRole: currentRole,
-    displayName:
-      currentRole === 'owner'
-        ? 'Natik Sir'
-        : currentRole === 'teacher'
-        ? 'Teacher'
-        : 'Admin',
-  });
-
   const [request, response, promptAsync] = Google.useAuthRequest({
     androidClientId: '456970553309-14fk1ssbbm4po4iqrknss9l6ljulorgq.apps.googleusercontent.com',
     iosClientId: '456970553309-e1vtskth15r0dpa7drnfpch747i64763.apps.googleusercontent.com',
@@ -44,16 +34,17 @@ export default function LoginScreen({ navigation, route }) {
     }
   }, [response]);
 
-  const navigatePostLogin = () => {
-    if (role === 'owner') {
-      navigation.navigate('OwnerTabs', { displayName: 'Natik Sir' });
-    } else if (role === 'admin' || role === 'teacher') {
-      navigation.navigate('AdminTabs', getAdminRouteParams(role));
-    } else if (role === 'parent') {
-      navigation.navigate('ParentTabs');
-    } else {
-      navigation.navigate('BatchSelection');
-    }
+  const navigatePostLogin = (role) => {
+    const roleRoutes = {
+      student: 'MainTabs',
+      admin: 'AdminTabs',
+      owner: 'OwnerTabs',
+      parent: 'ParentTabs',
+    };
+    navigation.reset({
+      index: 0,
+      routes: [{ name: roleRoutes[role] || 'MainTabs' }],
+    });
   };
 
   const handleGoogleToken = async (googleToken) => {
@@ -70,7 +61,7 @@ export default function LoginScreen({ navigation, route }) {
         if (data.forceChangePassword) {
           navigation.navigate('ChangePassword');
         } else {
-          navigatePostLogin();
+          navigatePostLogin(data.role);
         }
       } else {
         console.log('No JWT received, backend error:', data.error);
