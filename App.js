@@ -77,6 +77,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import { registerClearSession } from './src/services/sessionManager';
 
 import RoleSelectionScreen from './src/screens/RoleSelectionScreen';
 import LoginScreen from './src/screens/LoginScreen';
@@ -103,6 +104,7 @@ import CreateAccountScreen from './src/screens/auth/CreateAccountScreen';
 import LinkGoogleScreen from './src/screens/auth/LinkGoogleScreen';
 import SDCLoginScreen from './src/screens/auth/SDCLoginScreen';
 import { getAuthToken, fetchAndStoreProfile } from './src/services/api';
+import { navigationRef } from './src/navigation/navigationRef';
 
 const Stack = createNativeStackNavigator();
 
@@ -110,7 +112,9 @@ function AppNavigator() {
   const { setUserProfile } = useUserSession();
   const [isLoading, setIsLoading] = useState(true);
   const [initialRoute, setInitialRoute] = useState('SDCLogin');
-
+  useEffect(() => {
+  registerClearSession(() => setUserProfile(null));
+}, []);
   useEffect(() => {
     const bootstrapSession = async () => {
       try {
@@ -183,7 +187,7 @@ export default function App() {
     <UserSessionProvider>
       <SafeAreaProvider>
         <StatusBar style="auto" />
-        <NavigationContainer>
+        <NavigationContainer ref={navigationRef}>
           <AppNavigator />
         </NavigationContainer>
       </SafeAreaProvider>

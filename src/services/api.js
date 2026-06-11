@@ -1,6 +1,8 @@
 import Constants from 'expo-constants';
 import * as SecureStore from 'expo-secure-store';
-
+import { resetToLogin } from '../navigation/navigationRef';
+import { clearSession } from './sessionManager';
+import { Alert } from 'react-native';
 export const API_URL =
   Constants.expoConfig?.extra?.apiUrl ||
   'https://sdcapp-backend-456970553309.asia-south1.run.app';
@@ -78,6 +80,17 @@ export async function apiRequest(path, options = {}) {
       data = { message: text };
     }
   }
+
+  if (response.status === 401) {
+  await clearAuthToken();
+  clearSession();
+  Alert.alert(
+    'Session Expired',
+    'Your session has expired. Please log in again.',
+    [{ text: 'OK', onPress: () => resetToLogin() }]
+  );
+  throw new ApiError('Session expired. Please log in again.', 401, data);
+}
 
   if (!response.ok) {
     throw new ApiError(
