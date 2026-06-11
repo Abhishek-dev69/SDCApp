@@ -65,7 +65,7 @@ router.post('/google', async (req, res) => {
 
   } catch (err) {
     console.error('Google auth error:', err.message);
-    res.status(401).json({ error: 'Google authentication failed' });
+    res.status(500).json({ error: 'Google authentication failed' });
   }
 });
 

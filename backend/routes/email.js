@@ -34,7 +34,7 @@ router.post('/signin', async (req, res) => {
       [email]
     );
     if (result.rows.length === 0) {
-  return res.status(401).json({ error: 'No account found with this email.' });
+  return res.status(404).json({ error: 'No account found with this email.' });
     }
 
     const user = result.rows[0];
@@ -49,7 +49,7 @@ router.post('/signin', async (req, res) => {
     // Check password
     const passwordMatch = await bcrypt.compare(password, user.password_hash);
     if (!passwordMatch) {
-      return res.status(401).json({ error: 'Invalid email or password' });
+      return res.status(400).json({ error: 'Invalid email or password' });
     }
 
     // Update last login

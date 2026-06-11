@@ -125,7 +125,7 @@ router.post('/signin', async (req, res) => {
 
     const validPassword = await bcrypt.compare(password, user.password_hash);
     if (!validPassword) {
-      return res.status(401).json({ message: 'Incorrect password' });
+      return res.status(400).json({ message: 'Incorrect password' });
     }
 
 const token = jwt.sign(
@@ -171,7 +171,7 @@ router.post('/link-google',verifyToken, async (req, res) => {
     res.status(200).json({ message: 'Google account linked successfully' });
   } catch (err) {
     console.error('Link Google error:', err.message);
-    res.status(401).json({ error: 'Failed to link Google account' });
+    res.status(400).json({ error: 'Failed to link Google account' });
   }
 });
 
