@@ -89,3 +89,13 @@ export async function apiRequest(path, options = {}) {
 
   return data;
 }
+
+
+export const fetchAndStoreProfile = async (setUserProfile) => {
+  const data = await apiRequest('/auth/user/profile', {
+    method: 'GET',
+    auth: true,
+  });
+  setUserProfile(data);
+  return data;
+};

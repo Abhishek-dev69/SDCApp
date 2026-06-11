@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useUserSession } from '../../context/UserSessionContext';
 import { 
   Bell, 
   Share2, 
@@ -17,6 +18,8 @@ import {
 const { width } = Dimensions.get('window');
 
 export default function StudentHomeScreen() {
+  const { userProfile } = useUserSession();
+
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* Header Section */}
@@ -29,7 +32,7 @@ export default function StudentHomeScreen() {
           <View style={styles.topBar}>
             <View>
               <Text style={styles.greetingText}>Good Morning,</Text>
-              <Text style={styles.userNameText}>Aarav Patel</Text>
+               <Text style={styles.userNameText}>{userProfile?.student_name || 'Student'}</Text>
               <View style={styles.roleBadge}>
                 <Text style={styles.roleBadgeText}>Student</Text>
               </View>

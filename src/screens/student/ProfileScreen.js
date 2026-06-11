@@ -1,5 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Dimensions } from 'react-native';
+import { useUserSession } from '../../context/UserSessionContext';
+import { clearAuthToken } from '../../services/api';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { 
   ChevronRight, 
@@ -29,8 +31,24 @@ const SETTINGS = [
   { id: '3', label: 'Data & Privacy', icon: Shield },
   { id: '4', label: 'Download Academic Report', icon: Download },
 ];
+const getInitials = (name) => {
+  if (!name) return '?';
+  const parts = name.trim().split(' ');
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+};
 
 export default function ProfileScreen({ navigation }) {
+  const { userProfile, setUserProfile } = useUserSession();
+  
+  
+  const handleLogout = async () => {
+      await clearAuthToken();
+      setUserProfile(null);
+      navigation.reset({ index: 0, routes: [{ name: 'SDCLogin' }] });
+    };
+
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -47,27 +65,33 @@ export default function ProfileScreen({ navigation }) {
         <View style={styles.profileCard}>
           <View style={styles.profileHeader}>
             <View style={styles.avatarContainer}>
-              <Text style={styles.avatarText}>M</Text>
+              <Text style={styles.avatarText}>{getInitials(userProfile?.student_name)}</Text>
             </View>
             <View style={styles.profileInfo}>
-              <Text style={styles.profileName}>Manasvi Gawli</Text>
-              <Text style={styles.profileClass}>Class 12th • Science</Text>
+              <Text style={styles.profileName}>{userProfile?.student_name || 'Student'}</Text>
+              {(userProfile?.student_std || userProfile?.sdc_branch) && (
+                <Text style={styles.profileClass}>
+                  {userProfile?.student_std && `Class ${userProfile.student_std}`}
+                  {userProfile?.student_std && userProfile?.sdc_branch && ' • '}
+                  {userProfile?.sdc_branch}
+                </Text>
+              )}
             </View>
           </View>
 
           <View style={styles.contactList}>
-            <View style={styles.contactItem}>
-              <Mail size={16} color="#64748B" />
-              <Text style={styles.contactText}>manasvi@example.com</Text>
-            </View>
-            <View style={styles.contactItem}>
-              <Phone size={16} color="#64748B" />
-              <Text style={styles.contactText}>+91 98765 43210</Text>
-            </View>
-            <View style={styles.contactItem}>
-              <Calendar size={16} color="#64748B" />
-              <Text style={styles.contactText}>Enrolled: June 2025</Text>
-            </View>
+            {userProfile?.email && (
+              <View style={styles.contactItem}>
+                <Mail size={16} color="#64748B" />
+                <Text style={styles.contactText}>{userProfile.email}</Text>
+              </View>
+            )}
+            {userProfile?.phone && (
+              <View style={styles.contactItem}>
+                <Phone size={16} color="#64748B" />
+                <Text style={styles.contactText}>{userProfile.phone}</Text>
+              </View>
+            )}
           </View>
         </View>
 
@@ -129,6 +153,9 @@ export default function ProfileScreen({ navigation }) {
             );
           })}
         </View>
+          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+  <Text style={styles.logoutText}>Log Out</Text>
+</TouchableOpacity>
 
         {/* Bottom padding */}
         <View style={{ height: 20 }} />
@@ -353,4 +380,17 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#334155',
   },
+  logoutButton: {
+  marginHorizontal: 20,
+  marginTop: 12,
+  padding: 16,
+  borderRadius: 12,
+  backgroundColor: '#FEE2E2',
+  alignItems: 'center',
+},
+logoutText: {
+  color: '#EF4444',
+  fontWeight: '600',
+  fontSize: 16,
+},
 });

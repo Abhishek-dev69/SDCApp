@@ -3,13 +3,15 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-nativ
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Eye, EyeOff } from 'lucide-react-native';
-import { apiRequest, saveAuthToken } from '../../services/api';
+import { apiRequest, saveAuthToken, fetchAndStoreProfile} from '../../services/api';
+import { useUserSession } from '../../context/UserSessionContext';
 
 export default function SDCLoginScreen({ navigation }) {
   const [sdcId, setSdcId] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-
+  const { setUserProfile } = useUserSession();
+  
   const getAdminRouteParams = (currentRole) => ({
     userRole: currentRole,
     displayName:
@@ -27,10 +29,12 @@ export default function SDCLoginScreen({ navigation }) {
       navigation.replace('AdminTabs', getAdminRouteParams(role));
     } else if (role === 'parent') {
       navigation.replace('ParentTabs');
-    } else {
-      navigation.replace('BatchSelection');
-    }
-  };
+    }  else if (role === 'student') {
+  navigation.replace('MainTabs');
+} else {
+    alert(`Login failed: unrecognized role "${role}". Please contact support.`);
+  }
+};
 
   const handleLogin = async () => {
   if (!sdcId || !password) {
@@ -46,6 +50,8 @@ export default function SDCLoginScreen({ navigation }) {
     });
 
     await saveAuthToken(data.token);
+    await fetchAndStoreProfile(setUserProfile);
+
     if (!data.google_linked) {
       navigation.replace('LinkGoogle', { role: data.role});
       return;

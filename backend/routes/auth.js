@@ -121,4 +121,32 @@ if (!newPassword || !passwordRegex.test(newPassword)) {
   }
 });
 
+
+
+
+
+
+// USER PROFILE ROUTE
+
+router.get('/user/profile', verifyToken, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT a.sdc_id, a.email, a.phone, a.role, a.google_linked,
+              s.student_name, s.sdc_batch, s.sdc_branch, s.student_std
+       FROM auth a
+       LEFT JOIN students s ON s.auth_id = a.id
+       WHERE a.id = $1`,
+      [req.user.authId]
+    );
+
+    if (!result.rows[0]) return res.status(404).json({ error: 'User not found' });
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+
 module.exports = router;

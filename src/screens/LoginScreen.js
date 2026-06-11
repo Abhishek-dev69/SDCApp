@@ -7,14 +7,15 @@ import * as AuthSession from 'expo-auth-session';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import { FontAwesome } from '@expo/vector-icons';
-import { apiRequest, saveAuthToken } from '../services/api';
+import { apiRequest, saveAuthToken, fetchAndStoreProfile} from '../services/api';
+import { useUserSession } from '../context/UserSessionContext';
 
 console.log(AuthSession.makeRedirectUri({ useProxy: true }));
 WebBrowser.maybeCompleteAuthSession();
 
 export default function LoginScreen({ navigation, route }) {
   const { role } = route.params || {};
-
+  const { setUserProfile } = useUserSession();
   const [request, response, promptAsync] = Google.useAuthRequest({
     androidClientId: '456970553309-14fk1ssbbm4po4iqrknss9l6ljulorgq.apps.googleusercontent.com',
     iosClientId: '456970553309-e1vtskth15r0dpa7drnfpch747i64763.apps.googleusercontent.com',
@@ -57,6 +58,7 @@ export default function LoginScreen({ navigation, route }) {
 
       if (data.jwt) {
         await saveAuthToken(data.jwt);
+        await fetchAndStoreProfile(setUserProfile);
 
         if (data.forceChangePassword) {
           navigation.navigate('ChangePassword');
