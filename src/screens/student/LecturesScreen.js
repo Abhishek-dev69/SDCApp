@@ -17,6 +17,13 @@ import {
   getTextbookSectionsForBatch,
 } from '../../data/studentBatches';
 
+const SUBJECT_ID_MAP = {
+  physics: 'Physics',
+  chemistry: 'Chemistry',
+  mathematics: 'Math',
+  biology: 'Biology',
+};
+
 const SUBJECT_ICONS = {
   physics: Zap,
   chemistry: FlaskConical,
@@ -127,7 +134,7 @@ export default function LecturesScreen({ navigation }) {
                   style={styles.materialRow}
                   onPress={() =>
                     navigation.navigate('MaterialFilter', {
-                      subjectId: subject.id,
+                      subjectId: SUBJECT_ID_MAP[subject.id] || subject.id,
                       type: 'textbook',
                       source: activeSource,
                       class: selectedClass,
@@ -168,7 +175,7 @@ export default function LecturesScreen({ navigation }) {
                 style={styles.notesRow}
                 onPress={() =>
                   navigation.navigate('MaterialFilter', {
-                    subjectId: subject.id,
+                    subjectId: SUBJECT_ID_MAP[subject.id] || subject.id,
                     type: 'notes',
                     class: selectedClass,
                   })
