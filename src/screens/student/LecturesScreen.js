@@ -170,7 +170,7 @@ export default function LecturesScreen({ navigation }) {
               SUBJECT_ICONS[subject.id] || Zap;
 
             return (
-              <TouchableOpacity
+              <TouchableOpacity 
                 key={subject.id}
                 style={styles.notesRow}
                 onPress={() =>

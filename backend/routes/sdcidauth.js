@@ -59,37 +59,6 @@ try {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
   }
-  // try {
-  //   // Check student exists
-  //   const student = await pool.query(
-  //     'SELECT * FROM auth WHERE sdc_id = $1',
-  //     [sdcId]
-  //   );
-  //   if (student.rows.length === 0) {
-  //     return res.status(404).json({ message: 'Student ID not found' });
-  //   }
-
-  //   // Check password not already set
-  //   const existing = await pool.query(
-  //     'SELECT * FROM auth WHERE sdc_id = $1',
-  //     [sdcId]
-  //   );
-  //   if (existing.rows.length > 0 && existing.rows[0].password_hash) {
-  //     return res.status(400).json({ message: 'Password already set for this ID' });
-  //   }
-
-  //   const password_hash = await bcrypt.hash(password, 10);
-
-  //   await pool.query(
-  //     'UPDATE auth SET password_hash = $1 WHERE sdc_id = $2',
-  //     [password_hash, sdcId]
-  //   );
-
-  //   res.status(200).json({ message: 'Password set successfully' });
-  // } catch (err) {
-  //   console.error(err);
-  //   res.status(500).json({ message: 'Server error' });
-  // }
 });
 
 

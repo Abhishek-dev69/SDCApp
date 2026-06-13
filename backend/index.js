@@ -17,6 +17,7 @@ const pdfviewRoutes = require('./routes/pdfview');
 const sdcAuthRoutes = require('./routes/sdcidauth');
 const instituteRoutes = require('./routes/institute');
 const materialRoutes = require('./routes/materials');
+const lecturesRoutes = require('./routes/lectures');
 
 app.use('/auth/sdc', sdcAuthRoutes);
 app.use('/pdfview', pdfviewRoutes);
@@ -26,6 +27,7 @@ app.use('/announcements', announcementRoutes);
 app.use('/auth/email', emailRoutes);
 app.use('/auth', authRoutes);  
 app.use('/users', usersRouter);
+app.use('/admin/lectures', lecturesRoutes);
 
 // test route
 app.get('/', (req, res) => {
