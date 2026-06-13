@@ -5,6 +5,19 @@ const pool = require('../db'); // adjust path to your pg pool
 const verifyToken = require('../middleware/verifyToken');
 const requireRole = require('../middleware/requireRole');
 
+
+
+
+
+
+
+
+
+
+
+
+
+
 // GET /admin/lectures — all lectures with batch name
 router.get('/', verifyToken, requireRole('admin'), async (req, res) => {
   const { from, to } = req.query;
@@ -23,7 +36,7 @@ router.get('/', verifyToken, requireRole('admin'), async (req, res) => {
 
   try {
     const result = await pool.query(
-      `SELECT l.*, b.name AS batch_name
+      `SELECT l.*, b.name AS batch_name, b.location
        FROM lectures l
        JOIN batches b ON l.batch_id = b.id
        WHERE l.scheduled_at >= $1::timestamptz AND l.scheduled_at < $2::timestamptz
@@ -36,6 +49,38 @@ router.get('/', verifyToken, requireRole('admin'), async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch lectures' });
   }
 });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // POST /admin/lectures — create a new lecture
 router.post('/', verifyToken, requireRole('admin'), async (req, res) => {
@@ -59,6 +104,29 @@ router.post('/', verifyToken, requireRole('admin'), async (req, res) => {
     res.status(500).json({ error: 'Failed to create lecture' });
   }
 });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // PATCH /admin/lectures/:id — edit a scheduled lecture
 router.patch('/:id', verifyToken, requireRole('admin'), async (req, res) => {
@@ -91,6 +159,39 @@ router.patch('/:id', verifyToken, requireRole('admin'), async (req, res) => {
   }
 });
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // PATCH /admin/lectures/:id/start
 router.patch('/:id/start', verifyToken, requireRole('admin'), async (req, res) => {
   const { id } = req.params;
@@ -112,6 +213,34 @@ router.patch('/:id/start', verifyToken, requireRole('admin'), async (req, res) =
   }
 });
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // PATCH /admin/lectures/:id/complete
 router.patch('/:id/complete', verifyToken, requireRole('admin'), async (req, res) => {
   const { id } = req.params;
@@ -132,6 +261,28 @@ router.patch('/:id/complete', verifyToken, requireRole('admin'), async (req, res
     res.status(500).json({ error: 'Failed to complete lecture' });
   }
 });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // PATCH /admin/lectures/:id/cancel — cancel + notification fan-out
 router.patch('/:id/cancel', verifyToken, requireRole('admin'), async (req, res) => {
@@ -191,5 +342,39 @@ router.patch('/:id/cancel', verifyToken, requireRole('admin'), async (req, res) 
     client.release();
   }
 });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+router.get('/batches', verifyToken, requireRole('admin'), async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, name, location FROM batches WHERE is_active = true ORDER BY name`
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error('GET /admin/batches:', err);
+    res.status(500).json({ error: 'Failed to fetch batches' });
+  }
+});
+
+
+
+
+
+
+
 
 module.exports = router;

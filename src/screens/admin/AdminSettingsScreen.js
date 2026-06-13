@@ -84,7 +84,7 @@ export default function AdminSettingsScreen({ navigation, route }) {
   const handleLogout = () => {
     Alert.alert(
       'Logout?',
-      'You will return to role selection and need to sign in again.',
+      'You will return to Login and need to sign in again.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -92,12 +92,7 @@ export default function AdminSettingsScreen({ navigation, route }) {
           style: 'destructive',
           onPress: async () => {
             await clearAuthToken();
-            getRootNavigation(navigation).dispatch(
-              CommonActions.reset({
-                index: 0,
-                routes: [{ name: 'RoleSelection' }],
-              })
-            );
+            navigation.reset({ index: 0, routes: [{ name: 'SDCLogin' }] });
           },
         },
       ]

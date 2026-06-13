@@ -112,3 +112,22 @@ export const fetchAndStoreProfile = async (setUserProfile) => {
   setUserProfile(data);
   return data;
 };
+
+
+
+export function decodeAuthToken(token) {
+  try {
+    const payload = token.split('.')[1];
+    const decoded = atob(payload);
+    return JSON.parse(decoded);
+  } catch {
+    return null;
+  }
+}
+
+
+export async function getDecodedToken() {
+  const token = await getAuthToken();
+  if (!token) return null;
+  return decodeAuthToken(token);
+}

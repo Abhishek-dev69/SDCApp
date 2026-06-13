@@ -63,8 +63,8 @@ function formatTime(isoString) {
   return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
 }
 
-export default function WeeklyTimetable({ lectures = [], onLecturePress, filterComponent }) {
-  const [weekStart, setWeekStart] = useState(getWeekStart(new Date()));
+export default function WeeklyTimetable({ lectures = [], onLecturePress, filterComponent, weekStart, onPrevWeek, onNextWeek }) {
+
   const [selectedDay, setSelectedDay] = useState(new Date());
 
   const today = new Date();
@@ -77,17 +77,6 @@ export default function WeeklyTimetable({ lectures = [], onLecturePress, filterC
 
   const selectedLectures = getLecturesForDay(lectures, selectedDay);
 
-  const goToPrevWeek = () => {
-    const d = new Date(weekStart);
-    d.setDate(d.getDate() - 7);
-    setWeekStart(d);
-  };
-
-  const goToNextWeek = () => {
-    const d = new Date(weekStart);
-    d.setDate(d.getDate() + 7);
-    setWeekStart(d);
-  };
 
   const dayHasLectures = (date) =>
     lectures.some(l => isSameDay(new Date(l.scheduled_at), date));
@@ -100,23 +89,19 @@ export default function WeeklyTimetable({ lectures = [], onLecturePress, filterC
     <View style={styles.container}>
 
       {filterComponent && (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.filterRow}
-          contentContainerStyle={styles.filterContent}
-        >
+        <View style={styles.filterWrapper}>
           {filterComponent}
-        </ScrollView>
+        </View>
+
       )}
 
       <View style={styles.weekStrip}>
         <View style={styles.weekNav}>
-          <TouchableOpacity onPress={goToPrevWeek} style={styles.navBtn}>
+          <TouchableOpacity onPress={onPrevWeek} style={styles.navBtn}>
             <ChevronLeft size={18} color="#64748b" />
           </TouchableOpacity>
           <Text style={styles.weekLabel}>{formatWeekLabel(weekStart)}</Text>
-          <TouchableOpacity onPress={goToNextWeek} style={styles.navBtn}>
+          <TouchableOpacity onPress={onNextWeek} style={styles.navBtn}>
             <ChevronRight size={18} color="#64748b" />
           </TouchableOpacity>
         </View>
@@ -208,7 +193,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#f1f5f9',
-    maxHeight: 50,
+    maxHeight: 100,
   },
   filterContent: {
     paddingHorizontal: 20,
@@ -358,4 +343,11 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
   },
+  filterWrapper: {
+  backgroundColor: '#fff',
+  borderBottomWidth: 1,
+  borderBottomColor: '#f1f5f9',
+  zIndex: 100,
+  overflow: 'visible',
+},
 });

@@ -17,16 +17,16 @@ if (!password || !passwordRegex.test(password)) {
 }
 
 try {
-    const student = await pool.query(
+    const user = await pool.query(
       'SELECT * FROM auth WHERE sdc_id = $1',
       [sdcId]
     );
 
-    if (student.rows.length === 0) {
+    if (user.rows.length === 0) {
       return res.status(404).json({ message: 'SDC ID not found' });
     }
 
-    if (student.rows[0].password_hash) {
+    if (user.rows[0].password_hash) {
       return res.status(400).json({ message: 'Password already set for this ID' });
     }
 
@@ -37,23 +37,34 @@ try {
       [password_hash, sdcId]
     );
 
+    let location = null;
+    if (user.rows[0].role === 'admin') {
+      const adminRow = await pool.query(
+        'SELECT location FROM admins WHERE sdc_id = $1',
+        [user.rows[0].sdc_id]
+      );
+      if (adminRow.rows.length > 0) location = adminRow.rows[0].location;
+    }
+
     const token = jwt.sign(
       {
-        authId: student.rows[0].id,
-        sdcId: student.rows[0].sdc_id,
-        role: student.rows[0].role,
-        name: student.rows[0].name
+        authId: user.rows[0].id,
+        sdcId: user.rows[0].sdc_id,
+        role: user.rows[0].role,
+        name: user.rows[0].name,
+        location,
       },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
 
+
     res.status(200).json({
       message: 'Password set successfully',
       token,
-      role: student.rows[0].role,
-      name: student.rows[0].name,
-      google_linked: student.rows[0].google_linked
+      role: user.rows[0].role,
+      name: user.rows[0].name,
+      google_linked: user.rows[0].google_linked
     });
   } catch (err) {
     console.error(err);
@@ -87,7 +98,7 @@ router.post('/signin', async (req, res) => {
 );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: 'Student ID not found' });
+      return res.status(404).json({ message: 'SDC-ID not found' });
     }
 
     const user = result.rows[0];
@@ -97,14 +108,33 @@ router.post('/signin', async (req, res) => {
       return res.status(400).json({ message: 'Incorrect password' });
     }
 
+// const token = jwt.sign(
+//   { authId: user.id, sdcId: user.sdc_id, role: user.role, name: user.name },
+//   process.env.JWT_SECRET,
+//   { expiresIn: '7d' }
+// );
+let location = null;
+if (user.role === 'admin') {
+  const adminRow = await pool.query(
+    'SELECT location FROM admins WHERE sdc_id = $1',
+    [user.sdc_id]
+  );
+  if (adminRow.rows.length > 0) location = adminRow.rows[0].location;
+}
+
 const token = jwt.sign(
-  { authId: user.id, sdcId: user.sdc_id, role: user.role, name: user.name },
+  {
+    authId: user.id,
+    sdcId: user.sdc_id,
+    role: user.role,
+    name: user.name,
+    location,
+  },
   process.env.JWT_SECRET,
   { expiresIn: '7d' }
 );
 
-
-    res.status(200).json({ token, name: user.name, role: user.role, google_linked: user.google_linked  });
+res.status(200).json({ token, name: user.name, role: user.role, google_linked: user.google_linked });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
