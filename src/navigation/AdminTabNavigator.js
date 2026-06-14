@@ -1,17 +1,20 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { LayoutDashboard, BookOpen, BarChart3, Banknote, Settings } from 'lucide-react-native';
+import { LayoutDashboard, BookOpen, CalendarDays, BarChart3, Banknote, Settings } from 'lucide-react-native';
 import AdminDashboardScreen from '../screens/admin/AdminDashboardScreen';
 import AdminTimetableScreen from '../screens/admin/AdminTimetableScreen';
+import AdminBatchesScreen from '../screens/admin/AdminBatchesScreen';
 import AdminAnalyticsScreen from '../screens/admin/AdminAnalyticsScreen';
 import AdminFinancesScreen from '../screens/admin/AdminFinancesScreen';
 import AdminSettingsScreen from '../screens/admin/AdminSettingsScreen';
+import { useUserSession } from '../context/UserSessionContext';
 
 const Tab = createBottomTabNavigator();
 
 export default function AdminTabNavigator({ route }) {
-  const userRole = route?.params?.userRole || 'admin';
-  const displayName = route?.params?.displayName || 'Admin';
+  const { userProfile } = useUserSession();
+  const userRole = userProfile?.role || route?.params?.userRole || 'admin';
+  const displayName = userProfile?.name || route?.params?.displayName || 'Admin';
 
   return (
     <Tab.Navigator
@@ -20,7 +23,8 @@ export default function AdminTabNavigator({ route }) {
           let IconComponent;
 
           if (route.name === 'Dashboard') IconComponent = LayoutDashboard;
-          else if (route.name === 'Timetable') IconComponent = BookOpen;
+          else if (route.name === 'Timetable') IconComponent = CalendarDays;
+          else if (route.name === 'Batches') IconComponent = BookOpen;
           else if (route.name === 'Analytics') IconComponent = BarChart3;
           else if (route.name === 'Finances') IconComponent = Banknote;
           else if (route.name === 'Settings') IconComponent = Settings;
@@ -46,8 +50,9 @@ export default function AdminTabNavigator({ route }) {
         initialParams={{ userRole, displayName }}
       />
       <Tab.Screen name="Timetable" component={AdminTimetableScreen} />
-      <Tab.Screen name="Analytics" component={AdminAnalyticsScreen} />
-      <Tab.Screen name="Finances" component={AdminFinancesScreen} />
+      <Tab.Screen name="Batches" component={AdminBatchesScreen} />
+      {userRole !== 'teacher' && <Tab.Screen name="Analytics" component={AdminAnalyticsScreen} />}
+      {userRole !== 'teacher' && <Tab.Screen name="Finances" component={AdminFinancesScreen} />}
       <Tab.Screen
         name="Settings"
         component={AdminSettingsScreen}
