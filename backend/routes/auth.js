@@ -61,7 +61,11 @@ router.post('/google', async (req, res) => {
     );
 
     console.log('Login successful, sending JWT...');
-    res.json({ jwt: jwtToken, forceChangePassword: authUser.is_temp_password });
+    res.json({
+      jwt: jwtToken,
+      role: authUser.role,
+      forceChangePassword: authUser.is_temp_password,
+    });
 
   } catch (err) {
     console.error('Google auth error:', err.message);
@@ -131,10 +135,15 @@ if (!newPassword || !passwordRegex.test(newPassword)) {
 router.get('/user/profile', verifyToken, async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT a.sdc_id, a.email, a.phone, a.role, a.google_linked,
-              s.student_name, s.sdc_batch, s.sdc_branch, s.student_std
+      `SELECT a.sdc_id, a.name, a.email, a.phone_number AS phone, a.role, a.google_linked,
+              s.student_name, s.sdc_batch, s.sdc_branch, s.student_std,
+              b.id AS batch_id, b.standard AS batch_standard,
+              b.academic_year, b.location AS batch_location,
+              COALESCE(ad.location, b.location) AS location
        FROM auth a
        LEFT JOIN students s ON s.auth_id = a.id
+       LEFT JOIN batches b ON b.name = s.sdc_batch
+       LEFT JOIN admins ad ON ad.sdc_id = a.sdc_id
        WHERE a.id = $1`,
       [req.user.authId]
     );

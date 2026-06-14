@@ -10,23 +10,35 @@ const googleClient = new OAuth2Client(process.env.GOOGLE_ANDROID_CLIENT_ID);
 // SETUP NEW PASSWORD ROUTE
 
 router.post('/setup-password', async (req, res) => {
-  const { sdcId, password } = req.body;
+  const { sdcId, contact, password } = req.body;
   const passwordRegex = /^(?=.*[A-Z])(?=.*[0-9])(?=.*[^a-zA-Z0-9])(?!.*\s).{8,}$/;
-if (!password || !passwordRegex.test(password)) {
-  return res.status(400).json({ error: 'Password must be 8+ characters with one capital, one number, and one special character' });
-}
+  if (!sdcId || !contact) {
+    return res.status(400).json({ error: 'SDC ID and registered phone or email are required' });
+  }
+  if (!password || !passwordRegex.test(password)) {
+    return res.status(400).json({ error: 'Password must be 8+ characters with one capital, one number, and one special character' });
+  }
 
-try {
-    const user = await pool.query(
-      'SELECT * FROM auth WHERE sdc_id = $1',
-      [sdcId]
+  try {
+    const userResult = await pool.query(
+      `SELECT *
+       FROM auth
+       WHERE sdc_id = $1
+         AND (
+           LOWER(COALESCE(email, '')) = LOWER($2)
+           OR regexp_replace(COALESCE(phone_number, ''), '\\D', '', 'g')
+              = NULLIF(regexp_replace($2, '\\D', '', 'g'), '')
+         )
+       LIMIT 1`,
+      [String(sdcId).trim(), String(contact).trim()]
     );
 
-    if (user.rows.length === 0) {
-      return res.status(404).json({ message: 'SDC ID not found' });
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ message: 'SDC ID and registered contact do not match' });
     }
+    const user = userResult.rows[0];
 
-    if (user.rows[0].password_hash) {
+    if (user.password_hash) {
       return res.status(400).json({ message: 'Password already set for this ID' });
     }
 
@@ -38,20 +50,20 @@ try {
     );
 
     let location = null;
-    if (user.rows[0].role === 'admin') {
+    if (user.role === 'admin') {
       const adminRow = await pool.query(
         'SELECT location FROM admins WHERE sdc_id = $1',
-        [user.rows[0].sdc_id]
+        [user.sdc_id]
       );
       if (adminRow.rows.length > 0) location = adminRow.rows[0].location;
     }
 
     const token = jwt.sign(
       {
-        authId: user.rows[0].id,
-        sdcId: user.rows[0].sdc_id,
-        role: user.rows[0].role,
-        name: user.rows[0].name,
+        authId: user.id,
+        sdcId: user.sdc_id,
+        role: user.role,
+        name: user.name,
         location,
       },
       process.env.JWT_SECRET,
@@ -62,9 +74,9 @@ try {
     res.status(200).json({
       message: 'Password set successfully',
       token,
-      role: user.rows[0].role,
-      name: user.rows[0].name,
-      google_linked: user.rows[0].google_linked
+      role: user.role,
+      name: user.name,
+      google_linked: user.google_linked
     });
   } catch (err) {
     console.error(err);
@@ -90,7 +102,9 @@ try {
 // SIGNIN ROUTE
 router.post('/signin', async (req, res) => {
   const { sdcId, password } = req.body;
-  console.log(sdcId, password);
+  if (!sdcId || !password) {
+    return res.status(400).json({ message: 'SDC ID and password are required' });
+  }
   try {
     const result = await pool.query(
   'SELECT * FROM auth WHERE sdc_id = $1',
@@ -102,6 +116,12 @@ router.post('/signin', async (req, res) => {
     }
 
     const user = result.rows[0];
+
+    if (!user.password_hash) {
+      return res.status(409).json({
+        message: 'This account has no password yet. Use Create Account to activate it first.',
+      });
+    }
 
     const validPassword = await bcrypt.compare(password, user.password_hash);
     if (!validPassword) {
