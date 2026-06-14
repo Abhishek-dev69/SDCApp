@@ -1,10 +1,38 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronLeft, TrendingUp, BookOpen, Clock } from 'lucide-react-native';
+import { apiRequest } from '../../services/api';
 
 export default function ParentPerformanceScreen({ navigation }) {
+  const [results, setResults] = useState([]);
+  useEffect(() => {
+    apiRequest('/operations/results')
+      .then((data) => setResults(Array.isArray(data) ? data : []))
+      .catch((err) => console.log('Performance live data unavailable:', err.message));
+  }, []);
+  const summary = useMemo(() => {
+    const percentages = results
+      .map((item) => Number(item.total_marks) > 0
+        ? (Number(item.marks) / Number(item.total_marks)) * 100
+        : null)
+      .filter(Number.isFinite);
+    const subjects = Object.values(results.reduce((groups, item) => {
+      const group = groups[item.subject] || { subject: item.subject, marks: 0, total: 0 };
+      group.marks += Number(item.marks || 0);
+      group.total += Number(item.total_marks || 0);
+      groups[item.subject] = group;
+      return groups;
+    }, {}));
+    return {
+      average: percentages.length
+        ? Math.round(percentages.reduce((sum, value) => sum + value, 0) / percentages.length)
+        : null,
+      rank: results.find((item) => item.rank)?.rank || null,
+      subjects,
+    };
+  }, [results]);
   return (
     <View style={styles.container}>
       <LinearGradient
@@ -22,12 +50,12 @@ export default function ParentPerformanceScreen({ navigation }) {
 
           <View style={styles.overallStats}>
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>85.4%</Text>
+              <Text style={styles.statValue}>{summary.average === null ? '—' : `${summary.average}%`}</Text>
               <Text style={styles.statLabel}>Avg Score</Text>
             </View>
             <View style={styles.divider} />
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>#12</Text>
+              <Text style={styles.statValue}>{summary.rank ? `#${summary.rank}` : '—'}</Text>
               <Text style={styles.statLabel}>Class Rank</Text>
             </View>
           </View>
@@ -40,24 +68,16 @@ export default function ParentPerformanceScreen({ navigation }) {
           <TrendingUp size={20} color="#28388f" />
         </View>
 
-        <SubjectCard 
-          subject="Physics" 
-          percentage="85%" 
-          lectures="24/28" 
-          color="#3b82f6" 
-        />
-        <SubjectCard 
-          subject="Chemistry" 
-          percentage="78%" 
-          lectures="22/28" 
-          color="#10b981" 
-        />
-        <SubjectCard 
-          subject="Mathematics" 
-          percentage="92%" 
-          lectures="26/30" 
-          color="#8b5cf6" 
-        />
+        {summary.subjects.map((item, index) => (
+          <SubjectCard
+            key={item.subject}
+            subject={item.subject}
+            percentage={item.total ? `${Math.round((item.marks / item.total) * 100)}%` : '—'}
+            lectures={`${results.filter((result) => result.subject === item.subject).length} tests`}
+            color={['#3b82f6', '#10b981', '#8b5cf6'][index % 3]}
+          />
+        ))}
+        {summary.subjects.length === 0 && <Text style={styles.emptyText}>No published test results yet.</Text>}
 
         <View style={styles.analysisBox}>
           <View style={styles.analysisHeader}>
@@ -65,7 +85,7 @@ export default function ParentPerformanceScreen({ navigation }) {
             <Text style={styles.analysisTitle}>AI Performance Insights</Text>
           </View>
           <Text style={styles.analysisText}>
-            Aarav is performing exceptionally well in Mathematics. There's a slight dip in Chemistry scores this week. Focusing on "Organic Compounds" might help.
+            Insights will appear after enough test results are published for this student.
           </Text>
         </View>
       </ScrollView>
@@ -85,7 +105,7 @@ function SubjectCard({ subject, percentage, lectures, color }) {
         <View style={styles.cardFooter}>
           <View style={styles.infoRow}>
             <BookOpen size={16} color="#64748b" />
-            <Text style={styles.infoText}>{lectures} Lectures</Text>
+            <Text style={styles.infoText}>{lectures}</Text>
           </View>
           <View style={styles.infoRow}>
             <Clock size={16} color="#64748b" />
@@ -149,6 +169,7 @@ const styles = StyleSheet.create({
     paddingTop: 24,
     paddingBottom: 40,
   },
+  emptyText: { color: '#64748B', textAlign: 'center', paddingVertical: 20 },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',

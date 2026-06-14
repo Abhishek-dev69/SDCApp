@@ -183,7 +183,8 @@ router.post('/signin', async (req, res) => {
 
 // POST /auth/email/signup
 router.post('/signup', async (req, res) => {
-  const { email, password, role = 'student', name } = req.body;
+  const { email, password, name } = req.body;
+  const role = 'student';
 
   if (!email || !password || !name) {
     return res.status(400).json({ error: 'Name, email, and password are required' });
@@ -197,9 +198,22 @@ router.post('/signup', async (req, res) => {
   }
 
   try {
-    const existing = await pool.query('SELECT id FROM auth WHERE email = $1', [email]);
-    if (existing.rows.length > 0) {
-      return res.status(409).json({ error: 'Email already registered' });
+    const existing = await pool.query(
+      `SELECT a.id, a.password_hash
+       FROM auth a
+       JOIN students s ON s.auth_id = a.id
+       WHERE LOWER(a.email) = LOWER($1)
+          OR LOWER(s.email_address) = LOWER($1)
+       LIMIT 1`,
+      [email]
+    );
+    if (existing.rows.length === 0) {
+      return res.status(403).json({
+        error: 'No imported SDC student account matches this email. Contact the institute.',
+      });
+    }
+    if (existing.rows[0].password_hash) {
+      return res.status(409).json({ error: 'This account already has a password. Please sign in.' });
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
@@ -207,10 +221,17 @@ router.post('/signup', async (req, res) => {
     const tokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
     await pool.query(
-      `INSERT INTO auth
-        (email, name, auth_provider, role, password_hash, email_verified, verification_token, verification_token_expires_at)
-       VALUES ($1, $2, 'email', $3, $4, false, $5, $6)`,
-      [email, name, role, passwordHash, verificationToken, tokenExpiry]
+      `UPDATE auth
+       SET email = $1,
+           auth_provider = 'email',
+           role = $2,
+           password_hash = $3,
+           email_verified = false,
+           verification_token = $4,
+           verification_token_expires_at = $5,
+           email_linked = true
+       WHERE id = $6`,
+      [email, role, passwordHash, verificationToken, tokenExpiry, existing.rows[0].id]
     );
 
     const backendUrl = process.env.PUBLIC_BACKEND_URL || 'https://sdcapp-backend-456970553309.asia-south1.run.app';

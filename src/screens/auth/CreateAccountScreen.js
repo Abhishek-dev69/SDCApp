@@ -9,6 +9,7 @@ import { apiRequest, saveAuthToken } from '../../services/api';
 export default function CreateAccountScreen({ navigation, route }) {
   const role = route?.params?.role || "student";
   const [sdcId, setSdcId] = useState('');
+  const [contact, setContact] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
@@ -17,7 +18,7 @@ export default function CreateAccountScreen({ navigation, route }) {
 
 
   const handleContinue = async () => {
-  if (!sdcId || !password || !confirmPassword) {
+  if (!sdcId || !contact || !password || !confirmPassword) {
     alert("Please fill all fields");
     return;
   }
@@ -37,7 +38,7 @@ export default function CreateAccountScreen({ navigation, route }) {
     const data = await apiRequest('/auth/sdc/setup-password', {
       method: 'POST',
       auth: false,
-      body: { sdcId: sdcId, password },
+      body: { sdcId, contact, password },
     });
 
     if (data.token) {
@@ -73,6 +74,15 @@ export default function CreateAccountScreen({ navigation, route }) {
               placeholderTextColor="#94A3B8"
               value={sdcId}
               onChangeText={setSdcId}
+              style={styles.input}
+            />
+
+            <TextInput
+              placeholder="Registered phone or email"
+              placeholderTextColor="#94A3B8"
+              value={contact}
+              onChangeText={setContact}
+              autoCapitalize="none"
               style={styles.input}
             />
 

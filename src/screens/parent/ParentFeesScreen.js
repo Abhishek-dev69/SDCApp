@@ -1,10 +1,27 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Banknote, CreditCard, History, ChevronRight } from 'lucide-react-native';
+import { apiRequest } from '../../services/api';
 
 export default function ParentFeesScreen() {
+  const [invoices, setInvoices] = useState([]);
+  useEffect(() => {
+    apiRequest('/operations/fees')
+      .then((data) => setInvoices(Array.isArray(data) ? data : []))
+      .catch((err) => console.log('Fees live data unavailable:', err.message));
+  }, []);
+  const totals = useMemo(() => {
+    const billed = invoices.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+    const paid = invoices.reduce((sum, item) => sum + Number(item.amount_paid || 0), 0);
+    return {
+      billed,
+      paid,
+      pending: billed - paid,
+      percent: billed ? Math.round((paid / billed) * 100) : 0,
+    };
+  }, [invoices]);
   return (
     <View style={styles.container}>
       <LinearGradient
@@ -16,11 +33,11 @@ export default function ParentFeesScreen() {
           
           <View style={styles.totalCard}>
             <Text style={styles.totalLabel}>Total Fees</Text>
-            <Text style={styles.totalValue}>₹ 50,000</Text>
+            <Text style={styles.totalValue}>₹ {totals.billed.toLocaleString('en-IN')}</Text>
             <View style={styles.paymentProgress}>
-              <View style={[styles.progressBar, { width: '90%' }]} />
+              <View style={[styles.progressBar, { width: `${totals.percent}%` }]} />
             </View>
-            <Text style={styles.progressText}>90% Paid</Text>
+            <Text style={styles.progressText}>{totals.percent}% Paid</Text>
           </View>
         </SafeAreaView>
       </LinearGradient>
@@ -33,7 +50,7 @@ export default function ParentFeesScreen() {
               <Banknote size={20} color="#27ae60" />
             </View>
             <Text style={styles.breakdownLabel}>Paid</Text>
-            <Text style={[styles.breakdownValue, { color: '#27ae60' }]}>₹ 45,000</Text>
+            <Text style={[styles.breakdownValue, { color: '#27ae60' }]}>₹ {totals.paid.toLocaleString('en-IN')}</Text>
           </View>
           
           <View style={[styles.breakdownCard, { borderColor: '#fee2e2' }]}>
@@ -41,7 +58,7 @@ export default function ParentFeesScreen() {
               <CreditCard size={20} color="#ef4444" />
             </View>
             <Text style={styles.breakdownLabel}>Pending</Text>
-            <Text style={[styles.breakdownValue, { color: '#ef4444' }]}>₹ 5,000</Text>
+            <Text style={[styles.breakdownValue, { color: '#ef4444' }]}>₹ {totals.pending.toLocaleString('en-IN')}</Text>
           </View>
         </View>
 
@@ -56,9 +73,16 @@ export default function ParentFeesScreen() {
           <History size={20} color="#64748b" />
         </View>
 
-        <HistoryItem date="Jan 15, 2026" amount="₹ 15,000" status="Success" refNo="TXN_982741" />
-        <HistoryItem date="Oct 10, 2025" amount="₹ 15,000" status="Success" refNo="TXN_872145" />
-        <HistoryItem date="Jul 05, 2025" amount="₹ 15,000" status="Success" refNo="TXN_762104" />
+        {invoices.filter((item) => Number(item.amount_paid) > 0).map((item) => (
+          <HistoryItem
+            key={item.id}
+            date={new Date(item.updated_at || item.created_at).toLocaleDateString()}
+            amount={`₹ ${Number(item.amount_paid).toLocaleString('en-IN')}`}
+            status={item.status}
+            refNo={item.payment_reference || `INV-${item.id}`}
+          />
+        ))}
+        {invoices.length === 0 && <Text style={styles.emptyText}>No fee invoices are available yet.</Text>}
       </ScrollView>
     </View>
   );
@@ -142,6 +166,7 @@ const styles = StyleSheet.create({
     paddingTop: 32,
     paddingBottom: 40,
   },
+  emptyText: { color: '#64748B', textAlign: 'center', paddingVertical: 20 },
   breakdownRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

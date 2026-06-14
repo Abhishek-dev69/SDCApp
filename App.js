@@ -91,6 +91,9 @@ import AddStudentScreen from './src/screens/admin/AddStudentScreen';
 import AddTeacherScreen from './src/screens/admin/AddTeacherScreen';
 import AssignBatchScreen from './src/screens/admin/AssignBatchScreen';
 import AddBatchScreen from './src/screens/admin/AddBatchScreen';
+import PostAnnouncementScreen from './src/screens/admin/PostAnnouncementScreen';
+import LectureEditorScreen from './src/screens/admin/LectureEditorScreen';
+import LectureAttendanceScreen from './src/screens/admin/LectureAttendanceScreen';
 import EmailSignUpScreen from './src/screens/auth/EmailSignUpScreen';
 import EmailSignInScreen from './src/screens/auth/EmailSignInScreen';
 import PhoneLoginScreen from './src/screens/auth/PhoneLoginScreen';
@@ -109,12 +112,15 @@ import { navigationRef } from './src/navigation/navigationRef';
 const Stack = createNativeStackNavigator();
 
 function AppNavigator() {
-  const { setUserProfile } = useUserSession();
+  const { setUserProfile, setSelectedBatch } = useUserSession();
   const [isLoading, setIsLoading] = useState(true);
   const [initialRoute, setInitialRoute] = useState('SDCLogin');
   useEffect(() => {
-  registerClearSession(() => setUserProfile(null));
-}, []);
+  registerClearSession(() => {
+    setUserProfile(null);
+    setSelectedBatch(null);
+  });
+}, [setSelectedBatch, setUserProfile]);
   useEffect(() => {
     const bootstrapSession = async () => {
       try {
@@ -123,7 +129,7 @@ function AppNavigator() {
           const profile = await fetchAndStoreProfile(setUserProfile);
           if (profile?.role) {
             const roleRouteMap = {
-              student: 'MainTabs',
+              student: 'BatchSelection',
               admin: 'AdminTabs',
               teacher: 'AdminTabs',
               owner: 'OwnerTabs',
@@ -166,6 +172,9 @@ function AppNavigator() {
       <Stack.Screen name="AddTeacher" component={AddTeacherScreen} />
       <Stack.Screen name="AssignBatch" component={AssignBatchScreen} />
       <Stack.Screen name="AddBatch" component={AddBatchScreen} />
+      <Stack.Screen name="PostAnnouncement" component={PostAnnouncementScreen} />
+      <Stack.Screen name="LectureEditor" component={LectureEditorScreen} />
+      <Stack.Screen name="LectureAttendance" component={LectureAttendanceScreen} />
       <Stack.Screen name="EmailSignUp" component={EmailSignUpScreen} />
       <Stack.Screen name="EmailSignIn" component={EmailSignInScreen} />
       <Stack.Screen name="PhoneLogin" component={PhoneLoginScreen} />
@@ -194,4 +203,3 @@ export default function App() {
     </UserSessionProvider>
   );
 }
-

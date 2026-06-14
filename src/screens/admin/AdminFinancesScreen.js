@@ -1,14 +1,13 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Banknote, ChevronLeft, CreditCard, FileText, TrendingUp, Users } from 'lucide-react-native';
-import {
-  ADMIN_BATCH_OVERVIEW,
-  ADMIN_DUE_STUDENTS,
-  formatCurrency,
-  getAdminBatchTotals,
-} from '../../data/adminBatchOverview';
+import { apiRequest } from '../../services/api';
+
+function formatCurrency(value) {
+  return `Rs ${Number(value || 0).toLocaleString('en-IN')}`;
+}
 
 function ProgressBar({ value, color = '#16A34A' }) {
   return (
@@ -35,7 +34,88 @@ function SummaryCard({ item }) {
 
 export default function AdminFinancesScreen({ navigation }) {
   const [activeView, setActiveView] = useState('batches');
-  const totals = getAdminBatchTotals();
+  const [invoices, setInvoices] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const load = () => {
+      setLoading(true);
+      apiRequest('/operations/fees')
+        .then((data) => setInvoices(Array.isArray(data) ? data : []))
+        .catch((requestError) => {
+          setInvoices([]);
+          setError(
+            requestError.status === 501
+              ? 'Apply migration 003_academic_operations.sql to enable fees.'
+              : requestError.message
+          );
+        })
+        .finally(() => setLoading(false));
+    };
+    const unsubscribe = navigation.addListener('focus', load);
+    load();
+    return unsubscribe;
+  }, [navigation]);
+
+  const totals = useMemo(() => invoices.reduce((summary, invoice) => {
+    const amount = Number(invoice.amount || 0);
+    const paid = Number(invoice.amount_paid || 0);
+    summary.expectedAmount += amount;
+    summary.collectedAmount += paid;
+    summary.pendingAmount += Math.max(amount - paid, 0);
+    if (paid < amount) summary.dueStudents.add(invoice.student_auth_id);
+    if (invoice.status === 'overdue') summary.overdueStudents.add(invoice.student_auth_id);
+    return summary;
+  }, {
+    expectedAmount: 0,
+    collectedAmount: 0,
+    pendingAmount: 0,
+    dueStudents: new Set(),
+    overdueStudents: new Set(),
+  }), [invoices]);
+  totals.collectionRate = totals.expectedAmount
+    ? Math.round((totals.collectedAmount / totals.expectedAmount) * 100)
+    : 0;
+
+  const batchSummaries = useMemo(() => Object.values(invoices.reduce((groups, invoice) => {
+    const id = invoice.batch_id || 'unassigned';
+    const current = groups[id] || {
+      id,
+      label: invoice.batch_name || 'Unassigned',
+      name: invoice.batch_name ? `${invoice.batch_name} Batch` : 'Unassigned Batch',
+      branch: invoice.batch_location || 'No location',
+      expectedAmount: 0,
+      collectedAmount: 0,
+      pendingAmount: 0,
+      dueStudents: new Set(),
+      overdueStudents: new Set(),
+      students: new Set(),
+    };
+    const amount = Number(invoice.amount || 0);
+    const paid = Number(invoice.amount_paid || 0);
+    current.expectedAmount += amount;
+    current.collectedAmount += paid;
+    current.pendingAmount += Math.max(amount - paid, 0);
+    current.students.add(invoice.student_auth_id);
+    if (paid < amount) current.dueStudents.add(invoice.student_auth_id);
+    if (invoice.status === 'overdue') current.overdueStudents.add(invoice.student_auth_id);
+    groups[id] = current;
+    return groups;
+  }, {})).map((batch) => ({
+    ...batch,
+    studentCount: batch.students.size,
+    dueStudentCount: batch.dueStudents.size,
+    overdueStudentCount: batch.overdueStudents.size,
+    feePerStudent: batch.students.size ? batch.expectedAmount / batch.students.size : 0,
+    collectionRate: batch.expectedAmount
+      ? Math.round((batch.collectedAmount / batch.expectedAmount) * 100)
+      : 0,
+  })), [invoices]);
+
+  const dueInvoices = invoices.filter(
+    (invoice) => Number(invoice.amount_paid || 0) < Number(invoice.amount || 0)
+  );
 
   const summaryCards = [
     {
@@ -58,14 +138,14 @@ export default function AdminFinancesScreen({ navigation }) {
       id: 'pending',
       label: 'Pending',
       value: formatCurrency(totals.pendingAmount),
-      meta: `${totals.overdueStudents} overdue students`,
+      meta: `${totals.overdueStudents.size} overdue students`,
       icon: CreditCard,
       color: '#DC2626',
     },
     {
       id: 'dueStudents',
       label: 'Students Due',
-      value: totals.dueStudents,
+      value: totals.dueStudents.size,
       meta: 'Across all batches',
       icon: Users,
       color: '#EA580C',
@@ -93,6 +173,7 @@ export default function AdminFinancesScreen({ navigation }) {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {!!error && <Text style={styles.errorText}>{error}</Text>}
         <View style={styles.summaryGrid}>
           {summaryCards.map((card) => (
             <SummaryCard key={card.id} item={card} />
@@ -114,8 +195,8 @@ export default function AdminFinancesScreen({ navigation }) {
           </View>
           <ProgressBar value={totals.collectionRate} />
           <View style={styles.collectionFooter}>
-            <Text style={styles.collectionFooterText}>{totals.activeBatches} batches</Text>
-            <Text style={styles.collectionFooterText}>{totals.dueStudents} due students</Text>
+            <Text style={styles.collectionFooterText}>{batchSummaries.length} batches</Text>
+            <Text style={styles.collectionFooterText}>{totals.dueStudents.size} due students</Text>
             <Text style={styles.collectionFooterText}>{formatCurrency(totals.pendingAmount)} pending</Text>
           </View>
         </View>
@@ -146,7 +227,7 @@ export default function AdminFinancesScreen({ navigation }) {
               <Text style={styles.sectionCaption}>Collection status for every active batch</Text>
             </View>
 
-            {ADMIN_BATCH_OVERVIEW.map((batch) => (
+            {batchSummaries.map((batch) => (
               <View key={batch.id} style={styles.batchCard}>
                 <View style={styles.batchHeaderRow}>
                   <View style={styles.batchCodeCircle}>
@@ -154,10 +235,10 @@ export default function AdminFinancesScreen({ navigation }) {
                   </View>
                   <View style={styles.batchInfo}>
                     <Text style={styles.batchName}>{batch.name}</Text>
-                    <Text style={styles.batchMeta}>{batch.branch} • {batch.program} • {batch.stream}</Text>
+                    <Text style={styles.batchMeta}>{batch.branch}</Text>
                   </View>
                   <View style={styles.duePill}>
-                    <Text style={styles.duePillText}>{batch.dueStudents} due</Text>
+                    <Text style={styles.duePillText}>{batch.dueStudentCount} due</Text>
                   </View>
                 </View>
 
@@ -184,7 +265,7 @@ export default function AdminFinancesScreen({ navigation }) {
 
                 <View style={styles.batchFooterRow}>
                   <Text style={styles.batchFooterText}>{batch.collectionRate}% collection</Text>
-                  <Text style={styles.overdueText}>{batch.overdueStudents} overdue</Text>
+                  <Text style={styles.overdueText}>{batch.overdueStudentCount} overdue</Text>
                 </View>
               </View>
             ))}
@@ -196,31 +277,36 @@ export default function AdminFinancesScreen({ navigation }) {
               <Text style={styles.sectionCaption}>Students requiring fee follow-up this cycle</Text>
             </View>
 
-            {ADMIN_DUE_STUDENTS.map((student) => {
-              const isOverdue = student.status === 'Overdue';
+            {dueInvoices.map((student) => {
+              const isOverdue = student.status === 'overdue';
 
               return (
                 <View key={student.id} style={styles.studentDueCard}>
                   <View style={styles.studentAvatar}>
-                    <Text style={styles.studentAvatarText}>{student.name.charAt(0)}</Text>
+                    <Text style={styles.studentAvatarText}>{(student.student_name || 'S').charAt(0)}</Text>
                   </View>
                   <View style={styles.studentDueInfo}>
-                    <Text style={styles.studentName}>{student.name}</Text>
+                    <Text style={styles.studentName}>{student.student_name || student.student_sdc_id || 'Student'}</Text>
                     <Text style={styles.studentMeta}>
-                      {student.batchName} • {student.branch} • Due {student.dueDate}
+                      {student.batch_name || 'Unassigned'} • Due {student.due_date}
                     </Text>
                   </View>
                   <View style={styles.studentRight}>
-                    <Text style={styles.studentAmount}>{formatCurrency(student.amount)}</Text>
+                    <Text style={styles.studentAmount}>
+                      {formatCurrency(Number(student.amount || 0) - Number(student.amount_paid || 0))}
+                    </Text>
                     <View style={[styles.statusBadge, isOverdue && styles.overdueBadge]}>
                       <Text style={[styles.statusBadgeText, isOverdue && styles.overdueBadgeText]}>
-                        {student.status}
+                        {student.status || 'due'}
                       </Text>
                     </View>
                   </View>
                 </View>
               );
             })}
+            {!loading && dueInvoices.length === 0 && (
+              <Text style={styles.emptyText}>No pending fee invoices.</Text>
+            )}
           </View>
         )}
       </ScrollView>
@@ -281,6 +367,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 18,
     paddingBottom: 120,
+  },
+  errorText: {
+    color: '#B91C1C',
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 14,
+  },
+  emptyText: {
+    color: '#64748B',
+    fontSize: 13,
+    textAlign: 'center',
+    paddingVertical: 20,
   },
   summaryGrid: {
     flexDirection: 'row',

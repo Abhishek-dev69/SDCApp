@@ -10,24 +10,27 @@ app.use(express.json());
 
 // import routes
 const authRoutes = require('./routes/auth');
-const usersRouter = require('./routes/users');
 const emailRoutes = require('./routes/email');
 const announcementRoutes = require('./routes/announcements');
 const pdfviewRoutes = require('./routes/pdfview');
 const sdcAuthRoutes = require('./routes/sdcidauth');
 const instituteRoutes = require('./routes/institute');
 const materialRoutes = require('./routes/materials');
-const lecturesRoutes = require('./routes/lectures');
+const lectureRoutes = require('./routes/lectures');
+const dashboardRoutes = require('./routes/dashboards');
+const operationRoutes = require('./routes/operations');
 
 app.use('/auth/sdc', sdcAuthRoutes);
 app.use('/pdfview', pdfviewRoutes);
 app.use('/materials', materialRoutes);
+app.use('/lectures', lectureRoutes);
+app.use('/admin/lectures', lectureRoutes);
+app.use('/dashboard', dashboardRoutes);
+app.use('/operations', operationRoutes);
 app.use('/', instituteRoutes);
 app.use('/announcements', announcementRoutes);
 app.use('/auth/email', emailRoutes);
 app.use('/auth', authRoutes);  
-app.use('/users', usersRouter);
-app.use('/admin/lectures', lecturesRoutes);
 
 // test route
 app.get('/', (req, res) => {

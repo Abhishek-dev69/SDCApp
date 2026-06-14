@@ -7,6 +7,21 @@ const { Storage } = require('@google-cloud/storage');
 
 const storage = new Storage();
 
+const signGcsUrl = async (gsUri) => {
+  if (!gsUri) return null;
+  const withoutPrefix = gsUri.replace(/^gs:\/\//, '');
+  const slashIndex = withoutPrefix.indexOf('/');
+  if (slashIndex === -1) return null;
+  const bucket = withoutPrefix.slice(0, slashIndex);
+  const filePath = withoutPrefix.slice(slashIndex + 1);
+  const [url] = await storage.bucket(bucket).file(filePath).getSignedUrl({
+    version: 'v4',
+    action: 'read',
+    expires: Date.now() + 15 * 60 * 1000,
+  });
+  return url;
+};
+
 // Route 1: List papers with filters, no signing
 router.get('/', verifyToken, async (req, res) => {
   const { exam, year, month, subject } = req.query;

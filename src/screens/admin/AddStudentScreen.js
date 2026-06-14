@@ -19,14 +19,21 @@ export default function AddStudentScreen({ navigation }) {
   const [formData, setFormData] = useState({
     fullName: '',
     parentName: '',
-    phone: '',
+    studentPhone: '',
+    parentPhone: '',
+    email: '',
+    parentEmail: '',
     batch: ''
   });
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
-    if (!formData.fullName || !formData.phone || !formData.batch) {
-      Alert.alert('Required Fields', 'Please fill in the student name, phone number, and batch.');
+    if (!formData.fullName || !formData.studentPhone || !formData.batch) {
+      Alert.alert('Required Fields', 'Please fill in the student name, student phone number, and batch.');
+      return;
+    }
+    if (formData.parentName && !formData.parentPhone && !formData.parentEmail) {
+      Alert.alert('Guardian Contact', 'Add a guardian phone number or email to create parent access.');
       return;
     }
 
@@ -40,7 +47,11 @@ export default function AddStudentScreen({ navigation }) {
       Alert.alert(
         'Student Added',
         student.sdcId
-          ? `${student.name} was added successfully.\nSDC ID: ${student.sdcId}`
+          ? [
+              `${student.name} was added successfully.`,
+              `Student SDC ID: ${student.sdcId}`,
+              student.parentSdcId ? `Parent SDC ID: ${student.parentSdcId}` : null,
+            ].filter(Boolean).join('\n')
           : `${student.name} was added successfully.`,
         [{ text: 'OK', onPress: () => navigation.goBack() }]
       );
@@ -100,12 +111,39 @@ export default function AddStudentScreen({ navigation }) {
             />
 
             <InputField 
-              label="Phone Number" 
+              label="Student Phone Number"
               icon={Phone} 
               placeholder="Enter 10-digit number"
-              value={formData.phone}
-              onChangeText={(text) => setFormData({...formData, phone: text})}
+              value={formData.studentPhone}
+              onChangeText={(text) => setFormData({...formData, studentPhone: text})}
               keyboardType="phone-pad"
+            />
+
+            <InputField
+              label="Student Email"
+              icon={User}
+              placeholder="Optional student email"
+              value={formData.email}
+              onChangeText={(text) => setFormData({...formData, email: text})}
+              keyboardType="email-address"
+            />
+
+            <InputField
+              label="Guardian Phone Number"
+              icon={Phone}
+              placeholder="Used for parent account"
+              value={formData.parentPhone}
+              onChangeText={(text) => setFormData({...formData, parentPhone: text})}
+              keyboardType="phone-pad"
+            />
+
+            <InputField
+              label="Guardian Email"
+              icon={User}
+              placeholder="Optional guardian email"
+              value={formData.parentEmail}
+              onChangeText={(text) => setFormData({...formData, parentEmail: text})}
+              keyboardType="email-address"
             />
 
             <InputField 

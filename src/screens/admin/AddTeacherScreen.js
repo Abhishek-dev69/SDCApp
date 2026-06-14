@@ -12,7 +12,7 @@ import {
   ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ChevronLeft, User, Phone, BookOpen, Clock } from 'lucide-react-native';
+import { ChevronLeft, User, Phone, BookOpen, Clock, Mail } from 'lucide-react-native';
 import { apiRequest } from '../../services/api';
 
 export default function AddTeacherScreen({ navigation }) {
@@ -20,7 +20,8 @@ export default function AddTeacherScreen({ navigation }) {
     fullName: '',
     subject: '',
     experience: '',
-    phone: ''
+    phone: '',
+    email: '',
   });
   const [saving, setSaving] = useState(false);
 
@@ -37,7 +38,10 @@ export default function AddTeacherScreen({ navigation }) {
         body: formData,
       });
 
-      Alert.alert('Teacher Added', `${teacher.name} was registered successfully.`, [
+      const message = teacher.sdcId
+        ? `${teacher.name} was registered successfully.\nTeacher SDC ID: ${teacher.sdcId}`
+        : `${teacher.name} was registered successfully.`;
+      Alert.alert('Teacher Added', message, [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
     } catch (err) {
@@ -102,6 +106,15 @@ export default function AddTeacherScreen({ navigation }) {
               value={formData.phone}
               onChangeText={(text) => setFormData({...formData, phone: text})}
               keyboardType="phone-pad"
+            />
+
+            <InputField
+              label="Email"
+              icon={Mail}
+              placeholder="Optional teacher email"
+              value={formData.email}
+              onChangeText={(text) => setFormData({...formData, email: text})}
+              keyboardType="email-address"
             />
 
             <InputField 
