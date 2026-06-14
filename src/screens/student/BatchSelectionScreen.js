@@ -9,13 +9,21 @@ export default function BatchSelectionScreen({ navigation }) {
   const [searchText, setSearchText] = useState('');
   const [batches, setBatches] = useState([]);
   const [loading, setLoading] = useState(true);
-  const { setSelectedBatch: setSessionBatch } = useUserSession();
+  const { userProfile, setSelectedBatch: setSessionBatch } = useUserSession();
 
   const loadBatches = async () => {
     setLoading(true);
     try {
       const data = await apiRequest('/batches');
-      setBatches(Array.isArray(data) ? data : []);
+      const availableBatches = Array.isArray(data) ? data : [];
+      setBatches(availableBatches);
+      const profileBatch = availableBatches.find(
+        (item) => String(item.id) === String(userProfile?.batch_id)
+          || item.label === userProfile?.sdc_batch
+      );
+      if (profileBatch) {
+        setSelectedBatch(profileBatch.id);
+      }
     } catch (err) {
       Alert.alert('Unable to Load Batches', err.message || 'Please try again.');
     } finally {

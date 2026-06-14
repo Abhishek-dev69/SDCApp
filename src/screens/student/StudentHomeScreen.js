@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -11,14 +11,52 @@ import {
   AlertCircle, 
   CheckCircle2, 
   Zap,
-  BookOpen,
-  PlayCircle
+  CalendarClock,
+  Megaphone,
 } from 'lucide-react-native';
+import { apiRequest } from '../../services/api';
 
 const { width } = Dimensions.get('window');
 
 export default function StudentHomeScreen() {
   const { userProfile } = useUserSession();
+  const [announcements, setAnnouncements] = useState([]);
+  const [upcomingLectures, setUpcomingLectures] = useState([]);
+  const [homework, setHomework] = useState([]);
+  const [results, setResults] = useState([]);
+
+  useEffect(() => {
+    Promise.all([
+      apiRequest('/announcements'),
+      apiRequest(`/lectures?status=scheduled&from=${encodeURIComponent(new Date().toISOString())}&limit=3`),
+      apiRequest('/operations/homework').catch((err) => err.status === 501 ? [] : Promise.reject(err)),
+      apiRequest('/operations/results').catch((err) => err.status === 501 ? [] : Promise.reject(err)),
+    ])
+      .then(([announcementData, lectureData, homeworkData, resultData]) => {
+        setAnnouncements(Array.isArray(announcementData) ? announcementData.slice(0, 3) : []);
+        setUpcomingLectures(Array.isArray(lectureData) ? lectureData : []);
+        setHomework(Array.isArray(homeworkData) ? homeworkData : []);
+        setResults(Array.isArray(resultData) ? resultData : []);
+      })
+      .catch((err) => console.log('Student dashboard live data error:', err.message));
+  }, []);
+
+  const performance = useMemo(() => {
+    const percentages = results
+      .filter((result) => Number(result.total_marks) > 0)
+      .map((result) => (Number(result.marks) / Number(result.total_marks)) * 100);
+    const ranks = results.map((result) => Number(result.rank)).filter(Number.isFinite);
+    return {
+      average: percentages.length
+        ? Math.round(percentages.reduce((sum, value) => sum + value, 0) / percentages.length)
+        : null,
+      rank: ranks.length ? Math.min(...ranks) : null,
+    };
+  }, [results]);
+
+  const pendingHomework = homework.filter(
+    (item) => !['submitted', 'reviewed'].includes(item.submission_status)
+  );
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
@@ -46,9 +84,11 @@ export default function StudentHomeScreen() {
               
               <TouchableOpacity style={styles.notificationBell}>
                 <Bell size={24} color="#fff" />
-                <View style={styles.notificationBadge}>
-                  <Text style={styles.notificationBadgeText}>3</Text>
-                </View>
+                {announcements.length > 0 && (
+                  <View style={styles.notificationBadge}>
+                    <Text style={styles.notificationBadgeText}>{announcements.length}</Text>
+                  </View>
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -70,7 +110,9 @@ export default function StudentHomeScreen() {
             <View style={styles.performanceData}>
               <View>
                 <View style={styles.percentageRow}>
-                  <Text style={styles.performancePercentage}>85.4%</Text>
+                  <Text style={styles.performancePercentage}>
+                    {performance.average == null ? 'N/A' : `${performance.average}%`}
+                  </Text>
                   <TrendingUp size={20} color="#4ade80" style={styles.trendIcon} />
                 </View>
                 <Text style={styles.performanceLabel}>Average Score</Text>
@@ -79,7 +121,7 @@ export default function StudentHomeScreen() {
               <View style={styles.verticalDivider} />
               
               <View>
-                <Text style={styles.rankValue}>#12</Text>
+                <Text style={styles.rankValue}>{performance.rank ? `#${performance.rank}` : 'N/A'}</Text>
                 <Text style={styles.performanceLabel}>Batch Rank</Text>
               </View>
             </View>
@@ -89,6 +131,42 @@ export default function StudentHomeScreen() {
 
       {/* Main Content */}
       <View style={styles.content}>
+        {announcements.length > 0 && (
+          <View style={styles.liveSection}>
+            <Text style={styles.subTitle}>Announcements</Text>
+            {announcements.map((announcement) => (
+              <View key={announcement.id} style={styles.liveRow}>
+                <View style={[styles.liveIcon, { backgroundColor: '#FFF7ED' }]}>
+                  <Megaphone size={19} color="#EA580C" />
+                </View>
+                <View style={styles.liveCopy}>
+                  <Text style={styles.liveTitle}>{announcement.title}</Text>
+                  <Text style={styles.liveMeta} numberOfLines={2}>{announcement.content}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {upcomingLectures.length > 0 && (
+          <View style={styles.liveSection}>
+            <Text style={styles.subTitle}>Upcoming Lectures</Text>
+            {upcomingLectures.map((lecture) => (
+              <View key={lecture.id} style={styles.liveRow}>
+                <View style={[styles.liveIcon, { backgroundColor: '#EFF6FF' }]}>
+                  <CalendarClock size={19} color="#2563EB" />
+                </View>
+                <View style={styles.liveCopy}>
+                  <Text style={styles.liveTitle}>{lecture.subject}{lecture.topic ? ` · ${lecture.topic}` : ''}</Text>
+                  <Text style={styles.liveMeta}>
+                    {new Date(lecture.scheduledAt).toLocaleString()} · {lecture.durationMins} min
+                  </Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+
         {/* Today's Homework Card */}
 
         <View style={styles.homeworkCard}>
@@ -98,69 +176,56 @@ export default function StudentHomeScreen() {
             </View>
             <View style={styles.cardHeaderText}>
               <Text style={styles.cardTitle}>Today's Homework</Text>
-              <Text style={styles.pendingText}>2 Pending</Text>
+              <Text style={styles.pendingText}>{pendingHomework.length} Pending</Text>
             </View>
           </View>
           
           <View style={styles.homeworkList}>
-            <View style={styles.homeworkItem}>
-              <CheckCircle2 size={20} color="#10b981" />
-              <Text style={styles.homeworkItemText}>Physics - Complete Chapter 3</Text>
-            </View>
-            <View style={styles.homeworkItem}>
-              <AlertCircle size={20} color="#f97316" />
-              <Text style={styles.homeworkItemText}>Math - 10 Problems</Text>
-            </View>
+            {homework.slice(0, 4).map((item) => {
+              const completed = ['submitted', 'reviewed'].includes(item.submission_status);
+              const StatusIcon = completed ? CheckCircle2 : AlertCircle;
+              return (
+                <View key={item.id} style={styles.homeworkItem}>
+                  <StatusIcon size={20} color={completed ? '#10b981' : '#f97316'} />
+                  <View style={styles.homeworkCopy}>
+                    <Text style={styles.homeworkItemText}>{item.subject} - {item.title}</Text>
+                    <Text style={styles.homeworkMeta}>
+                      Due {new Date(item.due_at).toLocaleString()} · {item.submission_status || 'pending'}
+                    </Text>
+                  </View>
+                </View>
+              );
+            })}
+            {homework.length === 0 && (
+              <Text style={styles.emptyText}>No homework has been assigned yet.</Text>
+            )}
           </View>
         </View>
 
-        {/* Math Performance Analysis */}
+        {/* Live Performance Analysis */}
         <View style={styles.analysisCard}>
           <View style={styles.analysisHeader}>
-            <Text style={styles.analysisTitle}>Math Performance Analysis</Text>
+            <Text style={styles.analysisTitle}>Academic Performance</Text>
             <View style={styles.aiBadge}>
               <Zap size={12} color="#fff" fill="#fff" />
-              <Text style={styles.aiBadgeText}>AI Powered</Text>
+              <Text style={styles.aiBadgeText}>Live Results</Text>
             </View>
           </View>
           
           <View style={styles.analysisRow}>
             <View style={styles.analysisItem}>
-              <Text style={styles.analysisLabel}>Accuracy</Text>
-              <Text style={styles.analysisValue}>72%</Text>
+              <Text style={styles.analysisLabel}>Published Tests</Text>
+              <Text style={styles.analysisValue}>{results.length}</Text>
             </View>
             <View style={styles.analysisItem}>
-              <Text style={styles.analysisLabel}>Speed</Text>
-              <Text style={styles.analysisValue}>Medium</Text>
+              <Text style={styles.analysisLabel}>Average Score</Text>
+              <Text style={styles.analysisValue}>
+                {performance.average == null ? 'N/A' : `${performance.average}%`}
+              </Text>
             </View>
           </View>
         </View>
 
-        {/* Weak Topics */}
-        <View style={styles.topicsSection}>
-          <Text style={styles.subTitle}>Weak Topics</Text>
-          <View style={styles.topicItem}>
-            <View style={[styles.dot, { backgroundColor: '#ef4444' }]} />
-            <Text style={styles.topicText}>Integration</Text>
-          </View>
-          <View style={styles.topicItem}>
-            <View style={[styles.dot, { backgroundColor: '#f97316' }]} />
-            <Text style={styles.topicText}>Differential Equations</Text>
-          </View>
-        </View>
-
-        {/* Recommended Practice */}
-        <View style={styles.practiceSection}>
-          <Text style={styles.subTitle}>Recommended Practice</Text>
-          <TouchableOpacity style={styles.practiceItem}>
-            <BookOpen size={20} color="#2b58ed" />
-            <Text style={styles.practiceText}>10 Integration Questions</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.practiceItem}>
-            <PlayCircle size={20} color="#2b58ed" />
-            <Text style={styles.practiceText}>Watch Lecture</Text>
-          </TouchableOpacity>
-        </View>
       </View>
       
       {/* Footer padding for tab bar */}
@@ -337,6 +402,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     marginTop: -20,
   },
+  liveSection: {
+    marginBottom: 18,
+  },
+  liveRow: {
+    minHeight: 66,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+  },
+  liveIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 11,
+  },
+  liveCopy: { flex: 1 },
+  liveTitle: { color: '#0F172A', fontSize: 14, fontWeight: '700' },
+  liveMeta: { color: '#64748B', fontSize: 12, marginTop: 3, lineHeight: 17 },
   sectionHeader: {
     marginBottom: 20,
   },
@@ -397,6 +487,22 @@ const styles = StyleSheet.create({
   homeworkItemText: {
     fontSize: 14,
     color: '#475569',
+  },
+  homeworkCopy: {
+    flex: 1,
+  },
+  homeworkMeta: {
+    color: '#64748B',
+    fontSize: 11,
+    lineHeight: 16,
+    marginTop: 3,
+  },
+  emptyText: {
+    color: '#64748B',
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: 'center',
+    paddingVertical: 10,
   },
   analysisCard: {
     backgroundColor: '#eff6ff',

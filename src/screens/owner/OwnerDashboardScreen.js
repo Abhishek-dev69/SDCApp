@@ -1,9 +1,8 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
-  AlertTriangle,
   Bell,
   BookOpen,
   ChevronRight,
@@ -13,12 +12,12 @@ import {
   UserCheck,
   Users,
 } from 'lucide-react-native';
-import {
-  ADMIN_BATCH_OVERVIEW,
-  formatCurrency,
-  getAdminBatchTotals,
-  getBranchSummaries,
-} from '../../data/adminBatchOverview';
+import { apiRequest } from '../../services/api';
+import { useUserSession } from '../../context/UserSessionContext';
+
+function formatCurrency(value) {
+  return `Rs ${Number(value || 0).toLocaleString('en-IN')}`;
+}
 
 function ProgressBar({ value, color = '#28388F', trackColor = '#E2E8F0' }) {
   return (
@@ -59,44 +58,66 @@ function WatchRow({ icon: Icon, title, meta, value, color }) {
 }
 
 export default function OwnerDashboardScreen({ route }) {
-  const displayName = route?.params?.displayName || 'Natik Sir';
-  const totals = getAdminBatchTotals();
-  const branches = getBranchSummaries();
-  const lowestCollectionBatch = [...ADMIN_BATCH_OVERVIEW].sort((first, second) => first.collectionRate - second.collectionRate)[0];
-  const topRevenueBatches = [...ADMIN_BATCH_OVERVIEW]
-    .sort((first, second) => second.collectedAmount - first.collectedAmount)
+  const { userProfile } = useUserSession();
+  const displayName = userProfile?.name || route?.params?.displayName || 'Owner';
+  const [liveOverview, setLiveOverview] = useState(null);
+  const [batches, setBatches] = useState([]);
+  const [error, setError] = useState('');
+  const branches = liveOverview?.branches || [];
+  const largestBatches = [...batches]
+    .sort((first, second) => Number(second.studentCount || 0) - Number(first.studentCount || 0))
     .slice(0, 3);
+
+  useEffect(() => {
+    Promise.all([
+      apiRequest('/dashboard/owner'),
+      apiRequest('/admin/batches'),
+    ])
+      .then(([overviewData, batchData]) => {
+        setLiveOverview(overviewData);
+        setBatches(Array.isArray(batchData) ? batchData : []);
+      })
+      .catch((err) => setError(err.message || 'Could not load owner dashboard.'));
+  }, []);
+
+  const collectedAmount = liveOverview?.fees?.collected || 0;
+  const pendingAmount = liveOverview?.fees?.pending || 0;
+  const collectionRate = liveOverview?.fees?.billed
+    ? Math.round((collectedAmount / liveOverview.fees.billed) * 100)
+    : 0;
 
   const metrics = [
     {
       id: 'students',
       label: 'Students',
-      value: totals.totalStudents,
-      meta: `${totals.activeBatches} active batches`,
+      value: liveOverview?.totalStudents ?? '...',
+      meta: `${liveOverview?.activeBatches || 0} active batches`,
       icon: Users,
       color: '#2563EB',
     },
     {
       id: 'attendance',
       label: 'Attendance',
-      value: `${totals.averageAttendance}%`,
-      meta: 'Institute average',
+      value: liveOverview?.attendancePercent === null || liveOverview?.attendancePercent === undefined
+        ? 'N/A'
+        : `${liveOverview.attendancePercent}%`,
+      meta: 'Recorded sessions',
       icon: UserCheck,
       color: '#28388F',
     },
     {
       id: 'pending',
       label: 'Pending Fees',
-      value: formatCurrency(totals.pendingAmount),
-      meta: `${totals.dueStudents} students due`,
+      value: formatCurrency(pendingAmount),
+      meta: liveOverview?.fees ? 'From fee invoices' : 'Migration/data required',
       icon: TrendingDown,
       color: '#DC2626',
     },
     {
-      id: 'occupancy',
-      label: 'Seat Fill',
-      value: `${totals.occupancyRate}%`,
-      meta: `${totals.totalStudents}/${totals.totalCapacity} seats`,
+      id: 'materials',
+      label: 'Materials',
+      value: liveOverview?.studyMaterials ?? '...',
+      meta: `${liveOverview?.lectures || 0} lectures`,
       icon: BookOpen,
       color: '#EA580C',
     },
@@ -124,19 +145,20 @@ export default function OwnerDashboardScreen({ route }) {
               <Text style={styles.collectionLabel}>Fees Collected</Text>
               <View style={styles.collectionBadge}>
                 <TrendingUp size={14} color="#FFFFFF" />
-                <Text style={styles.collectionBadgeText}>{totals.collectionRate}%</Text>
+                <Text style={styles.collectionBadgeText}>{collectionRate}%</Text>
               </View>
             </View>
-            <Text style={styles.collectionValue}>{formatCurrency(totals.collectedAmount)}</Text>
+            <Text style={styles.collectionValue}>{formatCurrency(collectedAmount)}</Text>
             <Text style={styles.collectionMeta}>
-              {formatCurrency(totals.pendingAmount)} pending from {totals.dueStudents} students
+              {formatCurrency(pendingAmount)} currently pending
             </Text>
-            <ProgressBar value={totals.collectionRate} color="#FFFFFF" trackColor="rgba(255,255,255,0.18)" />
+            <ProgressBar value={collectionRate} color="#FFFFFF" trackColor="rgba(255,255,255,0.18)" />
           </View>
         </SafeAreaView>
       </View>
 
       <View style={styles.content}>
+        {!!error && <Text style={styles.errorText}>{error}</Text>}
         <View style={styles.metricsGrid}>
           {metrics.map((metric) => (
             <MetricCard key={metric.id} item={metric} />
@@ -152,65 +174,61 @@ export default function OwnerDashboardScreen({ route }) {
           <WatchRow
             icon={IndianRupee}
             title="Fee follow-up required"
-            meta={`${totals.overdueStudents} students are overdue`}
-            value={formatCurrency(totals.pendingAmount)}
+            meta={liveOverview?.fees ? 'Current unpaid invoice balance' : 'Fee tables are not populated yet'}
+            value={formatCurrency(pendingAmount)}
             color="#DC2626"
           />
           <WatchRow
-            icon={AlertTriangle}
-            title={`${lowestCollectionBatch.name} collection is low`}
-            meta={`${lowestCollectionBatch.branch} • ${lowestCollectionBatch.dueStudents} due students`}
-            value={`${lowestCollectionBatch.collectionRate}%`}
+            icon={Users}
+            title="Teaching team"
+            meta="Teachers registered in the backend"
+            value={String(liveOverview?.totalTeachers || 0)}
             color="#EA580C"
           />
           <WatchRow
             icon={UserCheck}
             title="Attendance health"
-            meta="Average across all batches"
-            value={`${totals.averageAttendance}%`}
+            meta="Average from recorded attendance"
+            value={liveOverview?.attendancePercent == null ? 'N/A' : `${liveOverview.attendancePercent}%`}
             color="#28388F"
           />
         </View>
 
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Branch Watch</Text>
-          <Text style={styles.sectionCaption}>Students, occupancy, and pending dues by branch</Text>
+          <Text style={styles.sectionCaption}>Live students and batches grouped by branch</Text>
         </View>
 
         {branches.map((branch) => (
-          <View key={branch.id} style={styles.branchRow}>
+          <View key={branch.branch || 'Unassigned'} style={styles.branchRow}>
             <View style={styles.branchHeader}>
               <View>
-                <Text style={styles.branchName}>{branch.branch}</Text>
+                <Text style={styles.branchName}>{branch.branch || 'Unassigned'}</Text>
                 <Text style={styles.branchMeta}>{branch.batches} batches • {branch.students} students</Text>
               </View>
-              <Text style={styles.branchDue}>{formatCurrency(branch.pendingAmount)} due</Text>
-            </View>
-            <ProgressBar value={branch.occupancyRate} color="#2563EB" />
-            <View style={styles.branchStatsRow}>
-              <Text style={styles.branchStat}>{branch.occupancyRate}% filled</Text>
-              <Text style={styles.branchStat}>{branch.attendance}% attendance</Text>
-              <Text style={styles.branchStat}>{branch.testAverage}% score</Text>
+              <Text style={styles.branchDue}>{branch.students} enrolled</Text>
             </View>
           </View>
         ))}
 
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Top Revenue Batches</Text>
-          <Text style={styles.sectionCaption}>Batches contributing most to collection</Text>
+          <Text style={styles.sectionTitle}>Largest Batches</Text>
+          <Text style={styles.sectionCaption}>Current batches ordered by student enrolment</Text>
         </View>
 
-        {topRevenueBatches.map((batch) => (
+        {largestBatches.map((batch) => (
           <TouchableOpacity key={batch.id} style={styles.batchCard}>
             <View style={styles.batchCode}>
-              <Text style={styles.batchCodeText}>{batch.label}</Text>
+              <Text style={styles.batchCodeText}>{batch.label || batch.id}</Text>
             </View>
             <View style={styles.batchCopy}>
-              <Text style={styles.batchName}>{batch.name}</Text>
-              <Text style={styles.batchMeta}>{batch.branch} • {batch.program} • {batch.studentCount} students</Text>
+              <Text style={styles.batchName}>{batch.label || batch.name}</Text>
+              <Text style={styles.batchMeta}>
+                {batch.location || 'No location'} • {batch.stream || 'No stream'} • {batch.studentCount || 0} students
+              </Text>
             </View>
             <View style={styles.batchRight}>
-              <Text style={styles.batchAmount}>{formatCurrency(batch.collectedAmount)}</Text>
+              <Text style={styles.batchAmount}>{batch.standard ? `Std ${batch.standard}` : ''}</Text>
               <ChevronRight size={18} color="#94A3B8" />
             </View>
           </TouchableOpacity>
@@ -328,6 +346,12 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 16,
     paddingTop: 16,
+  },
+  errorText: {
+    color: '#B91C1C',
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 14,
   },
   metricsGrid: {
     flexDirection: 'row',

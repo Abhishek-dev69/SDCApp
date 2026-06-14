@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -10,10 +10,29 @@ import {
   TrendingUp, 
   Bell, 
   ChevronRight,
-  AlertCircle
+  AlertCircle,
+  Megaphone,
 } from 'lucide-react-native';
+import { apiRequest } from '../../services/api';
 
 export default function ParentDashboardScreen() {
+  const [dashboard, setDashboard] = useState(null);
+  const [announcements, setAnnouncements] = useState([]);
+
+  useEffect(() => {
+    Promise.all([apiRequest('/dashboard/parent'), apiRequest('/announcements')])
+      .then(([dashboardData, announcementData]) => {
+        setDashboard(dashboardData);
+        setAnnouncements(Array.isArray(announcementData) ? announcementData.slice(0, 3) : []);
+      })
+      .catch((err) => console.log('Parent dashboard fetch error:', err.message));
+  }, []);
+
+  const child = dashboard?.children?.find(
+    (item) => item.auth_id === dashboard?.selectedStudentAuthId
+  ) || dashboard?.children?.[0];
+  const metrics = dashboard?.metrics || {};
+
   return (
     <View style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -26,7 +45,7 @@ export default function ParentDashboardScreen() {
             <View style={styles.headerContent}>
               <View>
                 <Text style={styles.greetingText}>Good Morning,</Text>
-                <Text style={styles.userNameText}>Neha Patel</Text>
+                <Text style={styles.userNameText}>{dashboard?.parent?.name || 'Parent'}</Text>
                 <View style={styles.roleBadge}>
                   <Text style={styles.roleText}>Parent</Text>
                 </View>
@@ -49,8 +68,10 @@ export default function ParentDashboardScreen() {
                   <Users size={24} color="#28388f" />
                 </View>
                 <View>
-                  <Text style={styles.childName}>Aarav Patel</Text>
-                  <Text style={styles.childInfo}>12th • JEE Batch A1</Text>
+                  <Text style={styles.childName}>{child?.student_name || 'No linked student'}</Text>
+                  <Text style={styles.childInfo}>
+                    {child ? `${child.student_std || ''}th · ${child.sdc_batch || 'Unassigned'}` : 'Contact the institute'}
+                  </Text>
                 </View>
                 <TouchableOpacity style={styles.switchButton}>
                   <ChevronRight size={20} color="#64748b" />
@@ -65,35 +86,39 @@ export default function ParentDashboardScreen() {
           <View style={styles.metricsGrid}>
             <MetricCard 
               title="Attendance" 
-              value="92%" 
+              value={metrics.attendancePercent === null || metrics.attendancePercent === undefined
+                ? '—'
+                : `${metrics.attendancePercent}%`}
               icon={Calendar} 
               color="#10b981" 
               bgColor="#ecfdf5" 
             />
             <MetricCard 
               title="Upcoming Tests" 
-              value="3" 
+              value={metrics.upcomingTests ?? '—'}
               icon={FileText} 
               color="#3b82f6" 
               bgColor="#eff6ff" 
             />
             <MetricCard 
               title="Fee Status" 
-              value="Due" 
+              value={metrics.feeStatus?.label || '—'}
               icon={Banknote} 
               color="#ef4444" 
               bgColor="#fef2f2" 
             />
             <MetricCard 
               title="Performance" 
-              value="85%" 
+              value={metrics.performancePercent === null || metrics.performancePercent === undefined
+                ? '—'
+                : `${metrics.performancePercent}%`}
               icon={TrendingUp} 
               color="#8b5cf6" 
               bgColor="#f5f3ff" 
             />
           </View>
 
-          {/* Fee Payment Alert */}
+          {metrics.feeStatus?.amountDue > 0 && (
           <TouchableOpacity style={styles.feeAlertCard}>
             <View style={[styles.alertIconBox, { backgroundColor: '#fee2e2' }]}>
               <AlertCircle size={24} color="#ef4444" />
@@ -101,13 +126,31 @@ export default function ParentDashboardScreen() {
             <View style={styles.alertContent}>
               <Text style={styles.alertTitle}>Fee Payment Due</Text>
               <Text style={styles.alertDescription}>
-                Quarterly fees of ₹12,000 due by March 15, 2026
+                ₹{metrics.feeStatus.amountDue.toLocaleString('en-IN')} is currently due
               </Text>
             </View>
             <TouchableOpacity style={styles.payNowButton}>
               <Text style={styles.payNowText}>Pay Now</Text>
             </TouchableOpacity>
           </TouchableOpacity>
+          )}
+
+          {announcements.length > 0 && (
+            <>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Announcements</Text>
+              </View>
+              {announcements.map((announcement) => (
+                <View key={announcement.id} style={styles.announcementRow}>
+                  <Megaphone size={19} color="#EA580C" />
+                  <View style={styles.announcementCopy}>
+                    <Text style={styles.announcementTitle}>{announcement.title}</Text>
+                    <Text style={styles.announcementText} numberOfLines={2}>{announcement.content}</Text>
+                  </View>
+                </View>
+              ))}
+            </>
+          )}
 
           {/* Recent Results Section */}
           <View style={styles.sectionHeader}>
@@ -117,18 +160,18 @@ export default function ParentDashboardScreen() {
             </TouchableOpacity>
           </View>
 
-          <ResultItem 
-            subject="Physics Unit Test 3" 
-            score="42/50" 
-            rank="#12" 
-            date="Feb 24, 2026" 
-          />
-          <ResultItem 
-            subject="Chemistry Weekly Quiz" 
-            score="22/25" 
-            rank="#05" 
-            date="Feb 20, 2026" 
-          />
+          {(dashboard?.recentResults || []).map((result) => (
+            <ResultItem
+              key={result.id}
+              subject={result.title}
+              score={`${result.marks}/${result.total_marks}`}
+              rank={result.rank ? `#${result.rank}` : '—'}
+              date={new Date(result.scheduled_at).toLocaleDateString()}
+            />
+          ))}
+          {dashboard && dashboard.recentResults.length === 0 && (
+            <Text style={styles.emptyText}>No published test results yet.</Text>
+          )}
         </View>
       </ScrollView>
     </View>
@@ -283,6 +326,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 24,
     paddingBottom: 40,
+  },
+  announcementRow: {
+    minHeight: 66,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 11,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 8,
+    padding: 13,
+    marginBottom: 8,
+  },
+  announcementCopy: { flex: 1 },
+  announcementTitle: { color: '#0F172A', fontSize: 14, fontWeight: '700' },
+  announcementText: { color: '#64748B', fontSize: 12, lineHeight: 17, marginTop: 3 },
+  emptyText: {
+    color: '#64748B',
+    fontSize: 14,
+    textAlign: 'center',
+    paddingVertical: 20,
   },
   metricsGrid: {
     flexDirection: 'row',

@@ -8,11 +8,13 @@ import {
   OwnerProfileScreen,
   OwnerRevenueScreen,
 } from '../screens/owner/OwnerExtraScreens';
+import { useUserSession } from '../context/UserSessionContext';
 
 const Tab = createBottomTabNavigator();
 
 export default function OwnerTabNavigator({ route }) {
-  const displayName = route?.params?.displayName || 'Natik Sir';
+  const { userProfile } = useUserSession();
+  const displayName = userProfile?.name || route?.params?.displayName || 'Owner';
 
   return (
     <Tab.Navigator
