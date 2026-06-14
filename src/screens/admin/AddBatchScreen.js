@@ -12,7 +12,7 @@ import {
   ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ChevronLeft, BookOpen, Calendar, CheckSquare, Square } from 'lucide-react-native';
+import { ChevronLeft, BookOpen, Calendar, CheckSquare, MapPin, Square } from 'lucide-react-native';
 import { apiRequest } from '../../services/api';
 
 const SUBJECTS_LIST = ['Physics', 'Chemistry', 'Mathematics', 'Biology'];
@@ -20,7 +20,10 @@ const SUBJECTS_LIST = ['Physics', 'Chemistry', 'Mathematics', 'Biology'];
 export default function AddBatchScreen({ navigation }) {
   const [formData, setFormData] = useState({
     batchName: '',
-    startDate: '',
+    standard: '12',
+    academicYear: '2026-27',
+    location: '',
+    streams: '',
     selectedSubjects: []
   });
   const [saving, setSaving] = useState(false);
@@ -97,11 +100,35 @@ export default function AddBatchScreen({ navigation }) {
             />
 
             <InputField 
-              label="Target Start Date" 
+              label="Standard"
+              icon={BookOpen}
+              placeholder="e.g. 11 or 12"
+              value={formData.standard}
+              onChangeText={(text) => setFormData({...formData, standard: text})}
+            />
+
+            <InputField
+              label="Academic Year"
               icon={Calendar} 
-              placeholder="e.g. 15th April 2025"
-              value={formData.startDate}
-              onChangeText={(text) => setFormData({...formData, startDate: text})}
+              placeholder="e.g. 2026-27"
+              value={formData.academicYear}
+              onChangeText={(text) => setFormData({...formData, academicYear: text})}
+            />
+
+            <InputField
+              label="Location"
+              icon={MapPin}
+              placeholder="Leave blank to use your admin location"
+              value={formData.location}
+              onChangeText={(text) => setFormData({...formData, location: text})}
+            />
+
+            <InputField
+              label="Streams"
+              icon={BookOpen}
+              placeholder="e.g. MHTCET, NEET"
+              value={formData.streams}
+              onChangeText={(text) => setFormData({...formData, streams: text})}
             />
 
             <View style={styles.subjectSection}>

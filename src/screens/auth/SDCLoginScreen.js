@@ -12,26 +12,21 @@ export default function SDCLoginScreen({ navigation }) {
   const [showPassword, setShowPassword] = useState(false);
   const { setUserProfile } = useUserSession();
   
-  const getAdminRouteParams = (currentRole) => ({
+  const getAdminRouteParams = (currentRole, currentName) => ({
     userRole: currentRole,
-    displayName:
-      currentRole === 'owner'
-        ? 'Natik Sir'
-        : currentRole === 'teacher'
-        ? 'Teacher'
-        : 'Admin',
+    displayName: currentName || (currentRole === 'teacher' ? 'Teacher' : 'Admin'),
   });
 
-  const navigateForRole = (role) => {
+  const navigateForRole = (role, currentName) => {
     if (role === 'owner') {
-      navigation.replace('OwnerTabs', { displayName: 'Natik Sir' });
+      navigation.replace('OwnerTabs', { displayName: currentName || 'Owner' });
     } else if (role === 'admin' || role === 'teacher') {
-      navigation.replace('AdminTabs', getAdminRouteParams(role));
+      navigation.replace('AdminTabs', getAdminRouteParams(role, currentName));
     } else if (role === 'parent') {
       navigation.replace('ParentTabs');
-    }  else if (role === 'student') {
-  navigation.replace('MainTabs');
-} else {
+    } else if (role === 'student') {
+      navigation.replace('BatchSelection');
+    } else {
     alert(`Login failed: unrecognized role "${role}". Please contact support.`);
   }
 };
@@ -57,7 +52,7 @@ export default function SDCLoginScreen({ navigation }) {
       return;
     }
 
-    navigateForRole(data.role);
+    navigateForRole(data.role, data.name);
 
   } catch (err) {
     console.error('Signin error:', err);

@@ -117,8 +117,11 @@ export const fetchAndStoreProfile = async (setUserProfile) => {
 
 export function decodeAuthToken(token) {
   try {
-    const payload = token.split('.')[1];
-    const decoded = atob(payload);
+    const payload = token.split('.')[1]
+      .replace(/-/g, '+')
+      .replace(/_/g, '/');
+    const paddedPayload = payload.padEnd(Math.ceil(payload.length / 4) * 4, '=');
+    const decoded = atob(paddedPayload);
     return JSON.parse(decoded);
   } catch {
     return null;
