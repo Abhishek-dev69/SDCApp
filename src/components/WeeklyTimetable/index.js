@@ -186,9 +186,15 @@ export default function WeeklyTimetable({ lectures = [], onLecturePress, filterC
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: '#F8FAFC',
-  },
+  flex: 1,
+  backgroundColor: '#fff',        // was #F8FAFC
+  borderRadius: 24,
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 4 },
+  shadowOpacity: 0.05,
+  shadowRadius: 10,
+  elevation: 3,
+},
   filterRow: {
     backgroundColor: '#fff',
     borderBottomWidth: 1,
@@ -204,10 +210,9 @@ const styles = StyleSheet.create({
   weekStrip: {
     backgroundColor: '#fff',
     paddingHorizontal: 20,
-    paddingTop: 12,
+    paddingTop: 16,
     paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
+
   },
   weekNav: {
     flexDirection: 'row',
@@ -216,11 +221,13 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   navBtn: {
-    padding: 4,
-  },
+  width: 32, height: 32, borderRadius: 16,
+  backgroundColor: '#eff6ff',
+  alignItems: 'center', justifyContent: 'center',
+},
   weekLabel: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '700',
     color: '#1e293b',
   },
   daysRow: {
@@ -228,27 +235,33 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   dayItem: {
-    alignItems: 'center',
-    gap: 4,
-  },
-  dayName: {
-    fontSize: 10,
-    color: '#94a3b8',
-    fontWeight: '600',
-    textTransform: 'uppercase',
-  },
+  alignItems: 'center',
+  gap: 3,
+  paddingVertical: 8,
+  paddingHorizontal: 6,
+  borderRadius: 12,
+  flex: 1,
+  marginHorizontal: 3,
+},
+ dayName: {
+  fontSize: 9,
+  color: '#64748b',
+  fontWeight: '600',
+},
   dayNum: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 28,
+    height: 28,
+    borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
   },
   dayNumToday: {
     backgroundColor: '#28388f',
+    borderRadius: 6,
   },
   dayNumSelected: {
     backgroundColor: '#e8eaf6',
+    borderRadius: 6,
   },
   dayNumText: {
     fontSize: 13,
@@ -262,11 +275,12 @@ const styles = StyleSheet.create({
     color: '#28388f',
   },
   dot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
+    width: 5,
+    height: 5,
+    borderRadius: 3,
     backgroundColor: '#28388f',
     opacity: 0,
+    marginTop: 2,
   },
   dotVisible: {
     opacity: 1,
@@ -293,8 +307,8 @@ const styles = StyleSheet.create({
     paddingVertical: 40,
   },
   lectureCard: {
-    backgroundColor: '#fff',
-    borderRadius: 14,
+    backgroundColor: '#f8fafc',
+    borderRadius: 10,
     padding: 14,
     borderLeftWidth: 4,
     flexDirection: 'row',
@@ -312,7 +326,7 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   lectureSubject: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
     color: '#1e293b',
   },

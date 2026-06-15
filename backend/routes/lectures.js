@@ -8,17 +8,12 @@ const requireRole = require('../middleware/requireRole');
 
 
 
-
-
-
-
-
-
-
+// =============================== ADMIN ROUTES ==============================================================
 
 
 
 // GET /admin/lectures — all lectures with batch name
+
 router.get('/', verifyToken, requireRole('admin'), async (req, res) => {
   const { from, to } = req.query;
 
@@ -55,34 +50,8 @@ router.get('/', verifyToken, requireRole('admin'), async (req, res) => {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 // POST /admin/lectures — create a new lecture
+
 router.post('/', verifyToken, requireRole('admin'), async (req, res) => {
   const { batch_id, subject, topic, teacher_name, scheduled_at, duration_mins } = req.body;
   const created_by = req.user.sdcId;
@@ -108,27 +77,8 @@ router.post('/', verifyToken, requireRole('admin'), async (req, res) => {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 // PATCH /admin/lectures/:id — edit a scheduled lecture
+
 router.patch('/:id', verifyToken, requireRole('admin'), async (req, res) => {
   const { id } = req.params;
   const { subject, topic, teacher_name, scheduled_at, duration_mins } = req.body;
@@ -161,38 +111,8 @@ router.patch('/:id', verifyToken, requireRole('admin'), async (req, res) => {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 // PATCH /admin/lectures/:id/start
+
 router.patch('/:id/start', verifyToken, requireRole('admin'), async (req, res) => {
   const { id } = req.params;
   try {
@@ -215,33 +135,8 @@ router.patch('/:id/start', verifyToken, requireRole('admin'), async (req, res) =
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 // PATCH /admin/lectures/:id/complete
+
 router.patch('/:id/complete', verifyToken, requireRole('admin'), async (req, res) => {
   const { id } = req.params;
   try {
@@ -264,27 +159,8 @@ router.patch('/:id/complete', verifyToken, requireRole('admin'), async (req, res
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 // PATCH /admin/lectures/:id/cancel — cancel + notification fan-out
+
 router.patch('/:id/cancel', verifyToken, requireRole('admin'), async (req, res) => {
   const { id } = req.params;
   const client = await pool.connect();
@@ -343,20 +219,7 @@ router.patch('/:id/cancel', verifyToken, requireRole('admin'), async (req, res) 
   }
 });
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+// GET /admin/batches — for dropdowns in lecture forms
 
 router.get('/batches', verifyToken, requireRole('admin'), async (req, res) => {
   try {
@@ -373,7 +236,43 @@ router.get('/batches', verifyToken, requireRole('admin'), async (req, res) => {
 
 
 
+// ============================== STUDENT ROUTES ==============================================================
 
+// GET /lectures/my — student's own batch lectures
+
+router.get('/my', verifyToken, requireRole('student'), async (req, res) => {
+  const { from, to } = req.query;
+  const sdcId = req.user.sdcId;
+
+  if (!from || !to) {
+    return res.status(400).json({ error: 'from and to query params are required' });
+  }
+
+  const fromDate = new Date(from);
+  const toDate = new Date(to);
+  const diffDays = (toDate - fromDate) / (1000 * 60 * 60 * 24);
+
+  if (isNaN(diffDays) || diffDays < 0 || diffDays > 31) {
+    return res.status(400).json({ error: 'Invalid date range. Max range is 31 days.' });
+  }
+
+  try {
+    const result = await pool.query(
+      `SELECT l.id, l.subject, l.topic, l.teacher_name, l.scheduled_at, l.duration_mins, l.status
+       FROM lectures l
+       JOIN student_batches sb ON sb.batch_id = l.batch_id
+       WHERE sb.sdc_id = $1
+       AND l.scheduled_at >= $2::timestamptz
+       AND l.scheduled_at < $3::timestamptz
+       ORDER BY l.scheduled_at ASC`,
+      [sdcId, fromDate, toDate]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error('GET /lectures/my:', err);
+    res.status(500).json({ error: 'Failed to fetch lectures' });
+  }
+});
 
 
 
