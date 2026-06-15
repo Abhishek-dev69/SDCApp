@@ -276,6 +276,7 @@ return (
           onLecturePress={handleLecturePress}
           filterComponent={filterComponent}
           weekStart={weekStart}
+          loading={loading}
           onPrevWeek={handlePrevWeek}
           onNextWeek={handleNextWeek}
         />

@@ -20,7 +20,7 @@ import {
 
 const { width } = Dimensions.get('window');
 
-export default function StudentHomeScreen() {
+export default function StudentHomeScreen( { navigation } ) {
   const { userProfile } = useUserSession();
   const [weekStart, setWeekStart] = useState(() => {
   const d = new Date();
@@ -222,9 +222,17 @@ const SUBJECT_COLORS = {
     weekStart={weekStart}
     onPrevWeek={goToPrevWeek}
     onNextWeek={goToNextWeek}
+    loading={lecturesLoading} 
     onLecturePress={(l) => console.log(l)}
   />
 </View>
+
+        <TouchableOpacity
+          style={styles.attendanceBtn}
+          onPress={() => navigation.navigate('AttendanceScreen', { sdcId: userProfile?.sdcId, studentName: userProfile?.student_name })}
+        >
+          <Text style={styles.attendanceBtnText}>View Attendance</Text>
+        </TouchableOpacity>
 
 
         {/* Weak Topics */}
@@ -657,4 +665,9 @@ noLecturesText: {
   textAlign: 'center', color: '#94a3b8',
   fontSize: 13, paddingVertical: 20,
 },
+attendanceBtn: {
+  backgroundColor: '#2b58ed', borderRadius: 16,
+  padding: 16, alignItems: 'center', marginBottom: 20,
+},
+attendanceBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
 });

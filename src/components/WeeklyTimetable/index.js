@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   Dimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 
@@ -63,11 +64,24 @@ function formatTime(isoString) {
   return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
 }
 
-export default function WeeklyTimetable({ lectures = [], onLecturePress, filterComponent, weekStart, onPrevWeek, onNextWeek }) {
+export default function WeeklyTimetable({ lectures = [], onLecturePress, filterComponent, weekStart, onPrevWeek, onNextWeek, loading = false }) {
 
   const [selectedDay, setSelectedDay] = useState(new Date());
+  const [weekLoading, setWeekLoading] = useState(false);
 
   const today = new Date();
+
+  const handlePrevWeek = async () => {
+  setWeekLoading(true);
+  await onPrevWeek();
+  setWeekLoading(false);
+};
+
+const handleNextWeek = async () => {
+  setWeekLoading(true);
+  await onNextWeek();
+  setWeekLoading(false);
+};
 
   const weekDays = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(weekStart);
@@ -97,11 +111,11 @@ export default function WeeklyTimetable({ lectures = [], onLecturePress, filterC
 
       <View style={styles.weekStrip}>
         <View style={styles.weekNav}>
-          <TouchableOpacity onPress={onPrevWeek} style={styles.navBtn}>
+          <TouchableOpacity onPress={handlePrevWeek} style={styles.navBtn}>
             <ChevronLeft size={18} color="#64748b" />
           </TouchableOpacity>
           <Text style={styles.weekLabel}>{formatWeekLabel(weekStart)}</Text>
-          <TouchableOpacity onPress={onNextWeek} style={styles.navBtn}>
+          <TouchableOpacity onPress={handleNextWeek} style={styles.navBtn}>
             <ChevronRight size={18} color="#64748b" />
           </TouchableOpacity>
         </View>
@@ -145,9 +159,12 @@ export default function WeeklyTimetable({ lectures = [], onLecturePress, filterC
       >
         <Text style={styles.daySection}>{selectedDayLabel}</Text>
 
-        {selectedLectures.length === 0 ? (
-          <Text style={styles.emptyText}>No lectures scheduled for this day.</Text>
-        ) : (
+        
+          {loading ? (
+            <ActivityIndicator color="#28388f" style={{ marginTop: 40 }} />
+          ) : selectedLectures.length === 0 ? (
+            <Text style={styles.emptyText}>No lectures scheduled for this day.</Text>
+          ) : (
           selectedLectures.map((lecture) => {
             const subjectColor = SUBJECT_COLORS[lecture.subject] || SUBJECT_COLORS.Default;
             const statusStyle = STATUS_STYLES[lecture.status] || STATUS_STYLES.scheduled;

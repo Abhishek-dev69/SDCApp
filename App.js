@@ -35,6 +35,7 @@ import { getAuthToken, fetchAndStoreProfile } from './src/services/api';
 import { navigationRef } from './src/navigation/navigationRef';
 import AddLectureScreen from './src/screens/admin/AddLectureScreen';
 import MarkAttendanceScreen from './src/screens/admin/MarkAttendanceScreen';
+import AttendanceScreen from './src/screens/student/AttendanceScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -110,6 +111,7 @@ function AppNavigator() {
       <Stack.Screen name="SDCLogin" component={SDCLoginScreen} />
       <Stack.Screen name="AddLecture" component={AddLectureScreen} />
       <Stack.Screen name="MarkAttendance" component={MarkAttendanceScreen} />
+      <Stack.Screen name="AttendanceScreen" component={AttendanceScreen} />
     </Stack.Navigator>
   );
 }
