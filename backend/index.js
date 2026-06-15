@@ -18,10 +18,12 @@ const sdcAuthRoutes = require('./routes/sdcidauth');
 const instituteRoutes = require('./routes/institute');
 const materialRoutes = require('./routes/materials');
 const lecturesRoutes = require('./routes/lectures');
+const attendanceRoutes = require('./routes/attendance');
 
 app.use('/auth/sdc', sdcAuthRoutes);
 app.use('/pdfview', pdfviewRoutes);
 app.use('/materials', materialRoutes);
+app.use('/attendance', attendanceRoutes);
 app.use('/', instituteRoutes);
 app.use('/announcements', announcementRoutes);
 app.use('/auth/email', emailRoutes);

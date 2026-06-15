@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { ChevronLeft, ChevronDown } from 'lucide-react-native';
 import { apiRequest } from '../../services/api';
+import { Modal, FlatList } from 'react-native';
 
 const SUBJECTS = ['Physics', 'Chemistry', 'Mathematics', 'Biology'];
 
@@ -43,10 +44,18 @@ export default function AddLectureScreen({ navigation, route }) {
   const [durationMins, setDurationMins] = useState(existingLecture?.duration_mins || 60);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
-  const [batchDropdownOpen, setBatchDropdownOpen] = useState(false);
+  const [batchModalOpen, setBatchModalOpen] = useState(false);
+  const [batchSearch, setBatchSearch] = useState('');
   const [loading, setLoading] = useState(false);
 
   const selectedBatch = batches.find(b => b.id === selectedBatchId);
+  
+  const filteredBatches = useMemo(() =>
+  batches.filter(b =>
+    b.name.toLowerCase().includes(batchSearch.toLowerCase()) ||
+    (b.location || '').toLowerCase().includes(batchSearch.toLowerCase())
+  ), [batches, batchSearch]);
+
 
   const screenTitle = isEdit ? 'Edit Lecture' : isReschedule ? 'Reschedule Lecture' : 'New Lecture';
 
@@ -142,42 +151,52 @@ export default function AddLectureScreen({ navigation, route }) {
             </TouchableOpacity>
           ))}
         </View>
-
-        {/* Batch */}
+          {/* Batch */}
         <Text style={styles.label}>Batch</Text>
-        <View style={styles.dropdownWrapper}>
-          <TouchableOpacity
-            style={styles.dropdown}
-            onPress={() => setBatchDropdownOpen(prev => !prev)}
-          >
-            <Text style={[styles.dropdownText, !selectedBatch && { color: '#94a3b8' }]}>
-              {selectedBatch ? selectedBatch.name : 'Select a batch'}
-            </Text>
-            <ChevronDown size={16} color="#64748b" />
-          </TouchableOpacity>
-          {batchDropdownOpen && (
-            <View style={styles.dropdownMenu}>
-              {batches.map(b => (
-                <TouchableOpacity
-                  key={b.id}
-                  style={[styles.dropdownItem, selectedBatchId === b.id && styles.dropdownItemActive]}
-                  onPress={() => {
-                    setSelectedBatchId(b.id);
-                    setBatchDropdownOpen(false);
-                  }}
-                >
-                  <Text style={[styles.dropdownItemText, selectedBatchId === b.id && styles.dropdownItemTextActive]}>
-                    {b.name}
-                  </Text>
-                  {b.location && (
-                    <Text style={styles.dropdownItemSub}>{b.location}</Text>
-                  )}
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-        </View>
+        <TouchableOpacity style={styles.dropdown} onPress={() => setBatchModalOpen(true)}>
+        <Text style={[styles.dropdownText, !selectedBatch && { color: '#94a3b8' }]}>
+            {selectedBatch ? `${selectedBatch.name} — ${selectedBatch.location}` : 'Select a batch'}
+        </Text>
+        <ChevronDown size={16} color="#64748b" />
+        </TouchableOpacity>
 
+        <Modal visible={batchModalOpen} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+            <View style={styles.modalSheet}>
+            <Text style={styles.modalTitle}>Select Batch</Text>
+            <TextInput
+                style={styles.modalSearch}
+                placeholder="Search by name or location..."
+                placeholderTextColor="#94a3b8"
+                value={batchSearch}
+                onChangeText={setBatchSearch}
+                autoFocus
+            />
+            <FlatList
+                data={filteredBatches}
+                keyExtractor={b => b.id.toString()}
+                renderItem={({ item: b }) => (
+                <TouchableOpacity
+                    style={[styles.dropdownItem, selectedBatchId === b.id && styles.dropdownItemActive]}
+                    onPress={() => {
+                    setSelectedBatchId(b.id);
+                    setBatchModalOpen(false);
+                    setBatchSearch('');
+                    }}
+                >
+                    <Text style={[styles.dropdownItemText, selectedBatchId === b.id && styles.dropdownItemTextActive]}>
+                    {b.name}
+                    </Text>
+                    {b.location && <Text style={styles.dropdownItemSub}>{b.location}</Text>}
+                </TouchableOpacity>
+                )}
+            />
+            <TouchableOpacity style={styles.modalCancel} onPress={() => { setBatchModalOpen(false); setBatchSearch(''); }}>
+                <Text style={styles.modalCancelText}>Cancel</Text>
+            </TouchableOpacity>
+            </View>
+        </View>
+        </Modal>
         {/* Topic */}
         <Text style={styles.label}>Topic <Text style={styles.optional}>(optional)</Text></Text>
         <TextInput
@@ -293,20 +312,13 @@ const styles = StyleSheet.create({
     borderRadius: 20, backgroundColor: '#f1f5f9',
   },
   subjectChipText: { fontSize: 13, fontWeight: '600', color: '#475569' },
-  dropdownWrapper: { zIndex: 10 },
   dropdown: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     backgroundColor: '#fff', borderWidth: 1, borderColor: '#e2e8f0',
     borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12,
   },
   dropdownText: { fontSize: 14, color: '#1e293b' },
-  dropdownMenu: {
-    position: 'absolute', top: 48, left: 0, right: 0,
-    backgroundColor: '#fff', borderRadius: 12,
-    borderWidth: 1, borderColor: '#e2e8f0',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1, shadowRadius: 8, elevation: 5, zIndex: 100,
-  },
+  
   dropdownItem: { paddingHorizontal: 16, paddingVertical: 12 },
   dropdownItemActive: { backgroundColor: '#e8eaf6' },
   dropdownItemText: { fontSize: 14, color: '#1e293b' },
@@ -342,4 +354,23 @@ const styles = StyleSheet.create({
     paddingVertical: 14, alignItems: 'center', marginTop: 32,
   },
   submitBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
+  modalOverlay: {
+  flex: 1, backgroundColor: 'rgba(0,0,0,0.4)',
+  justifyContent: 'flex-end',
+},
+modalSheet: {
+  backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20,
+  padding: 20, maxHeight: '70%',
+},
+modalTitle: { fontSize: 16, fontWeight: '700', color: '#1e293b', marginBottom: 12 },
+modalSearch: {
+  backgroundColor: '#f1f5f9', borderRadius: 10,
+  paddingHorizontal: 14, paddingVertical: 10,
+  fontSize: 14, color: '#1e293b', marginBottom: 12,
+},
+modalCancel: {
+  marginTop: 12, alignItems: 'center', paddingVertical: 12,
+  borderTopWidth: 1, borderTopColor: '#f1f5f9',
+},
+modalCancelText: { fontSize: 14, color: '#64748b', fontWeight: '600' },
 });

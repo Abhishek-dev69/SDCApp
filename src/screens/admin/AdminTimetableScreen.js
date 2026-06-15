@@ -357,7 +357,7 @@ return (
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={[styles.sheetBtn, styles.btnSecondary]}
-                        onPress={() => { setSheetVisible(false); navigation.navigate('MarkAttendance', { lecture: selectedLecture }); }}
+                        onPress={() => { setSheetVisible(false); navigation.navigate('MarkAttendance', { lectureId: selectedLecture.id, viewOnly: false }); }}
                       >
                         <Text style={styles.btnSecondaryText}>Mark Attendance</Text>
                       </TouchableOpacity>
@@ -368,7 +368,7 @@ return (
                     <View style={styles.sheetActions}>
                       <TouchableOpacity
                         style={[styles.sheetBtn, styles.btnSecondary]}
-                        onPress={() => { setSheetVisible(false); navigation.navigate('ViewAttendance', { lecture: selectedLecture }); }}
+                        onPress={() => { setSheetVisible(false); navigation.navigate('MarkAttendance', { lectureId: selectedLecture.id, viewOnly: true }); }}
                       >
                         <Text style={styles.btnSecondaryText}>View Attendance</Text>
                       </TouchableOpacity>
