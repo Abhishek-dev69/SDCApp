@@ -92,9 +92,10 @@ export default function AdminTimetableScreen({ navigation }) {
 
 
   React.useEffect(() => {
-  const unsubscribe = navigation.addListener('focus', loadData);
+  const unsubscribe = navigation.addListener('focus',() => loadData(weekStart));
+  loadData(weekStart);
   return unsubscribe;
-}, [navigation, loadData]);
+}, []);
 
 
   React.useEffect(() => {
@@ -235,7 +236,7 @@ const filterComponent = useMemo(() => (
                 selectedBatchId === batch.id && styles.batchChipActive,
                 !active && styles.batchChipDisabled,
               ]}
-              onPress={() => active ? setSelectedBatchId(batch.id) : null}
+              onPress={() => active ? setSelectedBatchId(prev => prev === batch.id ? null : batch.id) : null}
             >
               <Text style={[
                 styles.batchChipText,
@@ -259,7 +260,7 @@ return (
         <Text style={styles.mainTitle}>Timetable</Text>
         <TouchableOpacity
           style={styles.actionButton}
-          onPress={() => navigation.navigate('AddLecture')}
+          onPress={() => navigation.navigate('AddLecture', {batches})}
         >
           <Plus size={22} color="#1e293b" />
         </TouchableOpacity>
@@ -339,7 +340,7 @@ return (
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={[styles.sheetBtn, styles.btnSecondary]}
-                        onPress={() => { setSheetVisible(false); navigation.navigate('EditLecture', { lecture: selectedLecture }); }}
+                        onPress={() => { setSheetVisible(false); navigation.navigate('AddLecture', { lecture: selectedLecture, batches }); }}
                       >
                         <Text style={styles.btnSecondaryText}>Edit</Text>
                       </TouchableOpacity>
@@ -378,7 +379,7 @@ return (
                     <View style={styles.sheetActions}>
                       <TouchableOpacity
                         style={[styles.sheetBtn, styles.btnSecondary]}
-                        onPress={() => { setSheetVisible(false); navigation.navigate('AddLecture', { reschedule: selectedLecture }); }}
+                        onPress={() => { setSheetVisible(false); navigation.navigate('AddLecture', { reschedule: selectedLecture, batches }); }}
                       >
                         <Text style={styles.btnSecondaryText}>Reschedule</Text>
                       </TouchableOpacity>

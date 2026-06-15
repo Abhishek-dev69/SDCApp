@@ -105,6 +105,7 @@ import LinkGoogleScreen from './src/screens/auth/LinkGoogleScreen';
 import SDCLoginScreen from './src/screens/auth/SDCLoginScreen';
 import { getAuthToken, fetchAndStoreProfile } from './src/services/api';
 import { navigationRef } from './src/navigation/navigationRef';
+import AddLectureScreen from './src/screens/admin/AddLectureScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -178,6 +179,7 @@ function AppNavigator() {
       <Stack.Screen name="CreateAccount" component={CreateAccountScreen} />
       <Stack.Screen name="LinkGoogle" component={LinkGoogleScreen} />
       <Stack.Screen name="SDCLogin" component={SDCLoginScreen} />
+      <Stack.Screen name="AddLecture" component={AddLectureScreen} />
     </Stack.Navigator>
   );
 }
