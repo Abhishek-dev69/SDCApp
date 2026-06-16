@@ -14,28 +14,6 @@ const SUBJECT_COLORS = {
   Biology: '#EF4444',
 };
 
-// Mock data — replace with real API call
-const MOCK = {
-  overall: 78,
-  subjects: [
-    { subject: 'Physics',     total: 40, attended: 34 },
-    { subject: 'Chemistry',   total: 38, attended: 27 },
-    { subject: 'Mathematics', total: 42, attended: 35 },
-    { subject: 'Biology',     total: 30, attended: 22 },
-  ],
-  monthly: [
-    { month: 'Feb', pct: 85 },
-    { month: 'Mar', pct: 80 },
-    { month: 'Apr', pct: 72 },
-    { month: 'May', pct: 78 },
-  ],
-  recentAbsences: [
-    { subject: 'Chemistry',   date: '2025-05-20', topic: 'Organic Reactions' },
-    { subject: 'Biology',     date: '2025-05-18', topic: 'Cell Division' },
-    { subject: 'Chemistry',   date: '2025-05-14', topic: 'Equilibrium' },
-    { subject: 'Mathematics', date: '2025-05-10', topic: 'Differential Equations' },
-  ],
-};
 
 function PercentBar({ pct, color }) {
   return (
@@ -60,13 +38,10 @@ export default function AttendanceScreen() {
   const fetchAttendance = async () => {
     setLoading(true);
     try {
-      // Uncomment when backend is ready:
-      // const res = await apiRequest(`/student/attendance?sdcId=${sdcId}`);
-      // setData(res);
+  
+      const res = await apiRequest(`/attendance?sdcId=${sdcId}`);
+      setData(res);
 
-      // Mock delay
-      await new Promise(r => setTimeout(r, 800));
-      setData(MOCK);
     } catch (e) {
       console.error(e);
     } finally {
