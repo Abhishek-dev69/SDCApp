@@ -221,119 +221,119 @@ router.get('/admin/batches/:id/people', verifyToken, canManageInstitute, async (
   }
 });
 
-router.get('/admin/students', verifyToken, canManageInstitute, async (req, res) => {
-  if (!(await tableExists('students'))) return res.json([]);
+// router.get('/admin/students', verifyToken, canManageInstitute, async (req, res) => {
+//   if (!(await tableExists('students'))) return res.json([]);
 
-  const { batch, q } = req.query;
-  const conditions = [];
-  const values = [];
+//   const { batch, q } = req.query;
+//   const conditions = [];
+//   const values = [];
 
-  if (batch) {
-    values.push(batch);
-    conditions.push(`sdc_batch = $${values.length}`);
-  }
+//   if (batch) {
+//     values.push(batch);
+//     conditions.push(`sdc_batch = $${values.length}`);
+//   }
 
-  if (q) {
-    values.push(`%${q}%`);
-    conditions.push(`student_name ILIKE $${values.length}`);
-  }
+//   if (q) {
+//     values.push(`%${q}%`);
+//     conditions.push(`student_name ILIKE $${values.length}`);
+//   }
 
-  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+//   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
-  try {
-    const result = await pool.query(
-      `SELECT id, serial_number, student_name, student_whatsapp_number, student_std, sdc_branch, sdc_batch, sdc_course_opted, email_address
-       FROM students
-       ${where}
-       ORDER BY student_name ASC
-       LIMIT 200`,
-      values
-    );
+//   try {
+//     const result = await pool.query(
+//       `SELECT id, serial_number, student_name, student_whatsapp_number, student_std, sdc_branch, sdc_batch, sdc_course_opted, email_address
+//        FROM students
+//        ${where}
+//        ORDER BY student_name ASC
+//        LIMIT 200`,
+//       values
+//     );
 
-    res.json(result.rows.map(formatStudent));
-  } catch (err) {
-    console.error('Student list error:', err.message);
-    res.status(500).json({ error: 'Failed to fetch students' });
-  }
-});
+//     res.json(result.rows.map(formatStudent));
+//   } catch (err) {
+//     console.error('Student list error:', err.message);
+//     res.status(500).json({ error: 'Failed to fetch students' });
+//   }
+// });
 
-router.post('/admin/students', verifyToken, canManageInstitute, async (req, res) => {
-  if (!(await tableExists('students'))) {
-    return res.status(501).json({ error: 'Students table is not available.' });
-  }
+// router.post('/admin/students', verifyToken, canManageInstitute, async (req, res) => {
+//   if (!(await tableExists('students'))) {
+//     return res.status(501).json({ error: 'Students table is not available.' });
+//   }
 
-  const { fullName, parentName, phone, batch, email, studentClass, branch, program, sdcId } = req.body;
+//   const { fullName, parentName, phone, batch, email, studentClass, branch, program, sdcId } = req.body;
 
-  if (!fullName || !phone || !batch) {
-    return res.status(400).json({ error: 'Student name, phone, and batch are required' });
-  }
+//   if (!fullName || !phone || !batch) {
+//     return res.status(400).json({ error: 'Student name, phone, and batch are required' });
+//   }
 
-  const client = await pool.connect();
+//   const client = await pool.connect();
 
-  try {
-    await client.query('BEGIN');
+//   try {
+//     await client.query('BEGIN');
 
-    const batchInfo = await getBatchByIdOrCode(batch);
-    const resolvedBatch = batchInfo?.label || batch;
-    const resolvedBranch = branch || batchInfo?.branch || null;
-    const resolvedProgram = program || batchInfo?.program || null;
+//     const batchInfo = await getBatchByIdOrCode(batch);
+//     const resolvedBatch = batchInfo?.label || batch;
+//     const resolvedBranch = branch || batchInfo?.branch || null;
+//     const resolvedProgram = program || batchInfo?.program || null;
 
-    let parentId = null;
-    if (await tableExists('parents')) {
-      const parentResult = await client.query(
-        `INSERT INTO parents (father_name, father_whatsapp_number)
-         VALUES ($1, $2)
-         RETURNING id`,
-        [parentName || null, phone]
-      );
-      parentId = parentResult.rows[0]?.id || null;
-    }
+//     let parentId = null;
+//     if (await tableExists('parents')) {
+//       const parentResult = await client.query(
+//         `INSERT INTO parents (father_name, father_whatsapp_number)
+//          VALUES ($1, $2)
+//          RETURNING id`,
+//         [parentName || null, phone]
+//       );
+//       parentId = parentResult.rows[0]?.id || null;
+//     }
 
-    const serialResult = await client.query('SELECT COALESCE(MAX(serial_number), 0) + 1 AS serial FROM students');
-    const serialNumber = serialResult.rows[0]?.serial;
-    const generatedSdcId = sdcId || generateSdcId(resolvedBatch, serialNumber);
+//     const serialResult = await client.query('SELECT COALESCE(MAX(serial_number), 0) + 1 AS serial FROM students');
+//     const serialNumber = serialResult.rows[0]?.serial;
+//     const generatedSdcId = sdcId || generateSdcId(resolvedBatch, serialNumber);
 
-    const studentResult = await client.query(
-      `INSERT INTO students (
-        parent_id, serial_number, email_address, student_name, student_whatsapp_number,
-        student_std, sdc_branch, sdc_batch, sdc_course_opted
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-      RETURNING id, serial_number, student_name, student_whatsapp_number, student_std, sdc_branch, sdc_batch, sdc_course_opted, email_address`,
-      [
-        parentId,
-        serialNumber,
-        email || null,
-        fullName,
-        phone,
-        studentClass || null,
-        resolvedBranch,
-        resolvedBatch,
-        resolvedProgram,
-      ]
-    );
+//     const studentResult = await client.query(
+//       `INSERT INTO students (
+//         parent_id, serial_number, email_address, student_name, student_whatsapp_number,
+//         student_std, sdc_branch, sdc_batch, sdc_course_opted
+//       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+//       RETURNING id, serial_number, student_name, student_whatsapp_number, student_std, sdc_branch, sdc_batch, sdc_course_opted, email_address`,
+//       [
+//         parentId,
+//         serialNumber,
+//         email || null,
+//         fullName,
+//         phone,
+//         studentClass || null,
+//         resolvedBranch,
+//         resolvedBatch,
+//         resolvedProgram,
+//       ]
+//     );
 
-    if (await tableExists('auth')) {
-      await client.query(
-        `INSERT INTO auth (sdc_id, name, role, email, auth_provider, google_linked)
-         VALUES ($1, $2, 'student', $3, 'sdc', false)`,
-        [generatedSdcId, fullName, email || null]
-      );
-    }
+//     if (await tableExists('auth')) {
+//       await client.query(
+//         `INSERT INTO auth (sdc_id, name, role, email, auth_provider, google_linked)
+//          VALUES ($1, $2, 'student', $3, 'sdc', false)`,
+//         [generatedSdcId, fullName, email || null]
+//       );
+//     }
 
-    await client.query('COMMIT');
+//     await client.query('COMMIT');
 
-    res.status(201).json({
-      ...formatStudent(studentResult.rows[0]),
-      sdcId: generatedSdcId,
-    });
-  } catch (err) {
-    await client.query('ROLLBACK');
-    console.error('Student create error:', err.message);
-    res.status(500).json({ error: 'Failed to create student' });
-  } finally {
-    client.release();
-  }
-});
+//     res.status(201).json({
+//       ...formatStudent(studentResult.rows[0]),
+//       sdcId: generatedSdcId,
+//     });
+//   } catch (err) {
+//     await client.query('ROLLBACK');
+//     console.error('Student create error:', err.message);
+//     res.status(500).json({ error: 'Failed to create student' });
+//   } finally {
+//     client.release();
+//   }
+// });
 
 router.get('/admin/teachers', verifyToken, canManageInstitute, async (req, res) => {
   if (!(await tableExists('teachers'))) return res.json([]);

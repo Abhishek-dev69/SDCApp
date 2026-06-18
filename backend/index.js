@@ -19,6 +19,8 @@ const instituteRoutes = require('./routes/institute');
 const materialRoutes = require('./routes/materials');
 const lecturesRoutes = require('./routes/lectures');
 const attendanceRoutes = require('./routes/attendance');
+const studentRoutes = require('./routes/students');
+
 
 app.use('/auth/sdc', sdcAuthRoutes);
 app.use('/pdfview', pdfviewRoutes);
@@ -30,6 +32,7 @@ app.use('/auth/email', emailRoutes);
 app.use('/auth', authRoutes);  
 app.use('/users', usersRouter);
 app.use('/admin/lectures', lecturesRoutes);
+app.use('/admin/students', studentRoutes);
 
 // test route
 app.get('/', (req, res) => {

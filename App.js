@@ -36,6 +36,8 @@ import { navigationRef } from './src/navigation/navigationRef';
 import AddLectureScreen from './src/screens/admin/AddLectureScreen';
 import MarkAttendanceScreen from './src/screens/admin/MarkAttendanceScreen';
 import AttendanceScreen from './src/screens/student/AttendanceScreen';
+import StudentListScreen from './src/screens/admin/StudentListScreen';
+import AddEditStudentScreen from './src/screens/admin/AddEditStudentScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -112,6 +114,8 @@ function AppNavigator() {
       <Stack.Screen name="AddLecture" component={AddLectureScreen} />
       <Stack.Screen name="MarkAttendance" component={MarkAttendanceScreen} />
       <Stack.Screen name="AttendanceScreen" component={AttendanceScreen} />
+      <Stack.Screen name="StudentListScreen" component={StudentListScreen} />
+      <Stack.Screen name="AddEditStudentScreen" component={AddEditStudentScreen} />
     </Stack.Navigator>
   );
 }
