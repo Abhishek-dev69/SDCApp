@@ -49,7 +49,7 @@ const handleLinkGoogle = async (googleToken) => {
     } else if (role === 'parent') {
       navigation.replace('ParentTabs');
     } else {
-      navigation.replace('BatchSelection');
+      navigation.replace('MainTabs');
     }
   };
 
