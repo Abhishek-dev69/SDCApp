@@ -157,15 +157,21 @@ router.get('/', verifyToken, async (req, res) => {
   try {
     let query, values;
     if (req.user.role === 'student') {
-      query = `
-        SELECT t.*, s.answer_gcs_path, s.score, s.released_at, s.submitted_at
-        FROM tests t
-        JOIN test_batches tb ON tb.test_id = t.id
-        LEFT JOIN submissions s ON s.test_id = t.id AND s.student_sdc_id = $1
-        WHERE tb.batch_id = $2 AND t.status = 'published'
-        ORDER BY t.due_at ASC`;
-      values = [req.user.sdcId, batchId];
-    } else {
+  query = `
+    SELECT
+      t.*,
+      s.answer_gcs_path,
+      s.submitted_at,
+      s.released_at,
+      CASE WHEN s.released_at IS NOT NULL THEN s.score ELSE NULL END AS score,
+      CASE WHEN s.released_at IS NOT NULL THEN s.remarks ELSE NULL END AS remarks
+    FROM tests t
+    JOIN test_batches tb ON tb.test_id = t.id
+    LEFT JOIN submissions s ON s.test_id = t.id AND s.student_sdc_id = $1
+    WHERE tb.batch_id = $2 AND t.status = 'published'
+    ORDER BY t.due_at ASC`;
+  values = [req.user.sdcId, batchId];
+} else {
       query = `SELECT t.* FROM tests t WHERE t.created_by = $1 ORDER BY t.created_at DESC`;
       values = [req.user.sdcId];
     }
@@ -239,7 +245,12 @@ router.get('/:id/submissions/me', verifyToken, isStudent, async (req, res) => {
   const { id } = req.params;
   try {
     const result = await pool.query(
-      `SELECT * FROM submissions WHERE test_id = $1 AND student_sdc_id = $2`,
+      `SELECT
+         id, test_id, student_sdc_id, answer_gcs_path, submitted_at, released_at,
+         CASE WHEN released_at IS NOT NULL THEN score ELSE NULL END AS score,
+         CASE WHEN released_at IS NOT NULL THEN remarks ELSE NULL END AS remarks
+       FROM submissions
+       WHERE test_id = $1 AND student_sdc_id = $2`,
       [id, req.user.sdcId]
     );
     if (result.rows.length === 0) {
@@ -256,6 +267,124 @@ router.get('/:id/submissions/me', verifyToken, isStudent, async (req, res) => {
 
 
 
+
+
+
+
+// Teacher: view all submissions for a test, including students who haven't submitted
+router.get('/:id/submissions', verifyToken, canManageTests, async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const testResult = await pool.query(`SELECT due_at FROM tests WHERE id = $1`, [id]);
+    if (testResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Test not found' });
+    }
+    const dueAt = testResult.rows[0].due_at;
+
+    // all students in batches this test targets, LEFT JOIN their submission if any
+    const result = await pool.query(
+      `SELECT
+         s.student_name,
+         sb.sdc_id AS student_sdc_id,
+         sub.id AS submission_id,
+         sub.answer_gcs_path,
+         sub.submitted_at,
+         sub.score,
+         sub.remarks,
+         sub.graded_at,
+         sub.released_at,
+         CASE WHEN sub.submitted_at IS NOT NULL AND sub.submitted_at > $2
+              THEN true ELSE false END AS is_late
+       FROM test_batches tb
+       JOIN student_batches sb ON sb.batch_id = tb.batch_id
+       JOIN auth a ON a.sdc_id = sb.sdc_id
+       JOIN students s ON s.auth_id = a.id
+       LEFT JOIN submissions sub ON sub.test_id = tb.test_id AND sub.student_sdc_id = sb.sdc_id
+       WHERE tb.test_id = $1
+       ORDER BY s.student_name ASC`,
+      [id, dueAt]
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Submissions list error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch submissions' });
+  }
+});
+
+
+
+
+
+
+
+
+// Teacher: set score + remarks on a submission
+router.patch('/submissions/:submissionId', verifyToken, canManageTests, async (req, res) => {
+  const { submissionId } = req.params;
+  const { score, remarks } = req.body;
+
+  if (score === undefined && remarks === undefined) {
+    return res.status(400).json({ error: 'score or remarks is required' });
+  }
+
+  try {
+    const check = await pool.query(
+      `SELECT sub.id, t.total_marks
+       FROM submissions sub
+       JOIN tests t ON t.id = sub.test_id
+       WHERE sub.id = $1`,
+      [submissionId]
+    );
+    if (check.rows.length === 0) {
+      return res.status(404).json({ error: 'Submission not found' });
+    }
+    const totalMarks = check.rows[0].total_marks;
+    if (score !== undefined && totalMarks !== null && score > totalMarks) {
+      return res.status(400).json({ error: `Score cannot exceed total marks (${totalMarks})` });
+    }
+
+    const result = await pool.query(
+      `UPDATE submissions SET
+         score = COALESCE($1, score),
+         remarks = COALESCE($2, remarks),
+         graded_by = $3,
+         graded_at = now()
+       WHERE id = $4
+       RETURNING *`,
+      [score, remarks, req.user.sdcId, submissionId]
+    );
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Grading error:', err.message);
+    res.status(500).json({ error: 'Failed to grade submission' });
+  }
+});
+
+
+
+
+// Teacher: release all graded (but unreleased) marks for a test at once
+router.post('/:id/release', verifyToken, canManageTests, async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const result = await pool.query(
+      `UPDATE submissions
+       SET released_at = now()
+       WHERE test_id = $1 AND score IS NOT NULL AND released_at IS NULL
+       RETURNING id, student_sdc_id, score`,
+      [id]
+    );
+
+    res.json({ releasedCount: result.rows.length, released: result.rows });
+  } catch (err) {
+    console.error('Release error:', err.message);
+    res.status(500).json({ error: 'Failed to release marks' });
+  }
+});
 
 
 
