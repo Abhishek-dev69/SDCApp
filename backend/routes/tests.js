@@ -177,4 +177,88 @@ router.get('/', verifyToken, async (req, res) => {
   }
 });
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+// Student: create or overwrite their submission for a test
+router.post('/:id/submissions', verifyToken, isStudent, async (req, res) => {
+  const { id } = req.params;
+  const { answerGcsPath } = req.body;
+
+  if (!answerGcsPath) {
+    return res.status(400).json({ error: 'answerGcsPath is required' });
+  }
+
+  try {
+    // confirm the test exists and is actually published
+    const testCheck = await pool.query(
+      `SELECT status, due_at FROM tests WHERE id = $1`,
+      [id]
+    );
+    if (testCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Test not found' });
+    }
+    if (testCheck.rows[0].status !== 'published') {
+      return res.status(400).json({ error: 'This test is not open for submissions' });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO submissions (test_id, student_sdc_id, answer_gcs_path, submitted_at, score, remarks, graded_at, released_at)
+       VALUES ($1, $2, $3, now(), NULL, NULL, NULL, NULL)
+       ON CONFLICT (test_id, student_sdc_id)
+       DO UPDATE SET
+         answer_gcs_path = EXCLUDED.answer_gcs_path,
+         submitted_at = now(),
+         score = NULL,
+         remarks = NULL,
+         graded_at = NULL,
+         released_at = NULL
+       RETURNING *`,
+      [id, req.user.sdcId, answerGcsPath]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error('Submission create error:', err.message);
+    res.status(500).json({ error: 'Failed to submit answer' });
+  }
+});
+
+// Student: view their own submission for a test
+router.get('/:id/submissions/me', verifyToken, isStudent, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = await pool.query(
+      `SELECT * FROM submissions WHERE test_id = $1 AND student_sdc_id = $2`,
+      [id, req.user.sdcId]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'No submission found' });
+    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Submission fetch error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch submission' });
+  }
+});
+
+
+
+
+
+
+
+
+
+
 module.exports = router;
