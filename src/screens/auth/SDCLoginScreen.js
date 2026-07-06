@@ -20,7 +20,9 @@ export default function SDCLoginScreen({ navigation }) {
   const navigateForRole = (role, currentName) => {
     if (role === 'owner') {
       navigation.replace('OwnerTabs', { displayName: currentName || 'Owner' });
-    } else if (role === 'admin' || role === 'teacher') {
+    } else if (role === 'teacher') {
+      navigation.replace('TeacherTabs');
+    } else if (role === 'admin') {
       navigation.replace('AdminTabs', getAdminRouteParams(role, currentName));
     } else if (role === 'parent') {
       navigation.replace('ParentTabs');

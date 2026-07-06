@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { Alert, View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Phone, Mail } from 'lucide-react-native';
+import { ChevronLeft, Phone, Mail } from 'lucide-react-native';
 import * as AuthSession from 'expo-auth-session';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
@@ -39,7 +39,7 @@ export default function LoginScreen({ navigation, route }) {
     const roleRoutes = {
       student: 'BatchSelection',
       admin: 'AdminTabs',
-      teacher: 'AdminTabs',
+      teacher: 'TeacherTabs',
       owner: 'OwnerTabs',
       parent: 'ParentTabs',
     };
@@ -103,6 +103,18 @@ export default function LoginScreen({ navigation, route }) {
       <LinearGradient colors={['#2b58ed', '#1e3a8a']} style={styles.gradient} />
 
       <SafeAreaView style={styles.safeArea}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => {
+            if (navigation.canGoBack()) {
+              navigation.goBack();
+            } else {
+              navigation.navigate('SDCLogin');
+            }
+          }}
+        >
+          <ChevronLeft size={28} color="#FFFFFF" />
+        </TouchableOpacity>
         <View style={styles.content}>
 
           <View style={styles.logoContainer}>
@@ -185,6 +197,18 @@ const styles = StyleSheet.create({
 
   safeArea: {
     flex: 1,
+  },
+  backButton: {
+    position: 'absolute',
+    top: 18,
+    left: 18,
+    zIndex: 10,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.16)',
   },
 
   content: {
