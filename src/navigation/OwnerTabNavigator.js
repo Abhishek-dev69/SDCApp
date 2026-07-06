@@ -1,6 +1,7 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { BarChart3, Home, IndianRupee, User, Users } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import OwnerDashboardScreen from '../screens/owner/OwnerDashboardScreen';
 import {
   OwnerAnalyticsScreen,
@@ -14,6 +15,8 @@ const Tab = createBottomTabNavigator();
 
 export default function OwnerTabNavigator({ route }) {
   const { userProfile } = useUserSession();
+  const insets = useSafeAreaInsets();
+  const bottomInset = Math.max(insets.bottom, 12);
   const displayName = userProfile?.name || route?.params?.displayName || 'Owner';
 
   return (
@@ -37,11 +40,11 @@ export default function OwnerTabNavigator({ route }) {
           position: 'absolute',
           left: 14,
           right: 14,
-          bottom: 12,
+          bottom: bottomInset,
           backgroundColor: '#FFFFFF',
           borderTopWidth: 0,
-          height: 78,
-          paddingBottom: 10,
+          height: 68 + bottomInset,
+          paddingBottom: Math.max(bottomInset - 2, 10),
           paddingTop: 7,
           borderRadius: 24,
           shadowColor: '#0F172A',
