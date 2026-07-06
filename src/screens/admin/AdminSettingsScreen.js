@@ -22,13 +22,13 @@ import { resetToLogin } from '../../navigation/navigationRef';
 
 const ACCOUNT_OPTIONS = [
   { id: 'edit-profile', title: 'Profile Details', subtitle: 'Update name, phone, and admin contact info', icon: UserCog },
-  { id: 'notifications', title: 'Notifications', subtitle: 'Batch alerts, fee reminders, and reports', icon: Bell },
+  { id: 'notifications', title: 'Notifications', subtitle: 'Batch alerts, timetable updates, and announcements', icon: Bell },
   { id: 'security', title: 'Security & Password', subtitle: 'Change password and review login access', icon: Lock, route: 'ChangePassword' },
 ];
 
 const INSTITUTE_OPTIONS = [
   { id: 'branches', title: 'Branch Access', subtitle: 'Andheri, Goregaon, Kandivali, Dahisar', icon: Building2 },
-  { id: 'permissions', title: 'Role Permissions', subtitle: 'Manage admin, teacher, and finance access', icon: Shield },
+  { id: 'permissions', title: 'Role Permissions', subtitle: 'Manage admin and teacher access', icon: Shield },
   { id: 'support', title: 'Support', subtitle: 'Contact app support for account or data issues', icon: HelpCircle },
 ];
 

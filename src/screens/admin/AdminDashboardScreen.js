@@ -3,13 +3,8 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
-  BarChart3, 
   Users, 
-  Banknote, 
-  Settings, 
-  LayoutDashboard,
   Bell,
-  TrendingUp,
   UserCheck,
   BookOpen,
   FileText,
@@ -97,10 +92,6 @@ export default function AdminDashboardScreen({ navigation, route }) {
     { id: '3', title: 'Active Batches', value: `${overview?.activeBatches ?? '...'}`, trend: 'Live', icon: BookOpen, color: '#8B5CF6', trendColor: '#10B981' },
     { id: '4', title: 'Open Doubts', value: `${openDoubts}`, trend: 'Live', icon: FileText, color: '#F97316', trendColor: '#10B981' },
   ];
-  const collectedAmount = operationalOverview?.fees?.collected || 0;
-  const collectionRate = operationalOverview?.fees?.billed
-    ? Math.round((collectedAmount / operationalOverview.fees.billed) * 100)
-    : 0;
   const performanceMetrics = [
     {
       label: 'Average Student Score',
@@ -113,12 +104,6 @@ export default function AdminDashboardScreen({ navigation, route }) {
       value: operationalOverview?.attendancePercent == null ? 'N/A' : `${operationalOverview.attendancePercent}%`,
       progress: (operationalOverview?.attendancePercent || 0) / 100,
       color: '#10B981',
-    },
-    {
-      label: 'Fee Collection Rate',
-      value: `${collectionRate}%`,
-      progress: collectionRate / 100,
-      color: '#F59E0B',
     },
   ];
   const managementActions = userRole === 'teacher'
@@ -141,7 +126,7 @@ export default function AdminDashboardScreen({ navigation, route }) {
       showsVerticalScrollIndicator={false}
       contentContainerStyle={{ paddingBottom: 100 }}
     >
-      {/* Header & Revenue Banner */}
+      {/* Header */}
       <View style={styles.header}>
         <LinearGradient
           colors={['#2b58ed', '#1e3a8a']}
@@ -169,23 +154,6 @@ export default function AdminDashboardScreen({ navigation, route }) {
             </TouchableOpacity>
           </View>
 
-          {/* Revenue Card */}
-          <View style={styles.revenueCard}>
-            <LinearGradient
-              colors={['rgba(255, 255, 255, 0.2)', 'rgba(255, 255, 255, 0.1)']}
-              style={styles.glassBackground}
-            />
-            <View style={styles.revenueHeader}>
-              <Text style={styles.revenueTitle}>Total Revenue (This Month)</Text>
-              <View style={styles.trendRow}>
-                <TrendingUp size={16} color="#4ade80" />
-                <Text style={styles.trendText}>{userRole === 'teacher' ? 'Admin access required' : 'Live invoices'}</Text>
-              </View>
-            </View>
-            <Text style={styles.revenueValue}>
-              {userRole === 'teacher' ? 'N/A' : `Rs ${Number(collectedAmount).toLocaleString('en-IN')}`}
-            </Text>
-          </View>
         </SafeAreaView>
       </View>
 
@@ -396,46 +364,9 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: 'bold',
   },
-  revenueCard: {
-    marginHorizontal: 24,
-    padding: 24,
-    borderRadius: 24,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-  },
-  glassBackground: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  revenueHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  revenueTitle: {
-    color: 'rgba(255, 255, 255, 0.9)',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  trendRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  trendText: {
-    color: '#4ade80',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  revenueValue: {
-    color: '#fff',
-    fontSize: 32,
-    fontWeight: 'bold',
-  },
   content: {
     paddingHorizontal: 24,
-    marginTop: -20,
+    marginTop: 24,
   },
   metricsGrid: {
     flexDirection: 'row',
