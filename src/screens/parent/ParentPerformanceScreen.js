@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ChevronLeft, TrendingUp, BookOpen, Clock } from 'lucide-react-native';
+import { TrendingUp, BookOpen, Clock } from 'lucide-react-native';
 import { apiRequest } from '../../services/api';
 
-export default function ParentPerformanceScreen({ navigation }) {
+export default function ParentPerformanceScreen() {
   const [results, setResults] = useState([]);
   useEffect(() => {
     apiRequest('/operations/results')
@@ -41,11 +41,7 @@ export default function ParentPerformanceScreen({ navigation }) {
       >
         <SafeAreaView edges={['top']}>
           <View style={styles.headerContent}>
-            <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-              <ChevronLeft size={28} color="#fff" />
-            </TouchableOpacity>
             <Text style={styles.headerTitle}>Performance</Text>
-            <View style={{ width: 28 }} />
           </View>
 
           <View style={styles.overallStats}>

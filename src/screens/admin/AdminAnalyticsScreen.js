@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BarChart3, BookOpen, ChevronLeft, Clock, TrendingUp, UserCheck, Users } from 'lucide-react-native';
+import { BarChart3, BookOpen, Clock, TrendingUp, UserCheck, Users } from 'lucide-react-native';
 import { apiRequest } from '../../services/api';
 
 function ProgressBar({ value, color = '#2563EB' }) {
@@ -28,7 +28,7 @@ function MetricCard({ item }) {
   );
 }
 
-export default function AdminAnalyticsScreen({ navigation }) {
+export default function AdminAnalyticsScreen() {
   const [overview, setOverview] = useState(null);
   const [batches, setBatches] = useState([]);
   const [attendance, setAttendance] = useState([]);
@@ -133,9 +133,6 @@ export default function AdminAnalyticsScreen({ navigation }) {
         <LinearGradient colors={['#2247B8', '#0F766E']} style={styles.headerGradient} />
         <SafeAreaView edges={['top']}>
           <View style={styles.headerContent}>
-            <TouchableOpacity style={styles.backButton} onPress={() => navigation.navigate('Dashboard')}>
-              <ChevronLeft size={24} color="#fff" />
-            </TouchableOpacity>
             <View style={styles.headerTextBlock}>
               <Text style={styles.headerKicker}>Admin Analytics</Text>
               <Text style={styles.headerTitle}>Batch Performance</Text>
@@ -253,15 +250,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingTop: 10,
     paddingBottom: 28,
-  },
-  backButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(255,255,255,0.16)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
   },
   headerTextBlock: {
     flex: 1,
