@@ -17,6 +17,24 @@ import { apiRequest } from '../../services/api';
 
 const SUBJECTS_LIST = ['Physics', 'Chemistry', 'Mathematics', 'Biology'];
 
+function InputField({ label, icon: Icon, placeholder, value, onChangeText }) {
+  return (
+    <View style={styles.inputContainer}>
+      <Text style={styles.label}>{label}</Text>
+      <View style={styles.inputWrapper}>
+        <Icon size={20} color="#64748b" style={styles.inputIcon} />
+        <TextInput
+          style={styles.input}
+          placeholder={placeholder}
+          placeholderTextColor="#94a3b8"
+          value={value}
+          onChangeText={onChangeText}
+        />
+      </View>
+    </View>
+  );
+}
+
 export default function AddBatchScreen({ navigation }) {
   const [formData, setFormData] = useState({
     batchName: '',
@@ -59,22 +77,6 @@ export default function AddBatchScreen({ navigation }) {
       setSaving(false);
     }
   };
-
-  const InputField = ({ label, icon: Icon, placeholder, value, onChangeText }) => (
-    <View style={styles.inputContainer}>
-      <Text style={styles.label}>{label}</Text>
-      <View style={styles.inputWrapper}>
-        <Icon size={20} color="#64748b" style={styles.inputIcon} />
-        <TextInput
-          style={styles.input}
-          placeholder={placeholder}
-          placeholderTextColor="#94a3b8"
-          value={value}
-          onChangeText={onChangeText}
-        />
-      </View>
-    </View>
-  );
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
