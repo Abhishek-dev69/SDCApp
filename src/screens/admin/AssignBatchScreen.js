@@ -31,7 +31,7 @@ export default function AssignBatchScreen({ navigation }) {
         apiRequest('/admin/batches'),
       ]);
 
-      setStudents(Array.isArray(studentData) ? studentData : []);
+      setStudents(Array.isArray(studentData.students) ? studentData.students : []);
       setTeachers(Array.isArray(teacherData) ? teacherData : []);
       setBatches(Array.isArray(batchData) ? batchData : []);
     } catch (err) {

@@ -84,13 +84,12 @@ export default function AdminTimetableScreen({ navigation }) {
     loadBatches();
   }, [loadBatches]);
 
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('focus', () => {
-      loadBatches();
-      loadData();
-    });
-    return unsubscribe;
-  }, [navigation, loadBatches, loadData]);
+  React.useEffect(() => {
+  const unsubscribe = navigation.addListener('focus',() => loadData(weekStart));
+  loadData(weekStart);
+  return unsubscribe;
+}, []);
+
 
   useEffect(() => {
     if (selectedLocation || locations.length === 0) return;
@@ -228,23 +227,49 @@ export default function AdminTimetableScreen({ navigation }) {
           })}
       </ScrollView>
     </View>
-  ), [
-    batches,
-    lectures,
-    loading,
-    locationDropdownOpen,
-    locations,
-    selectedBatchId,
-    selectedLocation,
-  ]);
 
-  return (
+    {/* Batch chips row */}
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={{ paddingHorizontal: 20, paddingVertical: 10, gap: 8, flexDirection: 'row' }}
+    >
+      {batches
+        .filter(b => b.location === selectedLocation)
+        .map(batch => {
+          const active = isBatchActive(batch.id);
+          return (
+            <TouchableOpacity
+              key={batch.id}
+              style={[
+                styles.batchChip,
+                selectedBatchId === batch.id && styles.batchChipActive,
+                !active && styles.batchChipDisabled,
+              ]}
+              onPress={() => active ? setSelectedBatchId(prev => prev === batch.id ? null : batch.id) : null}
+            >
+              <Text style={[
+                styles.batchChipText,
+                selectedBatchId === batch.id && styles.batchChipTextActive,
+                !active && styles.batchChipTextDisabled,
+              ]}>
+                {batch.name}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+    </ScrollView>
+  </View>
+), [selectedLocation, selectedBatchId, batches, locationDropdownOpen, lectures]);
+
+
+return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <View style={styles.header}>
         <Text style={styles.mainTitle}>Timetable</Text>
         <TouchableOpacity
           style={styles.actionButton}
-          onPress={() => navigation.navigate('LectureEditor', { batches })}
+          onPress={() => navigation.navigate('AddLecture', {batches})}
         >
           <Plus size={22} color="#1e293b" />
         </TouchableOpacity>
@@ -263,8 +288,9 @@ export default function AdminTimetableScreen({ navigation }) {
           }}
           filterComponent={filterComponent}
           weekStart={weekStart}
-          onPrevWeek={() => changeWeek(-7)}
-          onNextWeek={() => changeWeek(7)}
+          loading={loading}
+          onPrevWeek={handlePrevWeek}
+          onNextWeek={handleNextWeek}
         />
       )}
 
@@ -315,94 +341,64 @@ export default function AdminTimetableScreen({ navigation }) {
                     <User size={15} color="#64748b" />
                     <Text style={styles.sheetRowText}>{selectedLecture.teacher_name}</Text>
                   </View>
-                )}
-                <View style={styles.sheetRow}>
-                  <Users size={15} color="#64748b" />
-                  <Text style={styles.sheetRowText}>{selectedLecture.batch_name}</Text>
-                </View>
-                <View style={styles.sheetDivider} />
 
-                {selectedLecture.status === 'scheduled' && (
-                  <View style={styles.sheetActions}>
-                    <TouchableOpacity
-                      style={[styles.sheetBtn, styles.btnPrimary]}
-                      onPress={() => runLectureAction('start', 'Could not start lecture.')}
-                    >
-                      <Text style={styles.btnPrimaryText}>Start</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.sheetBtn, styles.btnSecondary]}
-                      onPress={() => {
-                        setSheetVisible(false);
-                        navigation.navigate('LectureEditor', {
-                          lecture: selectedLecture,
-                          batches,
-                        });
-                      }}
-                    >
-                      <Text style={styles.btnSecondaryText}>Edit</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.sheetBtn, styles.btnDanger]}
-                      onPress={cancelLecture}
-                    >
-                      <Text style={styles.btnDangerText}>Cancel</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
+                  <View style={styles.sheetDivider} />
 
-                {selectedLecture.status === 'live' && (
-                  <View style={styles.sheetActions}>
-                    <TouchableOpacity
-                      style={[styles.sheetBtn, styles.btnPrimary]}
-                      onPress={() => runLectureAction('complete', 'Could not complete lecture.')}
-                    >
-                      <Text style={styles.btnPrimaryText}>Complete</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.sheetBtn, styles.btnSecondary]}
-                      onPress={() => {
-                        setSheetVisible(false);
-                        navigation.navigate('LectureAttendance', { lecture: selectedLecture });
-                      }}
-                    >
-                      <Text style={styles.btnSecondaryText}>Attendance</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
+                  {selectedLecture.status === 'scheduled' && (
+                    <View style={styles.sheetActions}>
+                      <TouchableOpacity style={[styles.sheetBtn, styles.btnPrimary]} onPress={handleStartLecture}>
+                        <Text style={styles.btnPrimaryText}>Start Lecture</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.sheetBtn, styles.btnSecondary]}
+                        onPress={() => { setSheetVisible(false); navigation.navigate('AddLecture', { lecture: selectedLecture, batches }); }}
+                      >
+                        <Text style={styles.btnSecondaryText}>Edit</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={[styles.sheetBtn, styles.btnDanger]} onPress={handleCancelLecture}>
+                        <Text style={styles.btnDangerText}>Cancel</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
 
-                {selectedLecture.status === 'completed' && (
-                  <TouchableOpacity
-                    style={[styles.sheetBtn, styles.btnSecondary]}
-                    onPress={() => {
-                      setSheetVisible(false);
-                      navigation.navigate('LectureAttendance', {
-                        lecture: selectedLecture,
-                        readOnly: true,
-                      });
-                    }}
-                  >
-                    <Text style={styles.btnSecondaryText}>View Attendance</Text>
-                  </TouchableOpacity>
-                )}
+                  {selectedLecture.status === 'in_progress' && (
+                    <View style={styles.sheetActions}>
+                      <TouchableOpacity style={[styles.sheetBtn, styles.btnPrimary]} onPress={handleCompleteLecture}>
+                        <Text style={styles.btnPrimaryText}>Mark Conducted</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.sheetBtn, styles.btnSecondary]}
+                        onPress={() => { setSheetVisible(false); navigation.navigate('MarkAttendance', { lectureId: selectedLecture.id, viewOnly: false }); }}
+                      >
+                        <Text style={styles.btnSecondaryText}>Mark Attendance</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
 
-                {selectedLecture.status === 'cancelled' && (
-                  <TouchableOpacity
-                    style={[styles.sheetBtn, styles.btnSecondary]}
-                    onPress={() => {
-                      setSheetVisible(false);
-                      navigation.navigate('LectureEditor', {
-                        lecture: selectedLecture,
-                        batches,
-                        reschedule: true,
-                      });
-                    }}
-                  >
-                    <Text style={styles.btnSecondaryText}>Reschedule</Text>
-                  </TouchableOpacity>
-                )}
-              </>
-            )}
+                  {selectedLecture.status === 'conducted' && (
+                    <View style={styles.sheetActions}>
+                      <TouchableOpacity
+                        style={[styles.sheetBtn, styles.btnSecondary]}
+                        onPress={() => { setSheetVisible(false); navigation.navigate('MarkAttendance', { lectureId: selectedLecture.id, viewOnly: true }); }}
+                      >
+                        <Text style={styles.btnSecondaryText}>View Attendance</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+
+                  {selectedLecture.status === 'cancelled' && (
+                    <View style={styles.sheetActions}>
+                      <TouchableOpacity
+                        style={[styles.sheetBtn, styles.btnSecondary]}
+                        onPress={() => { setSheetVisible(false); navigation.navigate('AddLecture', { reschedule: selectedLecture, batches }); }}
+                      >
+                        <Text style={styles.btnSecondaryText}>Reschedule</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </>
+              );
+            })()}
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>

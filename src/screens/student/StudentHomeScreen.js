@@ -1,8 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
+import {React, useState, useMemo, useEffect} from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useUserSession } from '../../context/UserSessionContext';
+import { ChevronLeft, ChevronRight } from 'lucide-react-native';
+import { apiRequest } from '../../services/api';
+import WeeklyTimetable from '../../components/WeeklyTimetable';
 import { 
   Bell, 
   Share2, 
@@ -18,45 +21,84 @@ import { apiRequest } from '../../services/api';
 
 const { width } = Dimensions.get('window');
 
-export default function StudentHomeScreen() {
+export default function StudentHomeScreen( { navigation } ) {
   const { userProfile } = useUserSession();
-  const [announcements, setAnnouncements] = useState([]);
-  const [upcomingLectures, setUpcomingLectures] = useState([]);
-  const [homework, setHomework] = useState([]);
-  const [results, setResults] = useState([]);
+  const [weekStart, setWeekStart] = useState(() => {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - d.getDay() + 1); // Monday
+  return d;
+});
+const [lectures, setLectures] = useState([]);
+const [selectedDay, setSelectedDay] = useState(new Date().toDateString());
+const [lecturesLoading, setLecturesLoading] = useState(false);
 
-  useEffect(() => {
-    Promise.all([
-      apiRequest('/announcements'),
-      apiRequest(`/lectures?status=scheduled&from=${encodeURIComponent(new Date().toISOString())}&limit=3`),
-      apiRequest('/operations/homework').catch((err) => err.status === 501 ? [] : Promise.reject(err)),
-      apiRequest('/operations/results').catch((err) => err.status === 501 ? [] : Promise.reject(err)),
-    ])
-      .then(([announcementData, lectureData, homeworkData, resultData]) => {
-        setAnnouncements(Array.isArray(announcementData) ? announcementData.slice(0, 3) : []);
-        setUpcomingLectures(Array.isArray(lectureData) ? lectureData : []);
-        setHomework(Array.isArray(homeworkData) ? homeworkData : []);
-        setResults(Array.isArray(resultData) ? resultData : []);
-      })
-      .catch((err) => console.log('Student dashboard live data error:', err.message));
-  }, []);
+const weekDays = useMemo(() => {
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(weekStart);
+    d.setDate(weekStart.getDate() + i);
+    return d;
+  });
+}, [weekStart]);
 
-  const performance = useMemo(() => {
-    const percentages = results
-      .filter((result) => Number(result.total_marks) > 0)
-      .map((result) => (Number(result.marks) / Number(result.total_marks)) * 100);
-    const ranks = results.map((result) => Number(result.rank)).filter(Number.isFinite);
-    return {
-      average: percentages.length
-        ? Math.round(percentages.reduce((sum, value) => sum + value, 0) / percentages.length)
-        : null,
-      rank: ranks.length ? Math.min(...ranks) : null,
-    };
-  }, [results]);
+const weekEnd = useMemo(() => {
+  const d = new Date(weekStart);
+  d.setDate(d.getDate() + 7);
+  return d;
+}, [weekStart]);
 
-  const pendingHomework = homework.filter(
-    (item) => !['submitted', 'reviewed'].includes(item.submission_status)
+useEffect(() => {
+  fetchLectures();
+}, [weekStart]);
+
+const fetchLectures = async () => {
+  setLecturesLoading(true);
+  try {
+    const from = weekStart.toISOString();
+    const to = weekEnd.toISOString();
+    const data = await apiRequest(`/admin/lectures/my?from=${from}&to=${to}`);
+    setLectures(data);
+  } catch (err) {
+    console.error('Failed to fetch lectures', err.message);
+  } finally {
+    setLecturesLoading(false);
+  }
+};
+
+const dayLectures = useMemo(() => {
+  return lectures.filter(l =>
+    new Date(l.scheduled_at).toDateString() === selectedDay
   );
+}, [lectures, selectedDay]);
+
+const goToPrevWeek = () => {
+  const d = new Date(weekStart);
+  d.setDate(d.getDate() - 7);
+  setWeekStart(d);
+};
+
+const goToNextWeek = () => {
+  const d = new Date(weekStart);
+  d.setDate(d.getDate() + 7);
+  setWeekStart(d);
+};
+
+const formatTime = (iso) => new Date(iso).toLocaleTimeString('en-IN', {
+  hour: '2-digit', minute: '2-digit', hour12: true,
+});
+
+const SUBJECT_COLORS = {
+  Physics: '#28388f',
+  Chemistry: '#10B981',
+  Mathematics: '#F59E0B',
+  Biology: '#EF4444',
+};
+
+
+
+
+
+
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
@@ -226,6 +268,51 @@ export default function StudentHomeScreen() {
           </View>
         </View>
 
+        {/* Weekly Timetable */}
+<View style={{ height: 420, marginBottom: 24 }}>
+  <WeeklyTimetable
+    lectures={lectures}
+    weekStart={weekStart}
+    onPrevWeek={goToPrevWeek}
+    onNextWeek={goToNextWeek}
+    loading={lecturesLoading} 
+    onLecturePress={(l) => console.log(l)}
+  />
+</View>
+
+        <TouchableOpacity
+          style={styles.attendanceBtn}
+          onPress={() => navigation.navigate('AttendanceScreen', { sdcId: userProfile?.sdcId, studentName: userProfile?.student_name })}
+        >
+          <Text style={styles.attendanceBtnText}>View Attendance</Text>
+        </TouchableOpacity>
+
+
+        {/* Weak Topics */}
+        <View style={styles.topicsSection}>
+          <Text style={styles.subTitle}>Weak Topics</Text>
+          <View style={styles.topicItem}>
+            <View style={[styles.dot, { backgroundColor: '#ef4444' }]} />
+            <Text style={styles.topicText}>Integration</Text>
+          </View>
+          <View style={styles.topicItem}>
+            <View style={[styles.dot, { backgroundColor: '#f97316' }]} />
+            <Text style={styles.topicText}>Differential Equations</Text>
+          </View>
+        </View>
+
+        {/* Recommended Practice */}
+        <View style={styles.practiceSection}>
+          <Text style={styles.subTitle}>Recommended Practice</Text>
+          <TouchableOpacity style={styles.practiceItem}>
+            <BookOpen size={20} color="#2b58ed" />
+            <Text style={styles.practiceText}>10 Integration Questions</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.practiceItem}>
+            <PlayCircle size={20} color="#2b58ed" />
+            <Text style={styles.practiceText}>Watch Lecture</Text>
+          </TouchableOpacity>
+        </View>
       </View>
       
       {/* Footer padding for tab bar */}
@@ -607,4 +694,74 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#334155',
   },
+  timetableCard: {
+  backgroundColor: '#fff',
+  borderRadius: 24,
+  padding: 20,
+  marginBottom: 24,
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 4 },
+  shadowOpacity: 0.05,
+  shadowRadius: 10,
+  elevation: 3,
+},
+timetableHeader: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  marginBottom: 16,
+},
+timetableTitle: {
+  fontSize: 14,
+  fontWeight: '700',
+  color: '#1e293b',
+},
+weekNavBtn: {
+  width: 32, height: 32, borderRadius: 16,
+  backgroundColor: '#eff6ff',
+  alignItems: 'center', justifyContent: 'center',
+},
+dayStrip: { marginBottom: 16 },
+dayChip: {
+  alignItems: 'center',
+  paddingHorizontal: 12, paddingVertical: 8,
+  borderRadius: 16,
+  marginRight: 8,
+  backgroundColor: '#f8fafc',
+  minWidth: 48,
+},
+dayChipActive: { backgroundColor: '#2b58ed' },
+dayChipLabel: { fontSize: 11, color: '#64748b', fontWeight: '600' },
+dayChipDate: { fontSize: 15, fontWeight: '700', color: '#1e293b', marginTop: 2 },
+dayChipLabelActive: { color: '#fff' },
+dayDot: {
+  width: 5, height: 5, borderRadius: 3,
+  backgroundColor: '#2b58ed', marginTop: 4,
+},
+dayDotActive: { backgroundColor: '#fff' },
+lectureItem: {
+  flexDirection: 'row', justifyContent: 'space-between',
+  alignItems: 'flex-start',
+  borderLeftWidth: 3,
+  paddingLeft: 12, paddingVertical: 10,
+  marginBottom: 10,
+  backgroundColor: '#f8fafc',
+  borderRadius: 10,
+},
+lectureLeft: { flex: 1 },
+lectureSubject: { fontSize: 14, fontWeight: '700' },
+lectureTopic: { fontSize: 12, color: '#475569', marginTop: 2 },
+lectureTeacher: { fontSize: 11, color: '#94a3b8', marginTop: 2 },
+lectureRight: { alignItems: 'flex-end' },
+lectureTime: { fontSize: 13, fontWeight: '700', color: '#1e293b' },
+lectureDuration: { fontSize: 11, color: '#94a3b8', marginTop: 2 },
+noLecturesText: {
+  textAlign: 'center', color: '#94a3b8',
+  fontSize: 13, paddingVertical: 20,
+},
+attendanceBtn: {
+  backgroundColor: '#2b58ed', borderRadius: 16,
+  padding: 16, alignItems: 'center', marginBottom: 20,
+},
+attendanceBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
 });

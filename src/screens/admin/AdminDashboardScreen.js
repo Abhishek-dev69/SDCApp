@@ -20,7 +20,7 @@ import { useUserSession } from '../../context/UserSessionContext';
 const { width } = Dimensions.get('window');
 
 const MANAGEMENT_ACTIONS = [
-  { id: '1', title: 'Add Student', icon: Plus, color: '#3B82F6' },
+  { id: '1', title: 'Manage Students', icon: Users, color: '#3B82F6' },
   { id: '2', title: 'Add Teacher', icon: UserPlus, color: '#10B981' },
   { id: '3', title: 'Assign Batches', icon: BookOpen, color: '#8B5CF6' },
   { id: '4', title: 'Post Announcement', icon: Megaphone, color: '#F97316' },
@@ -58,7 +58,7 @@ export default function AdminDashboardScreen({ navigation, route }) {
       setOperationalOverview(operationData);
       setOpenDoubts((doubtData || []).filter((doubt) => !['answered', 'closed'].includes(doubt.status)).length);
       setAnnouncementCount((announcementData || []).length);
-      setRecentStudents((studentData || []).slice(0, 2).map((student, index) => ({
+      setRecentStudents((studentData.students || []).slice(0, 2).map((student, index) => ({
         id: student.id,
         name: student.name,
         class: student.currentClass ? `Class ${student.currentClass}` : 'Class N/A',
@@ -112,7 +112,7 @@ export default function AdminDashboardScreen({ navigation, route }) {
 
   const handleAction = (id) => {
     switch(id) {
-      case '1': navigation.navigate('AddStudent'); break;
+      case '1': navigation.navigate('StudentListScreen'); break;
       case '2': navigation.navigate('AddTeacher'); break;
       case '3': navigation.navigate('AssignBatch'); break;
       case '4': navigation.navigate('PostAnnouncement'); break;
