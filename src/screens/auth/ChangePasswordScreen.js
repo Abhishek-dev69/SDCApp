@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Eye, EyeOff } from 'lucide-react-native';
+import { ChevronLeft, Eye, EyeOff } from 'lucide-react-native';
 import { validatePassword } from '../../utils/validation';
 import { apiRequest } from '../../services/api';
 
@@ -58,6 +58,9 @@ export default function ChangePasswordScreen({ navigation }) {
       />
 
       <SafeAreaView style={styles.safeArea}>
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+          <ChevronLeft size={28} color="#FFFFFF" />
+        </TouchableOpacity>
         <View style={styles.scrollContent}>
 
           <View style={styles.headerContainer}>
@@ -135,6 +138,16 @@ const styles = StyleSheet.create({
   },
   safeArea: {
     flex: 1,
+  },
+  backButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 16,
+    marginTop: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.16)',
   },
   scrollContent: {
     paddingHorizontal: 24,

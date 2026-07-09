@@ -2,13 +2,14 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Eye, EyeOff } from 'lucide-react-native';
+import { ChevronLeft, Eye, EyeOff } from 'lucide-react-native';
 import { validatePassword } from '../../utils/validation';
 import { apiRequest, saveAuthToken } from '../../services/api';
 
 export default function CreateAccountScreen({ navigation, route }) {
   const role = route?.params?.role || "student";
   const [sdcId, setSdcId] = useState('');
+  const [contact, setContact] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
@@ -17,7 +18,7 @@ export default function CreateAccountScreen({ navigation, route }) {
 
 
   const handleContinue = async () => {
-  if (!sdcId || !password || !confirmPassword) {
+  if (!sdcId || !contact || !password || !confirmPassword) {
     alert("Please fill all fields");
     return;
   }
@@ -37,7 +38,7 @@ export default function CreateAccountScreen({ navigation, route }) {
     const data = await apiRequest('/auth/sdc/setup-password', {
       method: 'POST',
       auth: false,
-      body: { sdcId: sdcId, password },
+      body: { sdcId, contact, password },
     });
 
     if (data.token) {
@@ -57,6 +58,18 @@ export default function CreateAccountScreen({ navigation, route }) {
       <LinearGradient colors={['#2b58ed', '#2b58ed']} style={styles.gradient} />
 
       <SafeAreaView style={styles.safeArea}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => {
+            if (navigation.canGoBack()) {
+              navigation.goBack();
+            } else {
+              navigation.navigate('SDCLogin');
+            }
+          }}
+        >
+          <ChevronLeft size={28} color="#FFFFFF" />
+        </TouchableOpacity>
         <View style={styles.center}>
 
           <View style={styles.card}>
@@ -73,6 +86,15 @@ export default function CreateAccountScreen({ navigation, route }) {
               placeholderTextColor="#94A3B8"
               value={sdcId}
               onChangeText={setSdcId}
+              style={styles.input}
+            />
+
+            <TextInput
+              placeholder="Registered phone or email"
+              placeholderTextColor="#94A3B8"
+              value={contact}
+              onChangeText={setContact}
+              autoCapitalize="none"
               style={styles.input}
             />
 
@@ -153,6 +175,18 @@ const styles = StyleSheet.create({
 
   safeArea: {
     flex: 1,
+  },
+  backButton: {
+    position: 'absolute',
+    top: 18,
+    left: 18,
+    zIndex: 10,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.16)',
   },
 
   center: {

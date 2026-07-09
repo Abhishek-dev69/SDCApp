@@ -1,6 +1,5 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { CommonActions } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   Bell,
@@ -17,18 +16,19 @@ import {
   UserCog,
   Users,
 } from 'lucide-react-native';
-import { getAdminBatchTotals, getBranchSummaries } from '../../data/adminBatchOverview';
-import { clearAuthToken } from '../../services/api';
+import { apiRequest, clearAuthToken } from '../../services/api';
+import { useUserSession } from '../../context/UserSessionContext';
+import { resetToLogin } from '../../navigation/navigationRef';
 
 const ACCOUNT_OPTIONS = [
   { id: 'edit-profile', title: 'Profile Details', subtitle: 'Update name, phone, and admin contact info', icon: UserCog },
-  { id: 'notifications', title: 'Notifications', subtitle: 'Batch alerts, fee reminders, and reports', icon: Bell },
+  { id: 'notifications', title: 'Notifications', subtitle: 'Batch alerts, timetable updates, and announcements', icon: Bell },
   { id: 'security', title: 'Security & Password', subtitle: 'Change password and review login access', icon: Lock, route: 'ChangePassword' },
 ];
 
 const INSTITUTE_OPTIONS = [
   { id: 'branches', title: 'Branch Access', subtitle: 'Andheri, Goregaon, Kandivali, Dahisar', icon: Building2 },
-  { id: 'permissions', title: 'Role Permissions', subtitle: 'Manage admin, teacher, and finance access', icon: Shield },
+  { id: 'permissions', title: 'Role Permissions', subtitle: 'Manage admin and teacher access', icon: Shield },
   { id: 'support', title: 'Support', subtitle: 'Contact app support for account or data issues', icon: HelpCircle },
 ];
 
@@ -66,11 +66,20 @@ function StatPill({ icon: Icon, value, label, color }) {
 }
 
 export default function AdminSettingsScreen({ navigation, route }) {
-  const displayName = route?.params?.displayName || 'Admin';
-  const userRole = route?.params?.userRole || 'admin';
-  const totals = getAdminBatchTotals();
-  const branchCount = getBranchSummaries().length;
+  const { userProfile, setSelectedBatch, setUserProfile } = useUserSession();
+  const displayName = userProfile?.name || route?.params?.displayName || 'Admin';
+  const userRole = userProfile?.role || route?.params?.userRole || 'admin';
+  const [overview, setOverview] = useState(null);
+  const branchCount = new Set(
+    (overview?.batches || []).map((batch) => batch.location).filter(Boolean)
+  ).size;
   const roleLabel = userRole === 'teacher' ? 'Teacher Admin' : 'Admin';
+
+  useEffect(() => {
+    apiRequest('/admin/overview')
+      .then(setOverview)
+      .catch((err) => console.log('Admin settings overview error:', err.message));
+  }, []);
 
   const navigateToRoute = (screenName) => {
     if (!screenName) {
@@ -92,7 +101,9 @@ export default function AdminSettingsScreen({ navigation, route }) {
           style: 'destructive',
           onPress: async () => {
             await clearAuthToken();
-            navigation.reset({ index: 0, routes: [{ name: 'SDCLogin' }] });
+            setUserProfile(null);
+            setSelectedBatch(null);
+            resetToLogin();
           },
         },
       ]
@@ -132,19 +143,19 @@ export default function AdminSettingsScreen({ navigation, route }) {
             <View style={styles.contactList}>
               <View style={styles.contactRow}>
                 <Mail size={14} color="#64748B" />
-                <Text style={styles.contactText}>admin@sdcclasses.in</Text>
+                <Text style={styles.contactText}>{userProfile?.email || 'Email not added'}</Text>
               </View>
               <View style={styles.contactRow}>
                 <Phone size={14} color="#64748B" />
-                <Text style={styles.contactText}>+91 98765 43210</Text>
+                <Text style={styles.contactText}>{userProfile?.phone || 'Phone not added'}</Text>
               </View>
             </View>
           </View>
         </View>
 
         <View style={styles.statsRow}>
-          <StatPill icon={BookOpen} value={totals.activeBatches} label="Batches" color="#2563EB" />
-          <StatPill icon={Users} value={totals.totalStudents} label="Students" color="#16A34A" />
+          <StatPill icon={BookOpen} value={overview?.activeBatches ?? '...'} label="Batches" color="#2563EB" />
+          <StatPill icon={Users} value={overview?.totalStudents ?? '...'} label="Students" color="#16A34A" />
           <StatPill icon={Building2} value={branchCount} label="Branches" color="#EA580C" />
         </View>
 

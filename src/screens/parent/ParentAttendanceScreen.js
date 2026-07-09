@@ -1,9 +1,32 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Calendar, ChevronRight, CheckCircle2, XCircle } from 'lucide-react-native';
+import { apiRequest } from '../../services/api';
 
 export default function ParentAttendanceScreen() {
+  const [records, setRecords] = useState([]);
+
+  useEffect(() => {
+    apiRequest('/operations/attendance')
+      .then((data) => setRecords(Array.isArray(data) ? data : []))
+      .catch((err) => console.log('Attendance live data unavailable:', err.message));
+  }, []);
+
+  const summary = useMemo(() => {
+    const present = records.filter((item) => ['present', 'late'].includes(item.status)).length;
+    const absent = records.filter((item) => item.status === 'absent').length;
+    const late = records.filter((item) => item.status === 'late').length;
+    const percentage = records.length ? Math.round((present / records.length) * 100) : null;
+    const subjects = Object.values(records.reduce((groups, item) => {
+      const group = groups[item.subject] || { subject: item.subject, present: 0, total: 0 };
+      group.total += 1;
+      if (['present', 'late'].includes(item.status)) group.present += 1;
+      groups[item.subject] = group;
+      return groups;
+    }, {}));
+    return { present, absent, late, percentage, subjects };
+  }, [records]);
   return (
     <View style={styles.container}>
       {/* Header Section */}
@@ -21,7 +44,7 @@ export default function ParentAttendanceScreen() {
               <Calendar size={32} color="#28388f" />
             </View>
             <View>
-              <Text style={styles.overallValue}>92%</Text>
+              <Text style={styles.overallValue}>{summary.percentage === null ? '—' : `${summary.percentage}%`}</Text>
               <Text style={styles.overallLabel}>Overall Attendance</Text>
             </View>
             <View style={styles.statusBadge}>
@@ -31,15 +54,15 @@ export default function ParentAttendanceScreen() {
           
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>142</Text>
+              <Text style={styles.statValue}>{summary.present}</Text>
               <Text style={styles.statLabel}>Present</Text>
             </View>
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>12</Text>
+              <Text style={styles.statValue}>{summary.absent}</Text>
               <Text style={styles.statLabel}>Absent</Text>
             </View>
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>04</Text>
+              <Text style={styles.statValue}>{summary.late}</Text>
               <Text style={styles.statLabel}>Late</Text>
             </View>
           </View>
@@ -49,17 +72,33 @@ export default function ParentAttendanceScreen() {
         <Text style={styles.sectionTitle}>Subject Breakdown</Text>
         
         <View style={styles.breakdownCard}>
-          <BreakdownItem subject="Physics" percentage="95%" present={48} total={50} status="on-track" />
-          <View style={styles.divider} />
-          <BreakdownItem subject="Chemistry" percentage="90%" present={45} total={50} status="on-track" />
-          <View style={styles.divider} />
-          <BreakdownItem subject="Mathematics" percentage="91%" present={55} total={60} status="on-track" />
+          {summary.subjects.map((item, index) => {
+            const percentage = item.total ? Math.round((item.present / item.total) * 100) : 0;
+            return (
+              <React.Fragment key={item.subject}>
+                {index > 0 && <View style={styles.divider} />}
+                <BreakdownItem
+                  subject={item.subject}
+                  percentage={`${percentage}%`}
+                  present={item.present}
+                  total={item.total}
+                />
+              </React.Fragment>
+            );
+          })}
+          {summary.subjects.length === 0 && <Text style={styles.emptyText}>No attendance has been recorded yet.</Text>}
         </View>
 
         {/* Recent Attendance Logs */}
         <Text style={styles.sectionTitle}>Recent Absences</Text>
-        <AbsenceItem date="Feb 22, 2026" reason="Medical Leave" subject="Chemistry, Math" />
-        <AbsenceItem date="Feb 10, 2026" reason="Family Event" subject="Physics, Chemistry" />
+        {records.filter((item) => item.status === 'absent').slice(0, 10).map((item) => (
+          <AbsenceItem
+            key={item.id}
+            date={new Date(item.session_date).toLocaleDateString()}
+            reason="Absent"
+            subject={item.subject}
+          />
+        ))}
       </ScrollView>
     </View>
   );
@@ -119,6 +158,7 @@ const styles = StyleSheet.create({
     paddingTop: 24,
     paddingBottom: 40,
   },
+  emptyText: { color: '#64748B', textAlign: 'center', paddingVertical: 18 },
   overallCard: {
     backgroundColor: '#fff',
     borderRadius: 20,

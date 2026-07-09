@@ -1,14 +1,9 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BarChart3, BookOpen, ChevronLeft, Clock, TrendingUp, UserCheck, Users } from 'lucide-react-native';
-import {
-  ADMIN_BATCH_OVERVIEW,
-  formatCurrency,
-  getAdminBatchTotals,
-  getBranchSummaries,
-} from '../../data/adminBatchOverview';
+import { BarChart3, BookOpen, Clock, TrendingUp, UserCheck, Users } from 'lucide-react-native';
+import { apiRequest } from '../../services/api';
 
 function ProgressBar({ value, color = '#2563EB' }) {
   return (
@@ -33,44 +28,100 @@ function MetricCard({ item }) {
   );
 }
 
-export default function AdminAnalyticsScreen({ navigation }) {
-  const totals = getAdminBatchTotals();
-  const branchSummaries = getBranchSummaries();
-  const attentionBatches = ADMIN_BATCH_OVERVIEW
-    .filter((batch) => batch.attendance < 88 || batch.testAverage < 78)
-    .sort((first, second) => (first.attendance + first.testAverage) - (second.attendance + second.testAverage))
+export default function AdminAnalyticsScreen() {
+  const [overview, setOverview] = useState(null);
+  const [batches, setBatches] = useState([]);
+  const [attendance, setAttendance] = useState([]);
+  const [results, setResults] = useState([]);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const optional = (path) => apiRequest(path).catch((requestError) => (
+      requestError.status === 501 ? [] : Promise.reject(requestError)
+    ));
+    const load = () => Promise.all([
+      apiRequest('/dashboard/owner'),
+      apiRequest('/admin/batches'),
+      optional('/operations/attendance'),
+      optional('/operations/results'),
+    ])
+      .then(([overviewData, batchData, attendanceData, resultData]) => {
+        setOverview(overviewData);
+        setBatches(Array.isArray(batchData) ? batchData : []);
+        setAttendance(Array.isArray(attendanceData) ? attendanceData : []);
+        setResults(Array.isArray(resultData) ? resultData : []);
+        setError('');
+      })
+      .catch((requestError) => setError(requestError.message || 'Could not load analytics.'));
+    const unsubscribe = navigation.addListener('focus', load);
+    load();
+    return unsubscribe;
+  }, [navigation]);
+
+  const averageAttendance = attendance.length
+    ? Math.round((attendance.filter((item) => ['present', 'late'].includes(item.status)).length / attendance.length) * 100)
+    : null;
+  const validResults = results.filter((item) => Number(item.total_marks) > 0);
+  const averageScore = validResults.length
+    ? Math.round(validResults.reduce(
+      (sum, item) => sum + (Number(item.marks) / Number(item.total_marks)) * 100,
+      0
+    ) / validResults.length)
+    : null;
+
+  const batchSummaries = useMemo(() => batches.map((batch) => {
+    const batchAttendance = attendance.filter((item) => Number(item.batch_id) === Number(batch.id));
+    const batchResults = results.filter((item) => Number(item.batch_id) === Number(batch.id));
+    const attendancePercent = batchAttendance.length
+      ? Math.round((batchAttendance.filter((item) => ['present', 'late'].includes(item.status)).length / batchAttendance.length) * 100)
+      : null;
+    const scoredResults = batchResults.filter((item) => Number(item.total_marks) > 0);
+    const testAverage = scoredResults.length
+      ? Math.round(scoredResults.reduce(
+        (sum, item) => sum + (Number(item.marks) / Number(item.total_marks)) * 100,
+        0
+      ) / scoredResults.length)
+      : null;
+    return { ...batch, attendancePercent, testAverage };
+  }), [attendance, batches, results]);
+
+  const attentionBatches = batchSummaries
+    .filter((batch) => (
+      (batch.attendancePercent !== null && batch.attendancePercent < 75)
+      || (batch.testAverage !== null && batch.testAverage < 60)
+    ))
     .slice(0, 4);
 
   const metrics = [
     {
       id: 'students',
       label: 'Total Students',
-      value: totals.totalStudents,
-      meta: `${totals.activeBatches} active batches`,
+      value: overview?.totalStudents ?? '...',
+      meta: `${overview?.activeBatches || 0} active batches`,
       icon: Users,
       color: '#2563EB',
     },
     {
-      id: 'capacity',
-      label: 'Batch Occupancy',
-      value: `${totals.occupancyRate}%`,
-      meta: `${totals.totalStudents}/${totals.totalCapacity} seats filled`,
+      id: 'materials',
+      label: 'Study Materials',
+      value: overview?.studyMaterials ?? '...',
+      meta: `${overview?.lectures || 0} lectures`,
       icon: BookOpen,
       color: '#0F766E',
     },
     {
       id: 'attendance',
       label: 'Avg Attendance',
-      value: `${totals.averageAttendance}%`,
-      meta: 'Across all branches',
+      value: averageAttendance === null ? 'N/A' : `${averageAttendance}%`,
+      meta: `${attendance.length} records`,
       icon: UserCheck,
       color: '#16A34A',
     },
     {
       id: 'score',
       label: 'Avg Test Score',
-      value: `${totals.averageScore}%`,
-      meta: 'Latest test cycle',
+      value: averageScore === null ? 'N/A' : `${averageScore}%`,
+      meta: `${results.length} published results`,
       icon: TrendingUp,
       color: '#EA580C',
     },
@@ -82,14 +133,11 @@ export default function AdminAnalyticsScreen({ navigation }) {
         <LinearGradient colors={['#2247B8', '#0F766E']} style={styles.headerGradient} />
         <SafeAreaView edges={['top']}>
           <View style={styles.headerContent}>
-            <TouchableOpacity style={styles.backButton} onPress={() => navigation.navigate('Dashboard')}>
-              <ChevronLeft size={24} color="#fff" />
-            </TouchableOpacity>
             <View style={styles.headerTextBlock}>
               <Text style={styles.headerKicker}>Admin Analytics</Text>
               <Text style={styles.headerTitle}>Batch Performance</Text>
               <Text style={styles.headerSubtitle}>
-                {totals.activeBatches} batches, {totals.totalStudents} students, {formatCurrency(totals.pendingAmount)} fees pending
+                {overview?.activeBatches || 0} batches and {overview?.totalStudents || 0} students
               </Text>
             </View>
           </View>
@@ -97,6 +145,7 @@ export default function AdminAnalyticsScreen({ navigation }) {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {!!error && <Text style={styles.errorText}>{error}</Text>}
         <View style={styles.metricsGrid}>
           {metrics.map((metric) => (
             <MetricCard key={metric.id} item={metric} />
@@ -108,24 +157,16 @@ export default function AdminAnalyticsScreen({ navigation }) {
           <Text style={styles.sectionCaption}>Student count and occupancy by centre</Text>
         </View>
 
-        {branchSummaries.map((branch) => (
-          <View key={branch.id} style={styles.branchCard}>
+        {(overview?.branches || []).map((branch) => (
+          <View key={branch.branch || 'Unassigned'} style={styles.branchCard}>
             <View style={styles.rowBetween}>
               <View>
-                <Text style={styles.branchName}>{branch.branch}</Text>
+                <Text style={styles.branchName}>{branch.branch || 'Unassigned'}</Text>
                 <Text style={styles.branchMeta}>
                   {branch.batches} batches • {branch.students} students
                 </Text>
               </View>
-              <View style={styles.percentBadge}>
-                <Text style={styles.percentBadgeText}>{branch.occupancyRate}% full</Text>
-              </View>
-            </View>
-            <ProgressBar value={branch.occupancyRate} color="#2563EB" />
-            <View style={styles.miniStatsRow}>
-              <Text style={styles.miniStat}>Attendance {branch.attendance}%</Text>
-              <Text style={styles.miniStat}>Score {branch.testAverage}%</Text>
-              <Text style={styles.miniStat}>{formatCurrency(branch.pendingAmount)} due</Text>
+              <Text style={styles.batchStudents}>{branch.students}</Text>
             </View>
           </View>
         ))}
@@ -135,7 +176,7 @@ export default function AdminAnalyticsScreen({ navigation }) {
           <Text style={styles.sectionCaption}>Where students are concentrated and how each batch is performing</Text>
         </View>
 
-        {ADMIN_BATCH_OVERVIEW.map((batch) => (
+        {batchSummaries.map((batch) => (
           <View key={batch.id} style={styles.batchCard}>
             <View style={styles.batchTopRow}>
               <View style={styles.batchCodeCircle}>
@@ -143,7 +184,7 @@ export default function AdminAnalyticsScreen({ navigation }) {
               </View>
               <View style={styles.batchInfo}>
                 <Text style={styles.batchName}>{batch.name}</Text>
-                <Text style={styles.batchMeta}>{batch.branch} • {batch.program} • {batch.stream}</Text>
+                <Text style={styles.batchMeta}>{batch.location} • {batch.program || 'No stream'} • Standard {batch.standard || 'N/A'}</Text>
               </View>
               <Text style={styles.batchStudents}>{batch.studentCount}</Text>
             </View>
@@ -151,19 +192,19 @@ export default function AdminAnalyticsScreen({ navigation }) {
             <View style={styles.batchStats}>
               <View style={styles.batchStatItem}>
                 <Users size={15} color="#64748B" />
-                <Text style={styles.batchStatText}>{batch.studentCount}/{batch.capacity} seats</Text>
+                <Text style={styles.batchStatText}>{batch.studentCount} students</Text>
               </View>
               <View style={styles.batchStatItem}>
                 <UserCheck size={15} color="#64748B" />
-                <Text style={styles.batchStatText}>{batch.attendance}% attendance</Text>
+                <Text style={styles.batchStatText}>{batch.attendancePercent === null ? 'No attendance' : `${batch.attendancePercent}% attendance`}</Text>
               </View>
               <View style={styles.batchStatItem}>
                 <BarChart3 size={15} color="#64748B" />
-                <Text style={styles.batchStatText}>{batch.testAverage}% score</Text>
+                <Text style={styles.batchStatText}>{batch.testAverage === null ? 'No results' : `${batch.testAverage}% score`}</Text>
               </View>
             </View>
 
-            <ProgressBar value={batch.occupancyRate} color={batch.occupancyRate >= 88 ? '#16A34A' : '#2563EB'} />
+            <ProgressBar value={batch.attendancePercent || 0} color="#2563EB" />
           </View>
         ))}
 
@@ -180,7 +221,7 @@ export default function AdminAnalyticsScreen({ navigation }) {
             <View style={styles.attentionInfo}>
               <Text style={styles.attentionTitle}>{batch.name}</Text>
               <Text style={styles.attentionMeta}>
-                {batch.attendance}% attendance • {batch.testAverage}% score • {batch.branch}
+                {batch.attendancePercent ?? 'N/A'}% attendance • {batch.testAverage ?? 'N/A'}% score • {batch.location}
               </Text>
             </View>
           </View>
@@ -210,15 +251,6 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 28,
   },
-  backButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(255,255,255,0.16)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
   headerTextBlock: {
     flex: 1,
   },
@@ -243,6 +275,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 18,
     paddingBottom: 120,
+  },
+  errorText: {
+    color: '#B91C1C',
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 14,
   },
   metricsGrid: {
     flexDirection: 'row',

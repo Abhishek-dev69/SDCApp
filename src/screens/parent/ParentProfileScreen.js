@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { 
   User, 
@@ -14,8 +14,49 @@ import {
   LogOut,
   ChevronRight
 } from 'lucide-react-native';
+import { apiRequest, clearAuthToken } from '../../services/api';
+import { useUserSession } from '../../context/UserSessionContext';
+import { resetToLogin } from '../../navigation/navigationRef';
 
 export default function ParentProfileScreen({ navigation }) {
+  const { setSelectedBatch, setUserProfile } = useUserSession();
+  const [dashboard, setDashboard] = useState(null);
+
+  useEffect(() => {
+    apiRequest('/dashboard/parent')
+      .then(setDashboard)
+      .catch((err) => console.log('Parent profile fetch error:', err.message));
+  }, []);
+
+  const child = dashboard?.children?.find(
+    (item) => item.auth_id === dashboard?.selectedStudentAuthId
+  ) || dashboard?.children?.[0];
+  const strongestSubject = useMemo(() => {
+    const grouped = (dashboard?.recentResults || []).reduce((summary, result) => {
+      const total = Number(result.total_marks || 0);
+      if (!total) return summary;
+      const subject = result.subject || 'General';
+      const current = summary[subject] || { marks: 0, total: 0 };
+      current.marks += Number(result.marks || 0);
+      current.total += total;
+      summary[subject] = current;
+      return summary;
+    }, {});
+    return Object.entries(grouped)
+      .sort((first, second) => (
+        second[1].marks / second[1].total
+      ) - (
+        first[1].marks / first[1].total
+      ))[0]?.[0] || 'Not available';
+  }, [dashboard]);
+
+  const handleLogout = async () => {
+    await clearAuthToken();
+    setUserProfile(null);
+    setSelectedBatch(null);
+    resetToLogin();
+  };
+
   return (
     <View style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -35,22 +76,30 @@ export default function ParentProfileScreen({ navigation }) {
             </View>
 
             <View style={styles.userInfo}>
-              <Text style={styles.userName}>Manasvi Gawli</Text>
+              <Text style={styles.userName}>{dashboard?.parent?.name || 'Parent'}</Text>
               <Text style={styles.userRole}>Parent Account</Text>
             </View>
 
             <View style={styles.contactInfo}>
-              <InfoRow icon={Mail} text="manasvi.g@example.com" />
-              <InfoRow icon={Phone} text="+91 98765 43210" />
-              <InfoRow icon={Calendar} text="Enrolled: Jan 2025" />
+              <InfoRow icon={Mail} text={dashboard?.parent?.email || 'Email not added'} />
+              <InfoRow icon={Phone} text={dashboard?.parent?.phone || 'Phone not added'} />
+              <InfoRow
+                icon={Calendar}
+                text={child ? `${child.student_name} · ${child.sdc_batch || 'Unassigned batch'}` : 'No linked student'}
+              />
             </View>
           </View>
 
           {/* Stats Row */}
           <View style={styles.statsRow}>
-            <StatCard icon={BookOpen} value="142" label="Lectures" color="#3b82f6" />
-            <StatCard icon={FileText} value="28" label="Tests" color="#10b981" />
-            <StatCard icon={History} value="87h" label="Study" color="#8b5cf6" />
+            <StatCard icon={BookOpen} value={child?.sdc_batch || '—'} label="Batch" color="#3b82f6" />
+            <StatCard icon={FileText} value={dashboard?.recentResults?.length || 0} label="Results" color="#10b981" />
+            <StatCard
+              icon={History}
+              value={dashboard?.metrics?.attendancePercent == null ? '—' : `${dashboard.metrics.attendancePercent}%`}
+              label="Attendance"
+              color="#8b5cf6"
+            />
           </View>
 
           {/* Performance Insights */}
@@ -63,11 +112,7 @@ export default function ParentProfileScreen({ navigation }) {
                 </View>
                 <View>
                   <Text style={styles.insightLabel}>Strongest Subject</Text>
-                  <Text style={styles.insightValue}>Mathematics</Text>
-                </View>
-                <View style={styles.trendBadge}>
-                  <TrendingUp size={14} color="#10b981" />
-                  <Text style={styles.trendText}>+12%</Text>
+                  <Text style={styles.insightValue}>{strongestSubject}</Text>
                 </View>
               </View>
             </View>
@@ -75,9 +120,13 @@ export default function ParentProfileScreen({ navigation }) {
 
           {/* Settings Options */}
           <View style={styles.optionsContainer}>
-            <OptionItem icon={User} title="Child Profile" subtitle="Aarav Patel (12th-A1)" />
+            <OptionItem
+              icon={User}
+              title="Child Profile"
+              subtitle={child ? `${child.student_name} (${child.student_std || 'N/A'}-${child.sdc_batch || 'Unassigned'})` : 'No linked child'}
+            />
             <OptionItem icon={Settings} title="Notification Settings" />
-            <TouchableOpacity style={styles.logoutButton}>
+            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
               <LogOut size={20} color="#ef4444" />
               <Text style={styles.logoutText}>Logout</Text>
             </TouchableOpacity>

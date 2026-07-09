@@ -10,13 +10,15 @@ app.use(express.json());
 
 // import routes
 const authRoutes = require('./routes/auth');
-const usersRouter = require('./routes/users');
 const emailRoutes = require('./routes/email');
 const announcementRoutes = require('./routes/announcements');
 const pdfviewRoutes = require('./routes/pdfview');
 const sdcAuthRoutes = require('./routes/sdcidauth');
 const instituteRoutes = require('./routes/institute');
 const materialRoutes = require('./routes/materials');
+const lectureRoutes = require('./routes/lectures');
+const dashboardRoutes = require('./routes/dashboards');
+const operationRoutes = require('./routes/operations');
 const lecturesRoutes = require('./routes/lectures');
 const attendanceRoutes = require('./routes/attendance');
 const studentRoutes = require('./routes/students');
@@ -25,6 +27,10 @@ const testsRoutes = require('./routes/tests');
 app.use('/auth/sdc', sdcAuthRoutes);
 app.use('/pdfview', pdfviewRoutes);
 app.use('/materials', materialRoutes);
+app.use('/lectures', lectureRoutes);
+app.use('/admin/lectures', lectureRoutes);
+app.use('/dashboard', dashboardRoutes);
+app.use('/operations', operationRoutes);
 app.use('/attendance', attendanceRoutes);
 app.use('/tests', testsRoutes);
 app.use('/', instituteRoutes);

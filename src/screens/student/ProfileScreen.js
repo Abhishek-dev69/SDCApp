@@ -1,7 +1,8 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Dimensions } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
 import { useUserSession } from '../../context/UserSessionContext';
-import { clearAuthToken } from '../../services/api';
+import { apiRequest, clearAuthToken } from '../../services/api';
+import { resetToLogin } from '../../navigation/navigationRef';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { 
   ChevronRight, 
@@ -19,12 +20,6 @@ import {
 
 const { width } = Dimensions.get('window');
 
-const STATS = [
-  { id: '1', label: 'Lectures Completed', value: '142', icon: BookOpen, color: '#3B82F6' },
-  { id: '2', label: 'Tests Attempted', value: '28', icon: FileText, color: '#10B981' },
-  { id: '3', label: 'Study Hours', value: '87h', icon: Clock, color: '#8B5CF6' },
-];
-
 const SETTINGS = [
   { id: '1', label: 'Edit Profile', icon: User },
   { id: '2', label: 'Notifications', icon: Bell },
@@ -40,12 +35,48 @@ const getInitials = (name) => {
 
 export default function ProfileScreen({ navigation }) {
   const { userProfile, setUserProfile } = useUserSession();
+  const [attendance, setAttendance] = useState([]);
+  const [results, setResults] = useState([]);
+  const [lectures, setLectures] = useState([]);
+
+  useEffect(() => {
+    const optional = (path) => apiRequest(path).catch((err) => err.status === 501 ? [] : Promise.reject(err));
+    Promise.all([
+      optional('/operations/attendance'),
+      optional('/operations/results'),
+      apiRequest('/lectures?status=completed&limit=200'),
+    ])
+      .then(([attendanceData, resultData, lectureData]) => {
+        setAttendance(Array.isArray(attendanceData) ? attendanceData : []);
+        setResults(Array.isArray(resultData) ? resultData : []);
+        setLectures(Array.isArray(lectureData) ? lectureData : []);
+      })
+      .catch((err) => console.log('Student profile metrics error:', err.message));
+  }, []);
+
+  const metrics = useMemo(() => {
+    const attended = attendance.filter((item) => ['present', 'late'].includes(item.status)).length;
+    const attendancePercent = attendance.length ? Math.round((attended / attendance.length) * 100) : null;
+    const scored = results.filter((item) => Number(item.total_marks) > 0);
+    const scorePercent = scored.length
+      ? Math.round(scored.reduce(
+        (sum, item) => sum + (Number(item.marks) / Number(item.total_marks)) * 100,
+        0
+      ) / scored.length)
+      : null;
+    return { attendancePercent, scorePercent };
+  }, [attendance, results]);
+  const stats = [
+    { id: '1', label: 'Lectures Completed', value: lectures.length, icon: BookOpen, color: '#3B82F6' },
+    { id: '2', label: 'Tests Attempted', value: results.length, icon: FileText, color: '#10B981' },
+    { id: '3', label: 'Attendance Records', value: attendance.length, icon: Clock, color: '#8B5CF6' },
+  ];
   
   
   const handleLogout = async () => {
       await clearAuthToken();
       setUserProfile(null);
-      navigation.reset({ index: 0, routes: [{ name: 'SDCLogin' }] });
+      resetToLogin();
     };
 
 
@@ -97,7 +128,7 @@ export default function ProfileScreen({ navigation }) {
 
         {/* Stats Row */}
         <View style={styles.statsRow}>
-          {STATS.map((stat) => {
+          {stats.map((stat) => {
             const Icon = stat.icon;
             return (
               <View key={stat.id} style={styles.statCard}>
@@ -118,20 +149,24 @@ export default function ProfileScreen({ navigation }) {
           <View style={styles.progressItem}>
             <View style={styles.progressLabelRow}>
               <Text style={styles.progressLabel}>Attendance</Text>
-              <Text style={[styles.progressValue, { color: '#10B981' }]}>92%</Text>
+              <Text style={[styles.progressValue, { color: '#10B981' }]}>
+                {metrics.attendancePercent == null ? 'N/A' : `${metrics.attendancePercent}%`}
+              </Text>
             </View>
             <View style={styles.progressBarBackground}>
-              <View style={[styles.progressBarFill, { width: '92%', backgroundColor: '#10B981' }]} />
+              <View style={[styles.progressBarFill, { width: `${metrics.attendancePercent || 0}%`, backgroundColor: '#10B981' }]} />
             </View>
           </View>
 
           <View style={styles.progressItem}>
             <View style={styles.progressLabelRow}>
               <Text style={styles.progressLabel}>Overall Score</Text>
-              <Text style={[styles.progressValue, { color: '#3B82F6' }]}>85%</Text>
+              <Text style={[styles.progressValue, { color: '#3B82F6' }]}>
+                {metrics.scorePercent == null ? 'N/A' : `${metrics.scorePercent}%`}
+              </Text>
             </View>
             <View style={styles.progressBarBackground}>
-              <View style={[styles.progressBarFill, { width: '85%', backgroundColor: '#3B82F6' }]} />
+              <View style={[styles.progressBarFill, { width: `${metrics.scorePercent || 0}%`, backgroundColor: '#3B82F6' }]} />
             </View>
           </View>
         </View>

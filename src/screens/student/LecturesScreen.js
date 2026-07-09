@@ -8,6 +8,7 @@ import {
   FlaskConical,
   Ruler,
   Dna,
+  CalendarClock,
 } from 'lucide-react-native';
 
 import { useUserSession } from '../../context/UserSessionContext';
@@ -16,6 +17,7 @@ import {
   getNotesSectionForBatch,
   getTextbookSectionsForBatch,
 } from '../../data/studentBatches';
+import { apiRequest } from '../../services/api';
 
 const SUBJECT_ID_MAP = {
   physics: 'Physics',
@@ -68,10 +70,17 @@ export default function LecturesScreen({ navigation }) {
     materialTabs.find((tab) => tab.enabled)?.id || 'maharashtra';
 
   const [activeSource, setActiveSource] = useState(defaultSource);
+  const [lectures, setLectures] = useState([]);
 
   useEffect(() => {
     setActiveSource(defaultSource);
   }, [defaultSource]);
+
+  useEffect(() => {
+    apiRequest(`/lectures?from=${encodeURIComponent(new Date().toISOString())}&limit=20`)
+      .then((data) => setLectures(Array.isArray(data) ? data : []))
+      .catch((err) => console.log('Lectures fetch error:', err.message));
+  }, []);
 
   const activeTextbookSection = useMemo(() => {
     return textbookSections.find((section) => section.source === activeSource)
@@ -119,6 +128,29 @@ export default function LecturesScreen({ navigation }) {
               );
             })}
           </View>
+        </View>
+
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>Upcoming Lectures</Text>
+          {lectures.map((lecture) => (
+            <View key={lecture.id} style={styles.lectureRow}>
+              <View style={styles.rowIconWrap}>
+                <CalendarClock size={22} color="#2563EB" />
+              </View>
+              <View style={styles.lectureCopy}>
+                <Text style={styles.rowTitle}>
+                  {lecture.subject}{lecture.topic ? ` - ${lecture.topic}` : ''}
+                </Text>
+                <Text style={styles.rowMeta}>
+                  {new Date(lecture.scheduledAt).toLocaleString()} · {lecture.durationMins} min
+                  {lecture.teacherName ? ` · ${lecture.teacherName}` : ''}
+                </Text>
+              </View>
+            </View>
+          ))}
+          {lectures.length === 0 && (
+            <Text style={styles.emptyText}>No upcoming lectures are scheduled.</Text>
+          )}
         </View>
 
         {/* 📚 TEXTBOOK */}
@@ -210,6 +242,31 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: 24,
+  },
+  sectionTitle: {
+    color: '#0F172A',
+    fontSize: 18,
+    fontWeight: '800',
+    marginBottom: 8,
+  },
+  lectureRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 68,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+    paddingVertical: 12,
+  },
+  lectureCopy: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  emptyText: {
+    color: '#64748B',
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: 'center',
+    paddingVertical: 16,
   },
   heroCard: {
     overflow: 'hidden',

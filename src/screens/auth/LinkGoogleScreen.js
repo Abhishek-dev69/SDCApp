@@ -4,6 +4,7 @@ import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { ChevronLeft } from 'lucide-react-native';
 import { apiRequest } from '../../services/api';
 WebBrowser.maybeCompleteAuthSession();
 
@@ -44,7 +45,9 @@ const handleLinkGoogle = async (googleToken) => {
   const handleNext = () => {
     if (role === 'owner') {
       navigation.replace('OwnerTabs');
-    } else if (role === 'admin' || role === 'teacher') {
+    } else if (role === 'teacher') {
+      navigation.replace('TeacherTabs');
+    } else if (role === 'admin') {
       navigation.replace('AdminTabs', { userRole: role });
     } else if (role === 'parent') {
       navigation.replace('ParentTabs');
@@ -61,6 +64,18 @@ const handleLinkGoogle = async (googleToken) => {
       />
 
       <SafeAreaView style={styles.safeArea}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => {
+            if (navigation.canGoBack()) {
+              navigation.goBack();
+            } else {
+              navigation.navigate('SDCLogin');
+            }
+          }}
+        >
+          <ChevronLeft size={28} color="#FFFFFF" />
+        </TouchableOpacity>
         <View style={styles.content}>
 
           {/* Card */}
@@ -107,6 +122,18 @@ const handleLinkGoogle = async (googleToken) => {
 
   safeArea: {
     flex: 1,
+  },
+  backButton: {
+    position: 'absolute',
+    top: 18,
+    left: 18,
+    zIndex: 10,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.16)',
   },
 
   content: {

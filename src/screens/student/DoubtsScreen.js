@@ -1,32 +1,56 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Dimensions } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Alert, View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Search, ChevronRight, Zap, TrendingUp, CheckCircle2, MessageSquare } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { apiRequest } from '../../services/api';
 
 const { width } = Dimensions.get('window');
-
-const TRENDING_DOUBTS = [
-  {
-    id: '1',
-    question: 'How to calculate the equivalent resistance in this circuit?',
-    subject: 'Physics',
-    answers: 12,
-    verified: true,
-  },
-  {
-    id: '2',
-    question: 'What is the mechanism of nukleophilic substitution reactions?',
-    subject: 'Chemistry',
-    answers: 8,
-    verified: true,
-  },
-];
 
 const FILTERS = ['All', 'Physics', 'Chemistry', 'Math'];
 
 export default function DoubtsScreen({ navigation }) {
   const [activeFilter, setActiveFilter] = useState('All');
+  const [query, setQuery] = useState('');
+  const [doubts, setDoubts] = useState([]);
+
+  const loadDoubts = () => {
+    apiRequest('/operations/doubts')
+      .then((data) => setDoubts(Array.isArray(data) ? data : []))
+      .catch((err) => console.log('Doubts live data unavailable:', err.message));
+  };
+
+  useEffect(loadDoubts, []);
+
+  const visibleDoubts = useMemo(
+    () => doubts.filter((doubt) => (
+      (activeFilter === 'All' || doubt.subject === activeFilter)
+      && `${doubt.title} ${doubt.description}`.toLowerCase().includes(query.toLowerCase())
+    )),
+    [activeFilter, doubts, query]
+  );
+
+  const createDoubt = async () => {
+    if (!query.trim()) {
+      Alert.alert('Enter Your Doubt', 'Type your question in the search box first.');
+      return;
+    }
+    try {
+      await apiRequest('/operations/doubts', {
+        method: 'POST',
+        body: {
+          subject: activeFilter === 'All' ? 'General' : activeFilter,
+          title: query.trim().slice(0, 120),
+          description: query.trim(),
+        },
+      });
+      setQuery('');
+      loadDoubts();
+      Alert.alert('Doubt Submitted', 'Your question has been sent to the academic team.');
+    } catch (err) {
+      Alert.alert('Unable to Submit', err.message);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -44,6 +68,8 @@ export default function DoubtsScreen({ navigation }) {
                 placeholder="Search your doubt..." 
                 style={styles.searchInput}
                 placeholderTextColor="#94A3B8"
+                value={query}
+                onChangeText={setQuery}
               />
             </View>
           </View>
@@ -51,8 +77,8 @@ export default function DoubtsScreen({ navigation }) {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* AI Tutor Banner */}
-        <TouchableOpacity style={styles.aiBanner}>
+        {/* Academic support submission */}
+        <TouchableOpacity style={styles.aiBanner} onPress={createDoubt}>
           <LinearGradient
             colors={['#8E24AA', '#6A1B9A']}
             style={styles.aiBannerGradient}
@@ -61,8 +87,8 @@ export default function DoubtsScreen({ navigation }) {
           />
           <View style={styles.aiBannerContent}>
             <View style={styles.aiTextContainer}>
-              <Text style={styles.aiBannerTitle}>Ask SDC AI Tutor</Text>
-              <Text style={styles.aiBannerSubtitle}>Get instant answers powered by AI</Text>
+              <Text style={styles.aiBannerTitle}>Ask the Academic Team</Text>
+              <Text style={styles.aiBannerSubtitle}>Send your question to your assigned faculty</Text>
             </View>
             <View style={styles.aiArrowBtn}>
               <ChevronRight size={24} color="#6A1B9A" />
@@ -100,37 +126,40 @@ export default function DoubtsScreen({ navigation }) {
         <View style={styles.sectionHeader}>
           <View style={styles.trendingHeader}>
             <TrendingUp size={20} color="#28388f" />
-            <Text style={styles.sectionTitle}>Trending Doubts</Text>
+            <Text style={styles.sectionTitle}>My Doubts</Text>
           </View>
           <TouchableOpacity>
             <Text style={styles.viewAllText}>View All</Text>
           </TouchableOpacity>
         </View>
 
-        {TRENDING_DOUBTS.map((doubt) => (
+        {visibleDoubts.map((doubt) => (
           <TouchableOpacity key={doubt.id} style={styles.doubtCard}>
-            <Text style={styles.doubtQuestion} numberOfLines={2}>{doubt.question}</Text>
+            <Text style={styles.doubtQuestion} numberOfLines={2}>{doubt.title}</Text>
             
             <View style={styles.doubtFooter}>
               <View style={styles.tagGroup}>
                 <View style={styles.subjectTag}>
                   <Text style={styles.subjectTagText}>{doubt.subject}</Text>
                 </View>
-                {doubt.verified && (
+                {doubt.status === 'answered' || doubt.status === 'closed' ? (
                   <View style={styles.verifiedBadge}>
                     <CheckCircle2 size={14} color="#10B981" />
-                    <Text style={styles.verifiedText}>Faculty Verified</Text>
+                    <Text style={styles.verifiedText}>Faculty Answered</Text>
                   </View>
-                )}
+                ) : null}
               </View>
               
               <View style={styles.answerCount}>
                 <MessageSquare size={16} color="#64748B" />
-                <Text style={styles.answerText}>{doubt.answers} answers</Text>
+                <Text style={styles.answerText}>{doubt.status}</Text>
               </View>
             </View>
           </TouchableOpacity>
         ))}
+        {visibleDoubts.length === 0 && (
+          <Text style={styles.emptyText}>No doubts found. Type a question above and send it to the academic team.</Text>
+        )}
       </ScrollView>
     </View>
   );
@@ -260,6 +289,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 16,
+  },
+  emptyText: {
+    color: '#64748B',
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+    paddingVertical: 24,
   },
   trendingHeader: {
     flexDirection: 'row',

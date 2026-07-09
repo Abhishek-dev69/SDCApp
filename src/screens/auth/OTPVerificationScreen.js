@@ -11,9 +11,7 @@ export default function OTPVerificationScreen({ navigation, route }) {
 
   const getAdminRouteParams = (currentRole) => ({
     userRole: currentRole,
-    displayName: currentRole === 'owner'
-      ? 'Natik Sir'
-      : currentRole === 'teacher'
+    displayName: currentRole === 'teacher'
         ? 'Teacher'
         : 'Admin',
   });
@@ -57,8 +55,10 @@ export default function OTPVerificationScreen({ navigation, route }) {
     }
     // Logic to verify OTP
     if (role === 'owner') {
-      navigation.navigate('OwnerTabs', { displayName: 'Natik Sir' });
-    } else if (role === 'admin' || role === 'teacher') {
+      navigation.navigate('OwnerTabs', { displayName: 'Owner' });
+    } else if (role === 'teacher') {
+      navigation.navigate('TeacherTabs');
+    } else if (role === 'admin') {
       navigation.navigate('AdminTabs', getAdminRouteParams(role));
     } else if (role === 'parent') {
       navigation.navigate('ParentTabs');

@@ -1,35 +1,30 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Clock, FileText, ChevronRight } from 'lucide-react-native';
-
-const TESTS = [
-  {
-    id: '1',
-    title: 'Physics Unit Test 3',
-    subject: 'Physics',
-    duration: '60 mins',
-    questions: '30 Questions',
-    date: 'Tomorrow, 10:00 AM',
-    accentColor: '#3B82F6', // Blue
-    type: 'upcoming',
-  },
-  {
-    id: '2',
-    title: 'Chemistry Weekly Test',
-    subject: 'Chemistry',
-    duration: '45 mins',
-    questions: '25 Questions',
-    date: 'Mar 1, 2:00 PM',
-    accentColor: '#8B5CF6', // Purple
-    type: 'upcoming',
-  },
-];
+import { apiRequest } from '../../services/api';
 
 export default function TestsScreen({ navigation }) {
   const [activeTab, setActiveTab] = useState('Upcoming');
+  const [tests, setTests] = useState([]);
+  const [results, setResults] = useState([]);
 
   const tabs = ['Upcoming', 'Attempted', 'Completed'];
+  useEffect(() => {
+    Promise.all([apiRequest('/operations/tests'), apiRequest('/operations/results')])
+      .then(([testData, resultData]) => {
+        setTests(Array.isArray(testData) ? testData : []);
+        setResults(Array.isArray(resultData) ? resultData : []);
+      })
+      .catch((err) => console.log('Tests live data unavailable:', err.message));
+  }, []);
+
+  const visibleItems = useMemo(() => {
+    if (activeTab === 'Upcoming') {
+      return tests.filter((test) => new Date(test.scheduled_at) >= new Date() && test.status !== 'cancelled');
+    }
+    return results;
+  }, [activeTab, results, tests]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -61,21 +56,25 @@ export default function TestsScreen({ navigation }) {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {activeTab === 'Upcoming' ? (
-          TESTS.map((test) => (
-            <TouchableOpacity key={test.id} style={[styles.testCard, { borderTopColor: test.accentColor }]}>
+        {visibleItems.length > 0 ? (
+          visibleItems.map((test) => (
+            <TouchableOpacity key={`${activeTab}-${test.id}`} style={[styles.testCard, { borderTopColor: '#3B82F6' }]}>
               <View style={styles.cardHeader}>
                 <View>
                   <Text style={styles.testTitle}>{test.title}</Text>
                   <View style={styles.testInfoRow}>
                     <View style={styles.infoItem}>
                       <Clock size={16} color="#64748B" />
-                      <Text style={styles.infoText}>{test.duration}</Text>
+                      <Text style={styles.infoText}>{test.duration_mins || '—'} mins</Text>
                     </View>
                     <View style={styles.verticalDivider} />
                     <View style={styles.infoItem}>
                       <FileText size={16} color="#64748B" />
-                      <Text style={styles.infoText}>{test.questions}</Text>
+                      <Text style={styles.infoText}>
+                        {activeTab === 'Upcoming'
+                          ? `${test.total_marks} marks`
+                          : `${test.marks}/${test.total_marks}`}
+                      </Text>
                     </View>
                   </View>
                 </View>
@@ -83,13 +82,13 @@ export default function TestsScreen({ navigation }) {
               </View>
 
               <View style={styles.cardFooter}>
-                <Text style={styles.dateText}>{test.date}</Text>
+                <Text style={styles.dateText}>{new Date(test.scheduled_at).toLocaleString()}</Text>
               </View>
             </TouchableOpacity>
           ))
         ) : (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyStateText}>No tests available in {activeTab} tab.</Text>
+            <Text style={styles.emptyStateText}>No live tests available in {activeTab}.</Text>
           </View>
         )}
       </ScrollView>

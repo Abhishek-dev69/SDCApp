@@ -1,6 +1,7 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Home, BookOpen, FileText, MessageCircle, User } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import StudentHomeScreen from '../screens/student/StudentHomeScreen';
 import LecturesStackNavigator from './LecturesStackNavigator';
 import TestsScreen from '../screens/student/TestsScreen';
@@ -10,6 +11,9 @@ import ProfileScreen from '../screens/student/ProfileScreen';
 const Tab = createBottomTabNavigator();
 
 export default function StudentTabNavigator() {
+  const insets = useSafeAreaInsets();
+  const bottomInset = Math.max(insets.bottom, 8);
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -30,8 +34,8 @@ export default function StudentTabNavigator() {
           backgroundColor: '#ffffff',
           borderTopWidth: 1,
           borderTopColor: '#e2e8f0',
-          height: 60,
-          paddingBottom: 8,
+          height: 56 + bottomInset,
+          paddingBottom: bottomInset,
           paddingTop: 8,
         },
         headerShown: false,
