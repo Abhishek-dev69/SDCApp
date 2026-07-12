@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Modal, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { 
@@ -10,10 +10,95 @@ import {
   TrendingUp, 
   Bell, 
   ChevronRight,
-  AlertCircle
+  AlertCircle,
+  Check
 } from 'lucide-react-native';
+import { useUserSession } from '../../context/UserSessionContext';
+import { apiRequest } from '../../services/api';
 
 export default function ParentDashboardScreen() {
+  const { userProfile, activeChild, setActiveChild } = useUserSession();
+  const [children, setChildren] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [childData, setChildData] = useState({
+    attendance: null,
+    performance: null,
+    fees: null,
+  });
+  const [showChildModal, setShowChildModal] = useState(false);
+
+  const parentName = userProfile ? (userProfile.father_name || userProfile.mother_name || userProfile.name) : 'Parent';
+
+  const fetchChildren = async () => {
+    try {
+      const data = await apiRequest('/parent/children');
+      if (data.children && data.children.length > 0) {
+        setChildren(data.children);
+        // Default to first child if activeChild is not set
+        if (!activeChild) {
+          setActiveChild(data.children[0]);
+        }
+      } else {
+        setLoading(false);
+      }
+    } catch (err) {
+      console.error('Failed to fetch children:', err);
+      setLoading(false);
+    }
+  };
+
+  const fetchChildDetails = async (studentSdcId) => {
+    try {
+      const [attData, perfData, feeData] = await Promise.all([
+        apiRequest(`/parent/child/${studentSdcId}/attendance`),
+        apiRequest(`/parent/child/${studentSdcId}/performance`),
+        apiRequest(`/parent/child/${studentSdcId}/fees`),
+      ]);
+
+      setChildData({
+        attendance: attData,
+        performance: perfData,
+        fees: feeData,
+      });
+    } catch (err) {
+      console.error('Failed to fetch child data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchChildren();
+  }, []);
+
+  useEffect(() => {
+    if (activeChild) {
+      setLoading(true);
+      fetchChildDetails(activeChild.student_sdc_id);
+    }
+  }, [activeChild]);
+
+  const selectChild = (child) => {
+    setActiveChild(child);
+    setShowChildModal(false);
+  };
+
+  if (loading && !activeChild) {
+    return (
+      <View style={styles.loaderContainer}>
+        <ActivityIndicator size="large" color="#2b58ed" />
+      </View>
+    );
+  }
+
+  // Calculate upcoming tests (future dates)
+  const upcomingTestsCount = childData.performance?.tests?.filter(
+    (t) => t.due_at && new Date(t.due_at) > new Date()
+  )?.length || 0;
+
+  // Recent graded tests
+  const recentTests = childData.performance?.tests?.filter((t) => t.score !== null).slice(0, 3) || [];
+
   return (
     <View style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -26,7 +111,7 @@ export default function ParentDashboardScreen() {
             <View style={styles.headerContent}>
               <View>
                 <Text style={styles.greetingText}>Good Morning,</Text>
-                <Text style={styles.userNameText}>Neha Patel</Text>
+                <Text style={styles.userNameText}>{parentName}</Text>
                 <View style={styles.roleBadge}>
                   <Text style={styles.roleText}>Parent</Text>
                 </View>
@@ -43,20 +128,28 @@ export default function ParentDashboardScreen() {
             </View>
 
             {/* Child Summary Card */}
-            <View style={styles.childCard}>
+            <TouchableOpacity 
+              style={styles.childCard} 
+              onPress={() => children.length > 1 && setShowChildModal(true)}
+              disabled={children.length <= 1}
+            >
               <View style={styles.childHeader}>
                 <View style={styles.childAvatar}>
                   <Users size={24} color="#28388f" />
                 </View>
-                <View>
-                  <Text style={styles.childName}>Aarav Patel</Text>
-                  <Text style={styles.childInfo}>12th • JEE Batch A1</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.childName}>{activeChild?.student_name || 'No Child Assigned'}</Text>
+                  <Text style={styles.childInfo}>
+                    {activeChild ? `${activeChild.student_std} • ${activeChild.sdc_batch}` : 'Unassigned'}
+                  </Text>
                 </View>
-                <TouchableOpacity style={styles.switchButton}>
-                  <ChevronRight size={20} color="#64748b" />
-                </TouchableOpacity>
+                {children.length > 1 && (
+                  <View style={styles.switchButton}>
+                    <ChevronRight size={20} color="#64748b" />
+                  </View>
+                )}
               </View>
-            </View>
+            </TouchableOpacity>
           </SafeAreaView>
         </LinearGradient>
 
@@ -65,28 +158,28 @@ export default function ParentDashboardScreen() {
           <View style={styles.metricsGrid}>
             <MetricCard 
               title="Attendance" 
-              value="92%" 
+              value={childData.attendance ? `${childData.attendance.overall}%` : '0%'} 
               icon={Calendar} 
               color="#10b981" 
               bgColor="#ecfdf5" 
             />
             <MetricCard 
               title="Upcoming Tests" 
-              value="3" 
+              value={String(upcomingTestsCount)} 
               icon={FileText} 
               color="#3b82f6" 
               bgColor="#eff6ff" 
             />
             <MetricCard 
               title="Fee Status" 
-              value="Due" 
+              value={childData.fees?.pendingFees > 0 ? "Due" : "Paid"} 
               icon={Banknote} 
-              color="#ef4444" 
-              bgColor="#fef2f2" 
+              color={childData.fees?.pendingFees > 0 ? "#ef4444" : "#10b981"} 
+              bgColor={childData.fees?.pendingFees > 0 ? "#fef2f2" : "#ecfdf5"} 
             />
             <MetricCard 
               title="Performance" 
-              value="85%" 
+              value={childData.performance ? `${childData.performance.averageScore}%` : '0%'} 
               icon={TrendingUp} 
               color="#8b5cf6" 
               bgColor="#f5f3ff" 
@@ -94,20 +187,22 @@ export default function ParentDashboardScreen() {
           </View>
 
           {/* Fee Payment Alert */}
-          <TouchableOpacity style={styles.feeAlertCard}>
-            <View style={[styles.alertIconBox, { backgroundColor: '#fee2e2' }]}>
-              <AlertCircle size={24} color="#ef4444" />
-            </View>
-            <View style={styles.alertContent}>
-              <Text style={styles.alertTitle}>Fee Payment Due</Text>
-              <Text style={styles.alertDescription}>
-                Quarterly fees of ₹12,000 due by March 15, 2026
-              </Text>
-            </View>
-            <TouchableOpacity style={styles.payNowButton}>
-              <Text style={styles.payNowText}>Pay Now</Text>
+          {childData.fees?.pendingFees > 0 && (
+            <TouchableOpacity style={styles.feeAlertCard}>
+              <View style={[styles.alertIconBox, { backgroundColor: '#fee2e2' }]}>
+                <AlertCircle size={24} color="#ef4444" />
+              </View>
+              <View style={styles.alertContent}>
+                <Text style={styles.alertTitle}>Fee Payment Due</Text>
+                <Text style={styles.alertDescription}>
+                  Outstanding balance of ₹{childData.fees.pendingFees.toLocaleString('en-IN')} is due.
+                </Text>
+              </View>
+              <TouchableOpacity style={styles.payNowButton}>
+                <Text style={styles.payNowText}>Pay Now</Text>
+              </TouchableOpacity>
             </TouchableOpacity>
-          </TouchableOpacity>
+          )}
 
           {/* Recent Results Section */}
           <View style={styles.sectionHeader}>
@@ -117,20 +212,60 @@ export default function ParentDashboardScreen() {
             </TouchableOpacity>
           </View>
 
-          <ResultItem 
-            subject="Physics Unit Test 3" 
-            score="42/50" 
-            rank="#12" 
-            date="Feb 24, 2026" 
-          />
-          <ResultItem 
-            subject="Chemistry Weekly Quiz" 
-            score="22/25" 
-            rank="#05" 
-            date="Feb 20, 2026" 
-          />
+          {recentTests.length > 0 ? (
+            recentTests.map((test) => (
+              <ResultItem 
+                key={test.id}
+                subject={`${test.subject} - ${test.title}`} 
+                score={`${test.score}/${test.total_marks}`} 
+                rank={`#${test.rank}`} 
+                date={test.due_at ? new Date(test.due_at).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'} 
+              />
+            ))
+          ) : (
+            <Text style={styles.noResultsText}>No recent test results available.</Text>
+          )}
         </View>
       </ScrollView>
+
+      {/* Sibling Switching Modal */}
+      <Modal
+        visible={showChildModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowChildModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Select Child</Text>
+            <FlatList
+              data={children}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <TouchableOpacity 
+                  style={[
+                    styles.childSelectItem, 
+                    item.id === activeChild?.id && styles.childSelectItemActive
+                  ]}
+                  onPress={() => selectChild(item)}
+                >
+                  <View>
+                    <Text style={styles.selectItemName}>{item.student_name}</Text>
+                    <Text style={styles.selectItemDetails}>{item.student_std} • {item.sdc_batch}</Text>
+                  </View>
+                  {item.id === activeChild?.id && <Check size={20} color="#2b58ed" />}
+                </TouchableOpacity>
+              )}
+            />
+            <TouchableOpacity 
+              style={styles.closeModalButton}
+              onPress={() => setShowChildModal(false)}
+            >
+              <Text style={styles.closeModalButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -170,6 +305,12 @@ function ResultItem({ subject, score, rank, date }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#f8fafc',
+  },
+  loaderContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
     backgroundColor: '#f8fafc',
   },
   header: {
@@ -438,5 +579,66 @@ const styles = StyleSheet.create({
   rankLabel: {
     fontSize: 12,
     color: '#64748b',
+  },
+  noResultsText: {
+    textAlign: 'center',
+    color: '#64748b',
+    marginTop: 20,
+    fontSize: 14,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    maxHeight: '50%',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#0f172a',
+    marginBottom: 20,
+  },
+  childSelectItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    marginBottom: 8,
+    backgroundColor: '#f8fafc',
+  },
+  childSelectItemActive: {
+    backgroundColor: '#eff6ff',
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+  },
+  selectItemName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#1e293b',
+  },
+  selectItemDetails: {
+    fontSize: 13,
+    color: '#64748b',
+    marginTop: 2,
+  },
+  closeModalButton: {
+    backgroundColor: '#f1f5f9',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  closeModalButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#475569',
   },
 });

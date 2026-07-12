@@ -1,10 +1,66 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Banknote, CreditCard, History, ChevronRight } from 'lucide-react-native';
+import { useUserSession } from '../../context/UserSessionContext';
+import { apiRequest } from '../../services/api';
 
 export default function ParentFeesScreen() {
+  const { activeChild } = useUserSession();
+  const [loading, setLoading] = useState(true);
+  const [feeData, setFeeData] = useState(null);
+
+  const fetchFees = async (studentSdcId) => {
+    try {
+      const data = await apiRequest(`/parent/child/${studentSdcId}/fees`);
+      setFeeData(data);
+    } catch (err) {
+      console.error('Failed to fetch fees data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeChild) {
+      setLoading(true);
+      fetchFees(activeChild.student_sdc_id);
+    }
+  }, [activeChild]);
+
+  if (loading) {
+    return (
+      <View style={styles.loaderContainer}>
+        <ActivityIndicator size="large" color="#27ae60" />
+      </View>
+    );
+  }
+
+  if (!activeChild) {
+    return (
+      <View style={styles.container}>
+        <LinearGradient
+          colors={['#2ecc71', '#27ae60']}
+          style={styles.header}
+        >
+          <SafeAreaView edges={['top']}>
+            <Text style={styles.headerTitle}>Fees</Text>
+          </SafeAreaView>
+        </LinearGradient>
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>No child profile selected.</Text>
+        </View>
+      </View>
+    );
+  }
+
+  const totalFees = feeData?.totalFees || 0;
+  const paidFees = feeData?.paidFees || 0;
+  const pendingFees = feeData?.pendingFees || 0;
+  const paidPercentage = feeData?.paidPercentage || 0;
+  const history = feeData?.history || [];
+
   return (
     <View style={styles.container}>
       <LinearGradient
@@ -15,17 +71,17 @@ export default function ParentFeesScreen() {
           <Text style={styles.headerTitle}>Fees</Text>
           
           <View style={styles.totalCard}>
-            <Text style={styles.totalLabel}>Total Fees</Text>
-            <Text style={styles.totalValue}>₹ 50,000</Text>
+            <Text style={styles.totalLabel}>Total Course Fees</Text>
+            <Text style={styles.totalValue}>₹ {totalFees.toLocaleString('en-IN')}</Text>
             <View style={styles.paymentProgress}>
-              <View style={[styles.progressBar, { width: '90%' }]} />
+              <View style={[styles.progressBar, { width: `${paidPercentage}%` }]} />
             </View>
-            <Text style={styles.progressText}>90% Paid</Text>
+            <Text style={styles.progressText}>{paidPercentage}% Paid</Text>
           </View>
         </SafeAreaView>
       </LinearGradient>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Payment Breakdown */}
         <View style={styles.breakdownRow}>
           <View style={[styles.breakdownCard, { borderColor: '#dcfce7' }]}>
@@ -33,7 +89,9 @@ export default function ParentFeesScreen() {
               <Banknote size={20} color="#27ae60" />
             </View>
             <Text style={styles.breakdownLabel}>Paid</Text>
-            <Text style={[styles.breakdownValue, { color: '#27ae60' }]}>₹ 45,000</Text>
+            <Text style={[styles.breakdownValue, { color: '#27ae60' }]}>
+              ₹ {paidFees.toLocaleString('en-IN')}
+            </Text>
           </View>
           
           <View style={[styles.breakdownCard, { borderColor: '#fee2e2' }]}>
@@ -41,14 +99,18 @@ export default function ParentFeesScreen() {
               <CreditCard size={20} color="#ef4444" />
             </View>
             <Text style={styles.breakdownLabel}>Pending</Text>
-            <Text style={[styles.breakdownValue, { color: '#ef4444' }]}>₹ 5,000</Text>
+            <Text style={[styles.breakdownValue, { color: '#ef4444' }]}>
+              ₹ {pendingFees.toLocaleString('en-IN')}
+            </Text>
           </View>
         </View>
 
         {/* Action Button */}
-        <TouchableOpacity style={styles.payButton}>
-          <Text style={styles.payButtonText}>Pay Outstanding Fees</Text>
-        </TouchableOpacity>
+        {pendingFees > 0 && (
+          <TouchableOpacity style={styles.payButton}>
+            <Text style={styles.payButtonText}>Pay Outstanding Fees</Text>
+          </TouchableOpacity>
+        )}
 
         {/* Payment History */}
         <View style={styles.sectionHeader}>
@@ -56,9 +118,19 @@ export default function ParentFeesScreen() {
           <History size={20} color="#64748b" />
         </View>
 
-        <HistoryItem date="Jan 15, 2026" amount="₹ 15,000" status="Success" refNo="TXN_982741" />
-        <HistoryItem date="Oct 10, 2025" amount="₹ 15,000" status="Success" refNo="TXN_872145" />
-        <HistoryItem date="Jul 05, 2025" amount="₹ 15,000" status="Success" refNo="TXN_762104" />
+        {history.length > 0 ? (
+          history.map((txn, index) => (
+            <HistoryItem 
+              key={index}
+              date={txn.date} 
+              amount={txn.amount} 
+              status={txn.status} 
+              refNo={txn.refNo} 
+            />
+          ))
+        ) : (
+          <Text style={styles.noHistoryText}>No payments recorded yet.</Text>
+        )}
       </ScrollView>
     </View>
   );
@@ -86,6 +158,21 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8fafc',
+  },
+  loaderContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f8fafc',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyText: {
+    color: '#64748b',
+    fontSize: 16,
   },
   header: {
     paddingBottom: 40,
@@ -243,7 +330,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   statusBadge: {
-    backgroundColor: '#f1f5f9',
+    backgroundColor: '#ecfdf5',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 6,
@@ -251,6 +338,11 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 10,
     fontWeight: 'bold',
+    color: '#10b981',
+  },
+  noHistoryText: {
+    textAlign: 'center',
     color: '#64748b',
+    marginTop: 20,
   },
 });

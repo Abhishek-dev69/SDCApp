@@ -4,13 +4,16 @@ const UserSessionContext = createContext(null);
 
 export function UserSessionProvider({ children }) {
   const [userProfile, setUserProfile] = useState(null);
+  const [activeChild, setActiveChild] = useState(null);
 
   const value = useMemo(
     () => ({
       userProfile,
       setUserProfile,
+      activeChild,
+      setActiveChild,
     }),
-    [userProfile]
+    [userProfile, activeChild]
   );
 
   return (

@@ -130,14 +130,22 @@ if (!newPassword || !passwordRegex.test(newPassword)) {
 
 router.get('/user/profile', verifyToken, async (req, res) => {
   try {
-    const result = await pool.query(
-      `SELECT a.sdc_id, a.email, a.phone, a.role, a.google_linked,
-              s.student_name, s.sdc_batch, s.sdc_branch, s.student_std
-       FROM auth a
-       LEFT JOIN students s ON s.auth_id = a.id
-       WHERE a.id = $1`,
-      [req.user.authId]
-    );
+    let query;
+    let values = [req.user.authId];
+    if (req.user.role === 'parent') {
+      query = `SELECT a.sdc_id, a.email, a.phone, a.role, a.google_linked,
+                      p.id AS parent_id, p.father_name, p.mother_name, p.father_whatsapp_number, p.mother_whatsapp_number
+               FROM auth a
+               LEFT JOIN parents p ON p.auth_id = a.id
+               WHERE a.id = $1`;
+    } else {
+      query = `SELECT a.sdc_id, a.email, a.phone, a.role, a.google_linked,
+                      s.student_name, s.sdc_batch, s.sdc_branch, s.student_std
+               FROM auth a
+               LEFT JOIN students s ON s.auth_id = a.id
+               WHERE a.id = $1`;
+    }
+    const result = await pool.query(query, values);
 
     if (!result.rows[0]) return res.status(404).json({ error: 'User not found' });
 

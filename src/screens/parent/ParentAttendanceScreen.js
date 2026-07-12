@@ -1,9 +1,78 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Calendar, ChevronRight, CheckCircle2, XCircle } from 'lucide-react-native';
+import { Calendar } from 'lucide-react-native';
+import { useUserSession } from '../../context/UserSessionContext';
+import { apiRequest } from '../../services/api';
 
 export default function ParentAttendanceScreen() {
+  const { activeChild } = useUserSession();
+  const [loading, setLoading] = useState(true);
+  const [attendanceData, setAttendanceData] = useState(null);
+
+  const fetchAttendance = async (studentSdcId) => {
+    try {
+      const data = await apiRequest(`/parent/child/${studentSdcId}/attendance`);
+      setAttendanceData(data);
+    } catch (err) {
+      console.error('Failed to fetch attendance data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeChild) {
+      setLoading(true);
+      fetchAttendance(activeChild.student_sdc_id);
+    }
+  }, [activeChild]);
+
+  if (loading) {
+    return (
+      <View style={styles.loaderContainer}>
+        <ActivityIndicator size="large" color="#28388f" />
+      </View>
+    );
+  }
+
+  if (!activeChild) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <SafeAreaView edges={['top']}>
+            <Text style={styles.headerTitle}>Attendance</Text>
+          </SafeAreaView>
+        </View>
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>No child profile selected.</Text>
+        </View>
+      </View>
+    );
+  }
+
+  const overall = attendanceData?.overall || 0;
+  const totalClasses = attendanceData?.totalClasses || 0;
+  const totalAttended = attendanceData?.totalAttended || 0;
+  const absentCount = attendanceData?.absentCount || 0;
+  const subjects = attendanceData?.subjects || [];
+  const recentAbsences = attendanceData?.recentAbsences || [];
+
+  // Simple assessment
+  let statusText = 'Needs Improvement';
+  let statusColor = '#ef4444';
+  let statusBg = '#fef2f2';
+
+  if (overall >= 90) {
+    statusText = 'Excellent';
+    statusColor = '#10b981';
+    statusBg = '#ecfdf5';
+  } else if (overall >= 75) {
+    statusText = 'Good';
+    statusColor = '#3b82f6';
+    statusBg = '#eff6ff';
+  }
+
   return (
     <View style={styles.container}>
       {/* Header Section */}
@@ -13,7 +82,7 @@ export default function ParentAttendanceScreen() {
         </SafeAreaView>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Overall Attendance Card */}
         <View style={styles.overallCard}>
           <View style={styles.cardHeader}>
@@ -21,26 +90,26 @@ export default function ParentAttendanceScreen() {
               <Calendar size={32} color="#28388f" />
             </View>
             <View>
-              <Text style={styles.overallValue}>92%</Text>
+              <Text style={styles.overallValue}>{overall}%</Text>
               <Text style={styles.overallLabel}>Overall Attendance</Text>
             </View>
-            <View style={styles.statusBadge}>
-              <Text style={styles.statusText}>Excellent</Text>
+            <View style={[styles.statusBadge, { backgroundColor: statusBg }]}>
+              <Text style={[styles.statusText, { color: statusColor }]}>{statusText}</Text>
             </View>
           </View>
           
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>142</Text>
+              <Text style={styles.statValue}>{totalAttended}</Text>
               <Text style={styles.statLabel}>Present</Text>
             </View>
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>12</Text>
+              <Text style={styles.statValue}>{absentCount}</Text>
               <Text style={styles.statLabel}>Absent</Text>
             </View>
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>04</Text>
-              <Text style={styles.statLabel}>Late</Text>
+              <Text style={styles.statValue}>{totalClasses}</Text>
+              <Text style={styles.statLabel}>Lectures</Text>
             </View>
           </View>
         </View>
@@ -49,23 +118,48 @@ export default function ParentAttendanceScreen() {
         <Text style={styles.sectionTitle}>Subject Breakdown</Text>
         
         <View style={styles.breakdownCard}>
-          <BreakdownItem subject="Physics" percentage="95%" present={48} total={50} status="on-track" />
-          <View style={styles.divider} />
-          <BreakdownItem subject="Chemistry" percentage="90%" present={45} total={50} status="on-track" />
-          <View style={styles.divider} />
-          <BreakdownItem subject="Mathematics" percentage="91%" present={55} total={60} status="on-track" />
+          {subjects.length > 0 ? (
+            subjects.map((sub, index) => {
+              const pct = sub.total === 0 ? 0 : Math.round((sub.attended / sub.total) * 100);
+              return (
+                <View key={sub.subject}>
+                  <BreakdownItem 
+                    subject={sub.subject} 
+                    percentage={`${pct}%`} 
+                    present={sub.attended} 
+                    total={sub.total} 
+                  />
+                  {index < subjects.length - 1 && <View style={styles.divider} />}
+                </View>
+              );
+            })
+          ) : (
+            <Text style={styles.noDataText}>No subject breakdown available.</Text>
+          )}
         </View>
 
         {/* Recent Attendance Logs */}
         <Text style={styles.sectionTitle}>Recent Absences</Text>
-        <AbsenceItem date="Feb 22, 2026" reason="Medical Leave" subject="Chemistry, Math" />
-        <AbsenceItem date="Feb 10, 2026" reason="Family Event" subject="Physics, Chemistry" />
+        
+        {recentAbsences.length > 0 ? (
+          recentAbsences.map((abs, idx) => (
+            <AbsenceItem 
+              key={idx}
+              date={abs.date ? new Date(abs.date).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'} 
+              reason="Unexcused" 
+              subject={abs.subject} 
+              topic={abs.topic}
+            />
+          ))
+        ) : (
+          <Text style={styles.noDataText}>No recent absences recorded. Doing great!</Text>
+        )}
       </ScrollView>
     </View>
   );
 }
 
-function BreakdownItem({ subject, percentage, present, total, status }) {
+function BreakdownItem({ subject, percentage, present, total }) {
   return (
     <View style={styles.breakdownItem}>
       <View style={styles.itemHeader}>
@@ -80,7 +174,7 @@ function BreakdownItem({ subject, percentage, present, total, status }) {
   );
 }
 
-function AbsenceItem({ date, reason, subject }) {
+function AbsenceItem({ date, reason, subject, topic }) {
   return (
     <View style={styles.absenceItem}>
       <View style={styles.absenceHeader}>
@@ -92,6 +186,7 @@ function AbsenceItem({ date, reason, subject }) {
         </View>
       </View>
       <Text style={styles.absenceSubject}>Missed: {subject}</Text>
+      {topic && <Text style={styles.absenceTopic}>Topic: {topic}</Text>}
     </View>
   );
 }
@@ -100,6 +195,21 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8fafc',
+  },
+  loaderContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f8fafc',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyText: {
+    color: '#64748b',
+    fontSize: 16,
   },
   header: {
     backgroundColor: '#28388f',
@@ -155,7 +265,6 @@ const styles = StyleSheet.create({
   },
   statusBadge: {
     marginLeft: 'auto',
-    backgroundColor: '#ecfdf5',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
@@ -163,7 +272,6 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 12,
     fontWeight: 'bold',
-    color: '#10b981',
   },
   statsRow: {
     flexDirection: 'row',
@@ -256,7 +364,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   dateBox: {
     paddingHorizontal: 12,
@@ -282,7 +390,17 @@ const styles = StyleSheet.create({
   },
   absenceSubject: {
     fontSize: 14,
+    color: '#1e293b',
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  absenceTopic: {
+    fontSize: 12,
     color: '#64748b',
-    fontWeight: '500',
+  },
+  noDataText: {
+    textAlign: 'center',
+    color: '#64748b',
+    paddingVertical: 10,
   },
 });
