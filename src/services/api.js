@@ -7,6 +7,8 @@ export const API_URL =
   Constants.expoConfig?.extra?.apiUrl ||
   'https://sdcapp-backend-456970553309.asia-south1.run.app';
 
+console.log('[DEBUG] SDCApp Frontend API_URL is set to:', API_URL);
+
 export const AUTH_TOKEN_KEY = 'userToken';
 const LEGACY_TOKEN_KEY = 'token';
 
@@ -53,6 +55,7 @@ export async function apiRequest(path, options = {}) {
 
   const requestHeaders = {
     ...headers,
+    'Bypass-Tunnel-Reminder': 'true',
   };
 
   if (body !== undefined) {
@@ -64,43 +67,53 @@ export async function apiRequest(path, options = {}) {
     if (token) requestHeaders.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_URL}${path}`, {
-    method,
-    headers: requestHeaders,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 seconds connection timeout
 
-  const text = await response.text();
-  let data = null;
+  try {
+    const response = await fetch(`${API_URL}${path}`, {
+      method,
+      headers: requestHeaders,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
 
-  if (text) {
-    try {
-      data = JSON.parse(text);
-    } catch (_err) {
-      data = { message: text };
+    const text = await response.text();
+    let data = null;
+
+    if (text) {
+      try {
+        data = JSON.parse(text);
+      } catch (_err) {
+        data = { message: text };
+      }
     }
+
+    if (response.status === 401) {
+      await clearAuthToken();
+      clearSession();
+      Alert.alert(
+        'Session Expired',
+        'Your session has expired. Please log in again.',
+        [{ text: 'OK', onPress: () => resetToLogin() }]
+      );
+      throw new ApiError('Session expired. Please log in again.', 401, data);
+    }
+
+    if (!response.ok) {
+      throw new ApiError(
+        data?.error || data?.message || 'Request failed',
+        response.status,
+        data
+      );
+    }
+
+    return data;
+  } catch (err) {
+    clearTimeout(timeoutId);
+    throw err;
   }
-
-  if (response.status === 401) {
-  await clearAuthToken();
-  clearSession();
-  Alert.alert(
-    'Session Expired',
-    'Your session has expired. Please log in again.',
-    [{ text: 'OK', onPress: () => resetToLogin() }]
-  );
-  throw new ApiError('Session expired. Please log in again.', 401, data);
-}
-
-  if (!response.ok) {
-    throw new ApiError(
-      data?.error || data?.message || 'Request failed',
-      response.status,
-      data
-    );
-  }
-
-  return data;
 }
 
 

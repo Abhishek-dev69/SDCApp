@@ -290,7 +290,7 @@ router.get('/child/:studentSdcId/fees', verifyToken, requireRole('parent'), veri
       totalFees = 45000;
     }
 
-    const studentUuid = req.child.id;
+        const studentUuid = String(req.child.id);
     // Generate deterministic transaction info based on student UUID
     const charSum = studentUuid.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
     

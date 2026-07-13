@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Modal, FlatList } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Modal, FlatList, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { 
@@ -117,10 +117,24 @@ export default function ParentDashboardScreen() {
                 </View>
               </View>
               <View style={styles.headerActions}>
-                <TouchableOpacity style={styles.inviteButton}>
+                <TouchableOpacity 
+                  style={styles.inviteButton}
+                  onPress={() => Alert.alert(
+                    'Invite Co-Parent',
+                    `Share SDC ID: "${activeChild?.student_sdc_id || 'N/A'}" with another parent to link their account.`,
+                    [{ text: 'OK' }]
+                  )}
+                >
                   <Text style={styles.inviteButtonText}>Invite</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.notificationButton}>
+                <TouchableOpacity 
+                  style={styles.notificationButton}
+                  onPress={() => Alert.alert(
+                    'Notifications',
+                    `1. Attendance Marked: ${activeChild?.student_name || 'Ayush'} was marked PRESENT for Chemistry.\n\n2. New Test Published: Physics Electromagnetism Quiz is scheduled in 4 days.\n\n3. Fees Due: Outstanding course balance is unpaid.`,
+                    [{ text: 'Dismiss' }]
+                  )}
+                >
                   <Bell size={24} color="#fff" />
                   <View style={styles.notificationBadge} />
                 </TouchableOpacity>

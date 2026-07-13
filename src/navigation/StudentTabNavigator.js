@@ -1,4 +1,5 @@
 import React from 'react';
+import { Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Home, BookOpen, FileText, MessageCircle, User } from 'lucide-react-native';
 import StudentHomeScreen from '../screens/student/StudentHomeScreen';
@@ -30,9 +31,9 @@ export default function StudentTabNavigator() {
           backgroundColor: '#ffffff',
           borderTopWidth: 1,
           borderTopColor: '#e2e8f0',
-          height: 60,
-          paddingBottom: 8,
-          paddingTop: 8,
+          height: Platform.OS === 'ios' ? 88 : 92,
+          paddingBottom: Platform.OS === 'ios' ? 28 : 32,
+          paddingTop: 10,
         },
         headerShown: false,
       })}

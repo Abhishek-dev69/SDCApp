@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Eye, EyeOff } from 'lucide-react-native';
@@ -38,7 +38,11 @@ export default function SDCLoginScreen({ navigation }) {
 
   const handleLogin = async () => {
   if (!sdcId || !password) {
-    alert("Please enter SDC ID and Password");
+    Alert.alert(
+      'Required Fields',
+      'Please enter your SDC ID and Password.',
+      [{ text: 'OK' }]
+    );
     return;
   }
 
@@ -60,8 +64,12 @@ export default function SDCLoginScreen({ navigation }) {
     navigateForRole(data.role);
 
   } catch (err) {
-    console.error('Signin error:', err);
-    alert(err.message || 'Network error, please try again');
+    console.log('Signin error:', err.message);
+    Alert.alert(
+      'Login Failed',
+      err.message || 'Network error, please try again.',
+      [{ text: 'OK' }]
+    );
   }
 };
   return (

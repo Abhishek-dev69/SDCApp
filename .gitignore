@@ -68,3 +68,9 @@ backend/.env.*
 *.njsproj
 *.sln
 *.sw?
+
+# Helper & test scripts
+backend/test_*.js
+backend/set_*.js
+backend/seed_*.js
+backend/check_*.js
