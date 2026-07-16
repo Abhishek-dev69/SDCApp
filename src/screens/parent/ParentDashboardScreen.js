@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Modal, FlatList, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Modal, FlatList, Alert, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { 
@@ -26,6 +26,10 @@ export default function ParentDashboardScreen() {
     fees: null,
   });
   const [showChildModal, setShowChildModal] = useState(false);
+  const [showCallbackModal, setShowCallbackModal] = useState(false);
+  const [selectedSubject, setSelectedSubject] = useState('Mathematics');
+  const [callbackMessage, setCallbackMessage] = useState('');
+  const [sendingCallback, setSendingCallback] = useState(false);
 
   const parentName = userProfile ? (userProfile.father_name || userProfile.mother_name || userProfile.name) : 'Parent';
 
@@ -81,6 +85,34 @@ export default function ParentDashboardScreen() {
   const selectChild = (child) => {
     setActiveChild(child);
     setShowChildModal(false);
+  };
+
+  const handleRequestCallback = async () => {
+    if (!activeChild) return;
+    setSendingCallback(true);
+    try {
+      const res = await apiRequest('/parent/request-callback', {
+        method: 'POST',
+        body: {
+          studentSdcId: activeChild.student_sdc_id,
+          subject: selectedSubject,
+          message: callbackMessage || 'Requesting a phone callback to discuss recent academic progress.',
+        }
+      });
+      
+      Alert.alert(
+        'Request Sent',
+        res.message || 'Callback request submitted successfully!',
+        [{ text: 'OK' }]
+      );
+      setShowCallbackModal(false);
+      setCallbackMessage('');
+    } catch (err) {
+      console.error('Callback request failed:', err);
+      Alert.alert('Request Failed', err.message || 'Unable to request callback. Please try again.');
+    } finally {
+      setSendingCallback(false);
+    }
   };
 
   if (loading && !activeChild) {
@@ -163,6 +195,13 @@ export default function ParentDashboardScreen() {
                   </View>
                 )}
               </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.requestCallbackBtn}
+              onPress={() => setShowCallbackModal(true)}
+            >
+              <Text style={styles.requestCallbackBtnText}>📞 Request Teacher Callback</Text>
             </TouchableOpacity>
           </SafeAreaView>
         </LinearGradient>
@@ -274,6 +313,74 @@ export default function ParentDashboardScreen() {
             <TouchableOpacity 
               style={styles.closeModalButton}
               onPress={() => setShowChildModal(false)}
+            >
+              <Text style={styles.closeModalButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Callback Request Modal */}
+      <Modal
+        visible={showCallbackModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowCallbackModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxHeight: '70%' }]}>
+            <Text style={styles.modalTitle}>Request Callback</Text>
+            <Text style={{ fontSize: 13, color: '#64748b', marginBottom: 12 }}>
+              Select subject to request a callback from the teacher:
+            </Text>
+            
+            <View style={styles.subjectContainer}>
+              {['Mathematics', 'Physics', 'Chemistry', 'Biology'].map((subj) => (
+                <TouchableOpacity
+                  key={subj}
+                  style={[
+                    styles.subjectOption,
+                    selectedSubject === subj && styles.subjectOptionActive
+                  ]}
+                  onPress={() => setSelectedSubject(subj)}
+                >
+                  <Text style={[
+                    styles.subjectOptionText,
+                    selectedSubject === subj && styles.subjectOptionTextActive
+                  ]}>
+                    {subj}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={{ fontSize: 13, color: '#64748b', marginBottom: 8 }}>
+              Optional message or reason for discussion:
+            </Text>
+            <TextInput
+              style={styles.textInput}
+              multiline={true}
+              numberOfLines={4}
+              placeholder="e.g., Discuss child's performance in recent Chemistry unit test."
+              placeholderTextColor="#94a3b8"
+              value={callbackMessage}
+              onChangeText={setCallbackMessage}
+            />
+
+            <TouchableOpacity 
+              style={[styles.submitModalButton, sendingCallback && { backgroundColor: '#94a3b8' }]}
+              onPress={handleRequestCallback}
+              disabled={sendingCallback}
+            >
+              <Text style={styles.submitModalButtonText}>
+                {sendingCallback ? 'Submitting...' : 'Submit Request'}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.closeModalButton}
+              onPress={() => setShowCallbackModal(false)}
+              disabled={sendingCallback}
             >
               <Text style={styles.closeModalButtonText}>Cancel</Text>
             </TouchableOpacity>
@@ -654,5 +761,65 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#475569',
+  },
+  requestCallbackBtn: {
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    marginTop: 10,
+    alignItems: 'center',
+  },
+  requestCallbackBtnText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: 'bold',
+  },
+  subjectContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginVertical: 12,
+  },
+  subjectOption: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#f1f5f9',
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  subjectOptionActive: {
+    backgroundColor: '#2b58ed',
+  },
+  subjectOptionText: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#475569',
+  },
+  subjectOptionTextActive: {
+    color: '#ffffff',
+  },
+  textInput: {
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 14,
+    minHeight: 80,
+    textAlignVertical: 'top',
+    marginBottom: 20,
+    color: '#1e293b',
+  },
+  submitModalButton: {
+    backgroundColor: '#2b58ed',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  submitModalButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#ffffff',
   },
 });

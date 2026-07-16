@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Banknote, CreditCard, History, ChevronRight } from 'lucide-react-native';
 import { useUserSession } from '../../context/UserSessionContext';
-import { apiRequest } from '../../services/api';
+import { apiRequest, API_URL, getAuthToken } from '../../services/api';
+import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 
 export default function ParentFeesScreen() {
   const { activeChild } = useUserSession();
@@ -19,6 +23,72 @@ export default function ParentFeesScreen() {
       console.error('Failed to fetch fees data:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePayment = async (amountToPay) => {
+    try {
+      const token = await getAuthToken();
+      if (!token) {
+        Alert.alert('Error', 'Session expired. Please log in again.');
+        return;
+      }
+
+      // Generate a dynamic linking redirect URI back to this app screen
+      const redirectUrl = Linking.createURL('/parent-tabs/fees');
+      const checkoutUrl = `${API_URL}/parent/fees/checkout?studentSdcId=${activeChild.student_sdc_id}&amount=${amountToPay}&token=${token}&redirectUrl=${encodeURIComponent(redirectUrl)}`;
+
+      console.log('[PAYMENT] Opening checkout URL:', checkoutUrl);
+
+      // Open the hosted checkout page in a secure browser window
+      await WebBrowser.openBrowserAsync(checkoutUrl);
+
+      // Refresh data
+      setLoading(true);
+      fetchFees(activeChild.student_sdc_id);
+    } catch (err) {
+      console.error('Payment initiation error:', err);
+      Alert.alert('Payment Error', 'Unable to initiate payment. Please try again.');
+    }
+  };
+
+  const handleDownloadReceipt = async (paymentId) => {
+    if (paymentId.startsWith('TXN_')) {
+      Alert.alert(
+        'Offline Record',
+        'This transaction was recorded offline. PDF receipts are only generated for online payments.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    try {
+      const token = await getAuthToken();
+      if (!token) {
+        Alert.alert('Error', 'Session expired. Please log in again.');
+        return;
+      }
+
+      const receiptUrl = `${API_URL}/parent/fees/receipt/${paymentId}?token=${token}`;
+      const localFileUri = `${FileSystem.cacheDirectory}receipt_${paymentId}.pdf`;
+
+      // Download the PDF from our backend
+      const downloadResult = await FileSystem.downloadAsync(receiptUrl, localFileUri);
+
+      if (downloadResult.status !== 200) {
+        Alert.alert('Download Error', 'Unable to fetch PDF receipt from server.');
+        return;
+      }
+
+      // Open share dialog
+      await Sharing.shareAsync(downloadResult.uri, {
+        mimeType: 'application/pdf',
+        dialogTitle: `Payment Receipt ${paymentId}`,
+        UTI: 'com.adobe.pdf',
+      });
+    } catch (err) {
+      console.error('Failed to download receipt:', err);
+      Alert.alert('Download Error', 'Unable to retrieve PDF receipt at this time.');
     }
   };
 
@@ -105,11 +175,23 @@ export default function ParentFeesScreen() {
           </View>
         </View>
 
-        {/* Action Button */}
+        {/* Action Buttons */}
         {pendingFees > 0 && (
-          <TouchableOpacity style={styles.payButton}>
-            <Text style={styles.payButtonText}>Pay Outstanding Fees</Text>
-          </TouchableOpacity>
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity 
+              style={styles.payButton}
+              onPress={() => handlePayment(pendingFees)}
+            >
+              <Text style={styles.payButtonText}>Pay Outstanding Fees (₹ {pendingFees.toLocaleString('en-IN')})</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.testPayButton}
+              onPress={() => handlePayment(1)}
+            >
+              <Text style={styles.testPayButtonText}>Pay ₹ 1 (Test Live Keys)</Text>
+            </TouchableOpacity>
+          </View>
         )}
 
         {/* Payment History */}
@@ -126,6 +208,7 @@ export default function ParentFeesScreen() {
               amount={txn.amount} 
               status={txn.status} 
               refNo={txn.refNo} 
+              onPress={() => handleDownloadReceipt(txn.refNo)}
             />
           ))
         ) : (
@@ -136,9 +219,9 @@ export default function ParentFeesScreen() {
   );
 }
 
-function HistoryItem({ date, amount, status, refNo }) {
+function HistoryItem({ date, amount, status, refNo, onPress }) {
   return (
-    <TouchableOpacity style={styles.historyItem}>
+    <TouchableOpacity style={styles.historyItem} onPress={onPress}>
       <View style={styles.historyInfo}>
         <Text style={styles.historyDate}>{date}</Text>
         <Text style={styles.historyRef}>Ref: {refNo}</Text>
@@ -265,12 +348,15 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
+  buttonContainer: {
+    marginBottom: 40,
+  },
   payButton: {
     backgroundColor: '#27ae60',
     borderRadius: 20,
     paddingVertical: 18,
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: 12,
     shadowColor: '#27ae60',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
@@ -280,6 +366,22 @@ const styles = StyleSheet.create({
   payButtonText: {
     color: '#fff',
     fontSize: 18,
+    fontWeight: 'bold',
+  },
+  testPayButton: {
+    backgroundColor: '#3b82f6',
+    borderRadius: 20,
+    paddingVertical: 14,
+    alignItems: 'center',
+    shadowColor: '#3b82f6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  testPayButtonText: {
+    color: '#fff',
+    fontSize: 16,
     fontWeight: 'bold',
   },
   sectionHeader: {

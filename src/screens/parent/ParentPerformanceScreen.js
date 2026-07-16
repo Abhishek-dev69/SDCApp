@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronLeft, TrendingUp, BookOpen, Clock, AlertCircle } from 'lucide-react-native';
 import { useUserSession } from '../../context/UserSessionContext';
 import { apiRequest } from '../../services/api';
+import PerformanceChart from '../../components/PerformanceChart';
 
 export default function ParentPerformanceScreen({ navigation }) {
   const { activeChild } = useUserSession();
@@ -88,6 +89,8 @@ export default function ParentPerformanceScreen({ navigation }) {
       </LinearGradient>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <PerformanceChart tests={tests} />
+
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Subject-wise Average</Text>
           <TrendingUp size={20} color="#8b5cf6" />

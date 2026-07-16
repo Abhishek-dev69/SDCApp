@@ -3,6 +3,12 @@ const router = express.Router();
 const pool = require('../db');
 const verifyToken = require('../middleware/verifyToken');
 const requireRole = require('../middleware/requireRole');
+const Razorpay = require('razorpay');
+
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID,
+  key_secret: process.env.RAZORPAY_KEY_SECRET,
+});
 
 // Helper middleware to verify parent is authorized to view the child
 async function verifyChildOwnership(req, res, next) {
@@ -273,8 +279,9 @@ router.get('/child/:studentSdcId/performance', verifyToken, requireRole('parent'
   }
 });
 
-// GET /parent/child/:studentSdcId/fees - Fetch mock fee info for a child
+// GET /parent/child/:studentSdcId/fees - Fetch fee info for a child
 router.get('/child/:studentSdcId/fees', verifyToken, requireRole('parent'), verifyChildOwnership, async (req, res) => {
+  const studentSdcId = req.params.studentSdcId;
   const batchCode = req.child.sdc_batch || '';
 
   try {
@@ -290,15 +297,32 @@ router.get('/child/:studentSdcId/fees', verifyToken, requireRole('parent'), veri
       totalFees = 45000;
     }
 
-        const studentUuid = String(req.child.id);
+    const studentUuid = String(req.child.id);
     // Generate deterministic transaction info based on student UUID
     const charSum = studentUuid.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
     
-    const paidPercentage = charSum % 2 === 0 ? 0.9 : 0.75;
-    const paidFees = totalFees * paidPercentage;
-    const pendingFees = totalFees - paidFees;
+    const basePaidPercentage = charSum % 2 === 0 ? 0.9 : 0.75;
+    const basePaidFees = totalFees * basePaidPercentage;
     
-    const installmentCount = paidPercentage === 0.9 ? 3 : 2;
+    // 1. Query the actual successful database payments for this student
+    const dbPayments = await pool.query(
+      `SELECT amount, payment_id, created_at, order_id 
+       FROM razorpay_payments 
+       WHERE student_sdc_id = $1 AND status = 'paid'
+       ORDER BY created_at DESC`,
+      [studentSdcId]
+    );
+
+    let actualDbPaid = 0;
+    dbPayments.rows.forEach(payment => {
+      actualDbPaid += Number(payment.amount) / 100; // convert paise to INR
+    });
+
+    const paidFees = Math.min(totalFees, basePaidFees + actualDbPaid);
+    const pendingFees = Math.max(0, totalFees - paidFees);
+    const paidPercentage = Math.round((paidFees / totalFees) * 100);
+
+    const installmentCount = basePaidPercentage === 0.9 ? 3 : 2;
     const installmentAmt = 15000;
     
     if (installmentCount >= 1) {
@@ -318,7 +342,7 @@ router.get('/child/:studentSdcId/fees', verifyToken, requireRole('parent'), veri
       });
     }
     if (installmentCount >= 3) {
-      const thirdAmt = paidFees - (installmentAmt * 2);
+      const thirdAmt = basePaidFees - (installmentAmt * 2);
       feeHistory.push({
         date: 'Jan 15, 2026',
         amount: `₹ ${thirdAmt.toLocaleString('en-IN')}`,
@@ -327,16 +351,507 @@ router.get('/child/:studentSdcId/fees', verifyToken, requireRole('parent'), veri
       });
     }
 
+    // 2. Append actual successful DB payments to payment history
+    dbPayments.rows.forEach(payment => {
+      const amtInInr = Number(payment.amount) / 100;
+      feeHistory.unshift({
+        date: new Date(payment.created_at).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }),
+        amount: `₹ ${amtInInr.toLocaleString('en-IN')}`,
+        status: 'Success',
+        refNo: payment.payment_id || `REF_${payment.order_id}`
+      });
+    });
+
     res.json({
       totalFees,
       paidFees,
       pendingFees,
-      paidPercentage: Math.round(paidPercentage * 100),
+      paidPercentage,
       history: feeHistory
     });
   } catch (err) {
     console.error('GET /parent/child/fees:', err);
     res.status(500).json({ error: 'Failed to fetch child fees' });
+  }
+});
+
+
+// GET /parent/fees/checkout - Serves dynamic Razorpay checkout page
+router.get('/fees/checkout', async (req, res) => {
+  const { studentSdcId, amount, token, redirectUrl } = req.query;
+  
+  if (!studentSdcId || !amount || !token || !redirectUrl) {
+    return res.status(400).send('<h1>Bad Request</h1><p>Missing required parameters.</p>');
+  }
+
+  // 1. Verify token
+  let decodedUser;
+  try {
+    const jwt = require('jsonwebtoken');
+    decodedUser = jwt.verify(token, process.env.JWT_SECRET);
+  } catch (err) {
+    return res.status(401).send('<h1>Unauthorized</h1><p>Invalid or expired session token. Please log in again.</p>');
+  }
+
+  // 2. Verify parent ownership of student
+  try {
+    const parentQuery = await pool.query(
+      `SELECT id FROM parents WHERE auth_id = $1`,
+      [decodedUser.authId]
+    );
+
+    if (parentQuery.rows.length === 0) {
+      return res.status(403).send('<h1>Forbidden</h1><p>Parent profile not found.</p>');
+    }
+
+    const parentId = parentQuery.rows[0].id;
+    const childQuery = await pool.query(
+      `SELECT s.id, s.student_name 
+       FROM students s
+       JOIN auth sa ON s.auth_id = sa.id
+       WHERE s.parent_id = $1 AND sa.sdc_id = $2 AND s.is_active = true`,
+      [parentId, studentSdcId]
+    );
+
+    if (childQuery.rows.length === 0) {
+      return res.status(403).send('<h1>Forbidden</h1><p>Student is not linked to your profile.</p>');
+    }
+
+    const childName = childQuery.rows[0].student_name;
+    const amountVal = parseInt(amount, 10);
+    if (isNaN(amountVal) || amountVal <= 0) {
+      return res.status(400).send('<h1>Bad Request</h1><p>Invalid payment amount.</p>');
+    }
+
+    // 3. Create Razorpay Order
+    const amountInPaise = amountVal * 100;
+    const order = await razorpay.orders.create({
+      amount: amountInPaise,
+      currency: 'INR',
+      receipt: `receipt_${studentSdcId}_${Date.now()}`
+    });
+
+    // 4. Record order creation state in database
+    await pool.query(
+      `INSERT INTO razorpay_payments (student_sdc_id, order_id, amount, status) 
+       VALUES ($1, $2, $3, 'created')`,
+      [studentSdcId, order.id, amountInPaise]
+    );
+
+    // 5. Render Checkout Page
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>SDC Fees Payment</title>
+          <style>
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: center;
+              min-height: 100vh;
+              background-color: #f8fafc;
+              margin: 0;
+              padding: 20px;
+              box-sizing: border-box;
+            }
+            .card {
+              background: white;
+              padding: 30px;
+              border-radius: 16px;
+              box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+              text-align: center;
+              max-width: 400px;
+              width: 100%;
+            }
+            .title {
+              font-size: 20px;
+              font-weight: 700;
+              color: #1e293b;
+              margin-bottom: 8px;
+            }
+            .amount {
+              font-size: 32px;
+              font-weight: 800;
+              color: #27ae60;
+              margin: 20px 0;
+            }
+            .details {
+              color: #64748b;
+              font-size: 14px;
+              margin-bottom: 24px;
+            }
+            .btn {
+              background-color: #27ae60;
+              color: white;
+              border: none;
+              padding: 14px 28px;
+              font-size: 16px;
+              font-weight: 600;
+              border-radius: 8px;
+              cursor: pointer;
+              width: 100%;
+              transition: background-color 0.2s;
+            }
+            .btn:hover {
+              background-color: #219653;
+            }
+            .loader {
+              border: 3px solid #f3f3f3;
+              border-top: 3px solid #27ae60;
+              border-radius: 50%;
+              width: 24px;
+              height: 24px;
+              animation: spin 1s linear infinite;
+              margin: 20px auto;
+            }
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+          </style>
+          <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+        </head>
+        <body>
+          <div class="card" id="checkout-card">
+            <div class="title">SDC Institute Fees</div>
+            <div class="details">Student: <strong>${childName}</strong> (SDC ID: ${studentSdcId})</div>
+            <div class="amount">₹ ${amountVal.toLocaleString('en-IN')}</div>
+            <button class="btn" id="pay-btn">Proceed to Payment</button>
+            <div id="status-container" style="display:none;">
+              <div class="loader"></div>
+              <div id="status-text" style="color: #64748b; font-size: 14px;">Initializing checkout...</div>
+            </div>
+          </div>
+
+          <script>
+            const options = {
+              key: "${process.env.RAZORPAY_KEY_ID}",
+              amount: ${amountInPaise},
+              currency: "INR",
+              name: "SDC Institute",
+              description: "Fees Payment - ${childName}",
+              order_id: "${order.id}",
+              prefill: {
+                name: "${childName}"
+              },
+              theme: {
+                color: "#27ae60"
+              },
+              handler: async function (response) {
+                document.getElementById('pay-btn').style.display = 'none';
+                document.getElementById('status-container').style.display = 'block';
+                document.getElementById('status-text').innerText = 'Verifying payment signature...';
+
+                try {
+                  const verifyRes = await fetch('/parent/fees/verify', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                      razorpay_order_id: response.razorpay_order_id,
+                      razorpay_payment_id: response.razorpay_payment_id,
+                      razorpay_signature: response.razorpay_signature,
+                      studentSdcId: "${studentSdcId}"
+                    })
+                  });
+
+                  const result = await verifyRes.json();
+                  if (verifyRes.ok) {
+                    document.getElementById('status-container').innerHTML = '✅ <strong style="color: #27ae60;">Payment Successful!</strong><br><p style="color: #64748b; font-size: 14px;">Returning you to the app...</p>';
+                    setTimeout(() => {
+                      window.location.href = "${decodeURIComponent(redirectUrl)}";
+                    }, 2000);
+                  } else {
+                    alert(result.error || 'Verification failed');
+                    document.getElementById('pay-btn').style.display = 'block';
+                    document.getElementById('status-container').style.display = 'none';
+                  }
+                } catch (err) {
+                  alert('Verification error. Please contact SDC Admin.');
+                  document.getElementById('pay-btn').style.display = 'block';
+                  document.getElementById('status-container').style.display = 'none';
+                }
+              },
+              modal: {
+                ondismiss: function() {
+                  console.log('Payment modal closed');
+                }
+              }
+            };
+
+            const rzp = new Razorpay(options);
+            
+            document.getElementById('pay-btn').onclick = function(e) {
+              rzp.open();
+              e.preventDefault();
+            };
+
+            // Auto-open on load
+            window.onload = function() {
+              rzp.open();
+            };
+          </script>
+        </body>
+      </html>
+    `);
+  } catch (err) {
+    console.error('Fees checkout page error:', err);
+    res.status(500).send('<h1>Server Error</h1><p>Unable to generate checkout page. Please try again.</p>');
+  }
+});
+
+// POST /parent/fees/verify - Verify signature and update order to paid
+router.post('/fees/verify', async (req, res) => {
+  const { razorpay_order_id, razorpay_payment_id, razorpay_signature, studentSdcId } = req.body;
+  if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !studentSdcId) {
+    return res.status(400).json({ error: 'Missing required parameters' });
+  }
+
+  try {
+    const crypto = require('crypto');
+    const hmac = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET);
+    hmac.update(`${razorpay_order_id}|${razorpay_payment_id}`);
+    const generatedSignature = hmac.digest('hex');
+
+    if (generatedSignature !== razorpay_signature) {
+      return res.status(400).json({ error: 'Invalid signature. Payment verification failed.' });
+    }
+
+    // Update status to paid in razorpay_payments
+    const updateRes = await pool.query(
+      `UPDATE razorpay_payments 
+       SET payment_id = $1, signature = $2, status = 'paid', updated_at = NOW() 
+       WHERE order_id = $3 AND student_sdc_id = $4
+       RETURNING id, amount`,
+      [razorpay_payment_id, razorpay_signature, razorpay_order_id, studentSdcId]
+    );
+
+    if (updateRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Order not found in payments records.' });
+    }
+
+    res.json({ success: true, message: 'Payment verified successfully.' });
+  } catch (err) {
+    console.error('Payment verification error:', err);
+    res.status(500).json({ error: 'Server error during payment verification' });
+  }
+});
+
+// GET /parent/fees/receipt/:paymentId - Generates and downloads PDF receipt
+router.get('/fees/receipt/:paymentId', async (req, res) => {
+  const { paymentId } = req.params;
+  const { token } = req.query;
+
+  if (!paymentId || !token) {
+    return res.status(400).send('<h1>Bad Request</h1><p>Missing required parameters.</p>');
+  }
+
+  // 1. Verify token
+  let decodedUser;
+  try {
+    const jwt = require('jsonwebtoken');
+    decodedUser = jwt.verify(token, process.env.JWT_SECRET);
+  } catch (err) {
+    return res.status(401).send('<h1>Unauthorized</h1><p>Invalid or expired session token.</p>');
+  }
+
+  try {
+    // 2. Fetch payment details joined with student details
+    const paymentQuery = await pool.query(
+      `SELECT p.amount, p.payment_id, p.order_id, p.created_at, s.student_name, s.sdc_batch, s.parent_id, sa.sdc_id AS student_sdc_id
+       FROM razorpay_payments p
+       JOIN auth sa ON sa.sdc_id = p.student_sdc_id
+       JOIN students s ON s.auth_id = sa.id
+       WHERE p.payment_id = $1 AND p.status = 'paid'`,
+      [paymentId]
+    );
+
+    if (paymentQuery.rows.length === 0) {
+      return res.status(404).send('<h1>Not Found</h1><p>Payment transaction receipt not found.</p>');
+    }
+
+    const payment = paymentQuery.rows[0];
+
+    // 3. Verify parent ownership of student
+    const parentQuery = await pool.query(
+      `SELECT id FROM parents WHERE auth_id = $1`,
+      [decodedUser.authId]
+    );
+
+    if (parentQuery.rows.length === 0 || parentQuery.rows[0].id !== payment.parent_id) {
+      return res.status(403).send('<h1>Forbidden</h1><p>You do not have authorization to view this receipt.</p>');
+    }
+
+    // 4. Generate PDF Receipt using pdfkit
+    const PDFDocument = require('pdfkit');
+    const doc = new PDFDocument({ margin: 50 });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=receipt_${paymentId}.pdf`);
+
+    doc.pipe(res);
+
+    // Branding Title Header
+    doc.fillColor('#27ae60').fontSize(24).font('Helvetica-Bold').text('SDC INSTITUTE', { align: 'center' });
+    doc.fillColor('#64748b').fontSize(10).font('Helvetica').text('Official Fees Payment Receipt', { align: 'center' });
+    doc.moveDown(1.5);
+
+    // Horizontal Divider Line
+    doc.strokeColor('#e2e8f0').lineWidth(1).moveTo(50, doc.y).lineTo(550, doc.y).stroke();
+    doc.moveDown(2);
+
+    // Summary Section
+    doc.fillColor('#1e293b').fontSize(12).font('Helvetica-Bold').text('Transaction Details', { underline: false });
+    doc.moveDown(0.8);
+
+    doc.fontSize(10).font('Helvetica');
+    const startY = doc.y;
+
+    // Student & Parent Details (Left Col)
+    doc.text(`Student Name: ${payment.student_name}`, 50, startY);
+    doc.text(`Student SDC ID: ${payment.student_sdc_id}`, 50, startY + 18);
+    doc.text(`Batch Code: ${payment.sdc_batch}`, 50, startY + 36);
+
+    // Payment Reference details (Right Col)
+    doc.text(`Payment ID: ${payment.payment_id}`, 300, startY);
+    doc.text(`Order ID: ${payment.order_id}`, 300, startY + 18);
+    doc.text(`Payment Date: ${new Date(payment.created_at).toLocaleDateString('en-IN', { dateStyle: 'long' })}`, 300, startY + 36);
+
+    doc.moveDown(4);
+
+    // Table Header
+    const tableTop = doc.y;
+    doc.strokeColor('#cbd5e1').lineWidth(1).moveTo(50, tableTop).lineTo(550, tableTop).stroke();
+    
+    doc.fillColor('#475569').font('Helvetica-Bold').text('Description', 55, tableTop + 8);
+    doc.text('Amount (INR)', 445, tableTop + 8, { width: 100, align: 'right' });
+    
+    doc.strokeColor('#cbd5e1').lineWidth(1).moveTo(50, tableTop + 26).lineTo(550, tableTop + 26).stroke();
+
+    // Table Content Row
+    doc.fillColor('#1e293b').font('Helvetica').text('SDC Institute Term Fees Installment (Verified via Razorpay)', 55, tableTop + 36);
+    doc.text(`₹ ${(payment.amount / 100).toLocaleString('en-IN')}`, 445, tableTop + 36, { width: 100, align: 'right' });
+
+    doc.strokeColor('#e2e8f0').lineWidth(0.5).moveTo(50, tableTop + 54).lineTo(550, tableTop + 54).stroke();
+
+    // Table Total Footer Row
+    doc.font('Helvetica-Bold').text('Total Paid Amount', 55, tableTop + 62);
+    doc.text(`₹ ${(payment.amount / 100).toLocaleString('en-IN')}`, 445, tableTop + 62, { width: 100, align: 'right' });
+
+    doc.strokeColor('#cbd5e1').lineWidth(1).moveTo(50, tableTop + 78).lineTo(550, tableTop + 78).stroke();
+
+    doc.moveDown(5);
+
+    // Footer Notices
+    doc.font('Helvetica').fillColor('#64748b').fontSize(9).text('This is a secure, computer-generated receipt. No signature is required.', { align: 'center' });
+    doc.moveDown(0.3);
+    doc.text('Thank you for choosing SDC Institute for your child\'s academic journey.', { align: 'center' });
+
+    doc.end();
+  } catch (err) {
+    console.error('Fees receipt generation error:', err);
+    res.status(500).send('<h1>Server Error</h1><p>Unable to compile receipt PDF. Please try again.</p>');
+  }
+});
+
+// POST /parent/request-callback - Trigger callback email to teacher via Resend API
+router.post('/request-callback', verifyToken, requireRole('parent'), async (req, res) => {
+  const { studentSdcId, subject, message } = req.body;
+
+  if (!studentSdcId || !subject) {
+    return res.status(400).json({ error: 'Student ID and Subject are required.' });
+  }
+
+  try {
+    // 1. Fetch parent details
+    const parentQuery = await pool.query(
+      `SELECT p.id, p.father_name, p.mother_name, a.name, a.phone, a.phone_number
+       FROM parents p 
+       JOIN auth a ON p.auth_id = a.id
+       WHERE p.auth_id = $1`,
+      [req.user.authId]
+    );
+
+    if (parentQuery.rows.length === 0) {
+      return res.status(403).json({ error: 'Parent profile not found.' });
+    }
+
+    const parent = parentQuery.rows[0];
+    const parentName = parent.father_name || parent.mother_name || parent.name || 'Parent';
+    const parentPhone = parent.phone || parent.phone_number || 'Not Provided';
+
+    // 2. Fetch student details and verify link
+    const childQuery = await pool.query(
+      `SELECT s.id, s.student_name, s.sdc_batch
+       FROM students s
+       JOIN auth sa ON s.auth_id = sa.id
+       WHERE s.parent_id = $1 AND sa.sdc_id = $2 AND s.is_active = true`,
+      [parent.id, studentSdcId]
+    );
+
+    if (childQuery.rows.length === 0) {
+      return res.status(403).json({ error: 'Unauthorized: Student is not linked to your profile.' });
+    }
+
+    const child = childQuery.rows[0];
+
+    // 3. Find active teacher for this subject in student's batch
+    const teacherQuery = await pool.query(
+      `SELECT a.name, a.email
+       FROM teacher_subjects ts
+       JOIN auth a ON a.sdc_id = ts.sdc_id
+       JOIN batches b ON b.id = ts.batch_id
+       WHERE b.name = $1 AND LOWER(ts.subject) = LOWER($2)`,
+      [child.sdc_batch, subject]
+    );
+
+    let teacherEmail = 'ayush6342ily@gmail.com'; // Default fallback email for SDC Admin
+    let teacherName = 'SDC Administrator';
+
+    if (teacherQuery.rows.length > 0) {
+      teacherName = teacherQuery.rows[0].name;
+      if (teacherQuery.rows[0].email) {
+        teacherEmail = teacherQuery.rows[0].email;
+      }
+    }
+
+    // 4. Send email notification via Resend API
+    const { Resend } = require('resend');
+    const resend = new Resend(process.env.RESEND_API_KEY);
+
+    const emailHtml = `
+      <h3>SDC Institute - Parent Callback Request</h3>
+      <p>Dear ${teacherName},</p>
+      <p>A parent has requested an academic discussion callback regarding their child's performance.</p>
+      <hr />
+      <ul>
+        <li><strong>Parent Name:</strong> ${parentName}</li>
+        <li><strong>Parent Contact:</strong> ${parentPhone}</li>
+        <li><strong>Student Name:</strong> ${child.student_name} (Batch: ${child.sdc_batch})</li>
+        <li><strong>Subject to Discuss:</strong> ${subject}</li>
+        <li><strong>Message from Parent:</strong> ${message || 'No additional message provided.'}</li>
+      </ul>
+      <hr />
+      <p>Please contact the parent as soon as possible to address their feedback.</p>
+      <p>Best regards,<br />SDC App Coordinator</p>
+    `;
+
+    await resend.emails.send({
+      from: 'SDC App <onboarding@resend.dev>',
+      to: teacherEmail,
+      subject: `[SDC App] Callback Request: ${child.student_name} (${subject})`,
+      html: emailHtml,
+    });
+
+    res.json({ success: true, message: `Callback request sent to ${teacherName} successfully.` });
+  } catch (err) {
+    console.error('Request callback API error:', err);
+    res.status(500).json({ error: 'Server error triggering callback request' });
   }
 });
 
