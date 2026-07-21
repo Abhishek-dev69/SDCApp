@@ -17,7 +17,10 @@ import {
   UserPlus,
   Megaphone,
   Star,
-  ChevronRight
+  ChevronRight,
+  ShieldAlert,
+  Send,
+  MessageSquare
 } from 'lucide-react-native';
 import { apiRequest } from '../../services/api';
 
@@ -35,6 +38,13 @@ const MANAGEMENT_ACTIONS = [
   { id: '2', title: 'Add Teacher', icon: UserPlus, color: '#10B981' },
   { id: '3', title: 'Assign Batches', icon: BookOpen, color: '#8B5CF6' },
   { id: '4', title: 'Post Announcement', icon: Megaphone, color: '#F97316' },
+];
+
+const ACADEMIC_ACTIONS = [
+  { id: 'portion', title: 'Portion Tracker', icon: BookOpen, color: '#8B5CF6' },
+  { id: 'disciplinary', title: 'Disciplinary Logs', icon: ShieldAlert, color: '#EF4444' },
+  { id: 'feedback', title: 'View Feedbacks', icon: MessageSquare, color: '#F59E0B' },
+  { id: 'broadcast', title: 'Send Broadcast', icon: Send, color: '#10B981' },
 ];
 
 const PERFORMANCE_METRICS = [
@@ -57,6 +67,8 @@ export default function AdminDashboardScreen({ navigation, route }) {
   const userRole = route?.params?.userRole || 'admin';
   const displayName = route?.params?.displayName || 'Admin';
   const [overview, setOverview] = useState(null);
+  const [liveAnalytics, setLiveAnalytics] = useState(null);
+  const [liveFinances, setLiveFinances] = useState(null);
   const [recentStudents, setRecentStudents] = useState(RECENT_STUDENTS);
   const [teachers, setTeachers] = useState(TEACHERS);
   const roleBadgeText = userRole === 'owner'
@@ -67,18 +79,22 @@ export default function AdminDashboardScreen({ navigation, route }) {
 
   const loadDashboard = async () => {
     try {
-      const [overviewData, studentData, teacherData] = await Promise.all([
+      const [overviewData, studentData, teacherData, analyticsData, financesData] = await Promise.all([
         apiRequest('/admin/overview'),
         apiRequest('/admin/students'),
         apiRequest('/admin/teachers'),
+        apiRequest('/admin/analytics/overview').catch(() => null),
+        apiRequest('/admin/finances/summary').catch(() => null),
       ]);
 
       setOverview(overviewData);
+      setLiveAnalytics(analyticsData);
+      setLiveFinances(financesData);
       setRecentStudents((studentData.students || []).slice(0, 2).map((student, index) => ({
         id: student.id,
-        name: student.name,
-        class: student.currentClass ? `Class ${student.currentClass}` : 'Class N/A',
-        batch: student.batch || 'Unassigned',
+        name: student.student_name || student.name || 'Student',
+        class: student.student_std ? `Class ${student.student_std}` : (student.currentClass ? `Class ${student.currentClass}` : 'Class N/A'),
+        batch: student.sdc_batch || student.batch || 'Unassigned',
         score: 'Live',
         status: student.status || 'Active',
         color: index % 2 === 0 ? '#3B82F6' : '#10B981',
@@ -102,6 +118,16 @@ export default function AdminDashboardScreen({ navigation, route }) {
     return unsubscribe;
   }, [navigation]);
 
+  const liveAvgScore = liveAnalytics?.averageScore ?? 80;
+  const liveAvgAtt = liveAnalytics?.averageAttendance ?? 90;
+  const liveCollectionRate = liveFinances?.collection_rate ?? 75;
+
+  const performanceMetrics = [
+    { label: 'Average Student Score', value: `${liveAvgScore}%`, progress: liveAvgScore / 100, color: '#3B82F6' },
+    { label: 'Overall Attendance', value: `${liveAvgAtt}%`, progress: liveAvgAtt / 100, color: '#10B981' },
+    { label: 'Fee Collection Rate', value: `${liveCollectionRate}%`, progress: liveCollectionRate / 100, color: '#F59E0B' },
+  ];
+
   const coreMetrics = [
     { id: '1', title: 'Total Students', value: `${overview?.totalStudents ?? '...'}`, trend: 'Live', icon: Users, color: '#3B82F6', trendColor: '#10B981' },
     { id: '2', title: 'Total Teachers', value: `${overview?.totalTeachers ?? '...'}`, trend: 'Live', icon: UserCheck, color: '#10B981', trendColor: '#10B981' },
@@ -114,6 +140,16 @@ export default function AdminDashboardScreen({ navigation, route }) {
       case '1': navigation.navigate('StudentListScreen'); break;
       case '2': navigation.navigate('AddTeacher'); break;
       case '3': navigation.navigate('AssignBatch'); break;
+      default: break;
+    }
+  };
+
+  const handleAcademicAction = (id) => {
+    switch(id) {
+      case 'portion': navigation.navigate('PortionTracker'); break;
+      case 'disciplinary': navigation.navigate('DisciplinaryManager'); break;
+      case 'feedback': navigation.navigate('FeedbackViewer'); break;
+      case 'broadcast': navigation.navigate('SMSBroadcast'); break;
       default: break;
     }
   };
@@ -148,22 +184,6 @@ export default function AdminDashboardScreen({ navigation, route }) {
                 <Text style={styles.notificationBadgeText}>5</Text>
               </View>
             </TouchableOpacity>
-          </View>
-
-          {/* Revenue Card */}
-          <View style={styles.revenueCard}>
-            <LinearGradient
-              colors={['rgba(255, 255, 255, 0.2)', 'rgba(255, 255, 255, 0.1)']}
-              style={styles.glassBackground}
-            />
-            <View style={styles.revenueHeader}>
-              <Text style={styles.revenueTitle}>Total Revenue (This Month)</Text>
-              <View style={styles.trendRow}>
-                <TrendingUp size={16} color="#4ade80" />
-                <Text style={styles.trendText}>+18% from last month</Text>
-              </View>
-            </View>
-            <Text style={styles.revenueValue}>₹12,45,000</Text>
           </View>
         </SafeAreaView>
       </View>
@@ -214,11 +234,33 @@ export default function AdminDashboardScreen({ navigation, route }) {
           </View>
         </View>
 
+        {/* Academic Operations Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Academic Operations</Text>
+          <View style={styles.managementGrid}>
+            {ACADEMIC_ACTIONS.map((action) => {
+              const Icon = action.icon;
+              return (
+                <TouchableOpacity 
+                  key={action.id} 
+                  style={styles.managementCard}
+                  onPress={() => handleAcademicAction(action.id)}
+                >
+                  <View style={[styles.managementIconContainer, { backgroundColor: `${action.color}10` }]}>
+                    <Icon size={28} color={action.color} />
+                  </View>
+                  <Text style={styles.managementLabel}>{action.title}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
         {/* Performance Analytics */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Performance Analytics</Text>
           <View style={styles.analyticsCard}>
-            {PERFORMANCE_METRICS.map((metric, index) => (
+            {performanceMetrics.map((metric, index) => (
               <View key={index} style={styles.analyticsItem}>
                 <View style={styles.analyticsLabelRow}>
                   <Text style={styles.analyticsLabel}>{metric.label}</Text>

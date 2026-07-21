@@ -74,3 +74,11 @@ backend/test_*.js
 backend/set_*.js
 backend/seed_*.js
 backend/check_*.js
+backend/run_*.js
+
+# Temporary media files
+*.jpg
+*.jpeg
+*.png
+*.webp
+*.gif

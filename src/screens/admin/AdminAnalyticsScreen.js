@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,6 +9,7 @@ import {
   getAdminBatchTotals,
   getBranchSummaries,
 } from '../../data/adminBatchOverview';
+import { apiRequest } from '../../services/api';
 
 function ProgressBar({ value, color = '#2563EB' }) {
   return (
@@ -41,27 +42,93 @@ export default function AdminAnalyticsScreen({ navigation }) {
     .sort((first, second) => (first.attendance + first.testAverage) - (second.attendance + second.testAverage))
     .slice(0, 4);
 
+  const [liveOverview, setLiveOverview] = useState(null);
+  const [liveAnalytics, setLiveAnalytics] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetchAnalytics = async () => {
+    try {
+      setLoading(true);
+      const [overview, analytics] = await Promise.all([
+        apiRequest('/admin/overview'),
+        apiRequest('/admin/analytics/overview'),
+      ]);
+      setLiveOverview(overview);
+      setLiveAnalytics(analytics);
+    } catch (err) {
+      console.log('Analytics overview load failed:', err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', fetchAnalytics);
+    fetchAnalytics();
+    return unsubscribe;
+  }, [navigation]);
+
+  const liveStudents = liveOverview ? liveOverview.totalStudents : totals.totalStudents;
+  const liveBatches = liveOverview ? liveOverview.activeBatches : totals.activeBatches;
+  const liveOccupancy = liveAnalytics ? liveAnalytics.occupancyRate : totals.occupancyRate;
+  const liveAttendance = liveAnalytics ? liveAnalytics.averageAttendance : totals.averageAttendance;
+  const liveScore = liveAnalytics ? liveAnalytics.averageScore : totals.averageScore;
+  const liveAttentionBatches = liveAnalytics ? liveAnalytics.attentionBatches : [];
+  const livePendingAmount = liveAnalytics ? liveAnalytics.pendingAmount : totals.pendingAmount;
+
+  const getLiveBranchSummaries = () => {
+    if (!liveOverview || !liveOverview.batches) return branchSummaries;
+
+    const branchMap = {};
+    liveOverview.batches.forEach((batch) => {
+      const bName = batch.branch || 'Main';
+      if (!branchMap[bName]) {
+        branchMap[bName] = {
+          id: bName,
+          branch: bName,
+          batches: 0,
+          students: 0,
+          capacity: 0,
+          attendance: 90,
+          testAverage: 80,
+          pendingAmount: 0,
+        };
+      }
+      branchMap[bName].batches += 1;
+      branchMap[bName].students += Number(batch.studentCount || 0);
+      branchMap[bName].capacity += Number(batch.capacity || 40);
+      branchMap[bName].pendingAmount += Number(batch.pendingAmount || 0);
+    });
+
+    return Object.values(branchMap).map((b) => ({
+      ...b,
+      occupancyRate: b.capacity > 0 ? Math.round((b.students / b.capacity) * 100) : 0,
+    }));
+  };
+
+  const activeBranchSummaries = getLiveBranchSummaries();
+
   const metrics = [
     {
       id: 'students',
       label: 'Total Students',
-      value: totals.totalStudents,
-      meta: `${totals.activeBatches} active batches`,
+      value: liveStudents,
+      meta: `${liveBatches} active batches`,
       icon: Users,
       color: '#2563EB',
     },
     {
       id: 'capacity',
       label: 'Batch Occupancy',
-      value: `${totals.occupancyRate}%`,
-      meta: `${totals.totalStudents}/${totals.totalCapacity} seats filled`,
+      value: `${liveOccupancy}%`,
+      meta: `Live enrolment rate`,
       icon: BookOpen,
       color: '#0F766E',
     },
     {
       id: 'attendance',
       label: 'Avg Attendance',
-      value: `${totals.averageAttendance}%`,
+      value: `${liveAttendance}%`,
       meta: 'Across all branches',
       icon: UserCheck,
       color: '#16A34A',
@@ -69,7 +136,7 @@ export default function AdminAnalyticsScreen({ navigation }) {
     {
       id: 'score',
       label: 'Avg Test Score',
-      value: `${totals.averageScore}%`,
+      value: `${liveScore}%`,
       meta: 'Latest test cycle',
       icon: TrendingUp,
       color: '#EA580C',
@@ -89,7 +156,7 @@ export default function AdminAnalyticsScreen({ navigation }) {
               <Text style={styles.headerKicker}>Admin Analytics</Text>
               <Text style={styles.headerTitle}>Batch Performance</Text>
               <Text style={styles.headerSubtitle}>
-                {totals.activeBatches} batches, {totals.totalStudents} students, {formatCurrency(totals.pendingAmount)} fees pending
+                {liveBatches} batches, {liveStudents} students, {formatCurrency(livePendingAmount)} fees pending
               </Text>
             </View>
           </View>
@@ -108,7 +175,7 @@ export default function AdminAnalyticsScreen({ navigation }) {
           <Text style={styles.sectionCaption}>Student count and occupancy by centre</Text>
         </View>
 
-        {branchSummaries.map((branch) => (
+        {activeBranchSummaries.map((branch) => (
           <View key={branch.id} style={styles.branchCard}>
             <View style={styles.rowBetween}>
               <View>
@@ -135,56 +202,76 @@ export default function AdminAnalyticsScreen({ navigation }) {
           <Text style={styles.sectionCaption}>Where students are concentrated and how each batch is performing</Text>
         </View>
 
-        {ADMIN_BATCH_OVERVIEW.map((batch) => (
-          <View key={batch.id} style={styles.batchCard}>
-            <View style={styles.batchTopRow}>
-              <View style={styles.batchCodeCircle}>
-                <Text style={styles.batchCodeText}>{batch.label}</Text>
-              </View>
-              <View style={styles.batchInfo}>
-                <Text style={styles.batchName}>{batch.name}</Text>
-                <Text style={styles.batchMeta}>{batch.branch} • {batch.program} • {batch.stream}</Text>
-              </View>
-              <Text style={styles.batchStudents}>{batch.studentCount}</Text>
-            </View>
+        {(liveOverview ? liveOverview.batches : ADMIN_BATCH_OVERVIEW).map((batch) => {
+          const label = batch.label || batch.batch_name || 'B';
+          const name = batch.name || `${batch.batch_name} Batch`;
+          const branch = batch.branch || 'Main';
+          const program = batch.program || 'JEE/NEET';
+          const stream = batch.stream || 'PCM';
+          const studentCount = batch.studentCount !== undefined ? batch.studentCount : (batch.student_count || 0);
+          const capacity = batch.capacity || 40;
+          const att = batch.attendance || 90;
+          const score = batch.testAverage || 80;
+          const occRate = batch.occupancyRate !== undefined ? batch.occupancyRate : Math.round((studentCount / capacity) * 100);
 
-            <View style={styles.batchStats}>
-              <View style={styles.batchStatItem}>
-                <Users size={15} color="#64748B" />
-                <Text style={styles.batchStatText}>{batch.studentCount}/{batch.capacity} seats</Text>
+          return (
+            <View key={batch.id || batch.batch_name} style={styles.batchCard}>
+              <View style={styles.batchTopRow}>
+                <View style={styles.batchCodeCircle}>
+                  <Text style={styles.batchCodeText}>{label}</Text>
+                </View>
+                <View style={styles.batchInfo}>
+                  <Text style={styles.batchName}>{name}</Text>
+                  <Text style={styles.batchMeta}>{branch} • {program} • {stream}</Text>
+                </View>
+                <Text style={styles.batchStudents}>{studentCount}</Text>
               </View>
-              <View style={styles.batchStatItem}>
-                <UserCheck size={15} color="#64748B" />
-                <Text style={styles.batchStatText}>{batch.attendance}% attendance</Text>
-              </View>
-              <View style={styles.batchStatItem}>
-                <BarChart3 size={15} color="#64748B" />
-                <Text style={styles.batchStatText}>{batch.testAverage}% score</Text>
-              </View>
-            </View>
 
-            <ProgressBar value={batch.occupancyRate} color={batch.occupancyRate >= 88 ? '#16A34A' : '#2563EB'} />
-          </View>
-        ))}
+              <View style={styles.batchStats}>
+                <View style={styles.batchStatItem}>
+                  <Users size={15} color="#64748B" />
+                  <Text style={styles.batchStatText}>{studentCount}/{capacity} seats</Text>
+                </View>
+                <View style={styles.batchStatItem}>
+                  <UserCheck size={15} color="#64748B" />
+                  <Text style={styles.batchStatText}>{att}% attendance</Text>
+                </View>
+                <View style={styles.batchStatItem}>
+                  <BarChart3 size={15} color="#64748B" />
+                  <Text style={styles.batchStatText}>{score}% score</Text>
+                </View>
+              </View>
+
+              <ProgressBar value={occRate} color={occRate >= 88 ? '#16A34A' : '#2563EB'} />
+            </View>
+          );
+        })}
 
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Needs Attention</Text>
           <Text style={styles.sectionCaption}>Batches where attendance or test scores need follow-up</Text>
         </View>
 
-        {attentionBatches.map((batch) => (
-          <View key={`attention-${batch.id}`} style={styles.attentionRow}>
-            <View style={styles.attentionIcon}>
-              <Clock size={18} color="#EA580C" />
+        {(liveAnalytics ? liveAttentionBatches : attentionBatches).map((batch) => {
+          const name = batch.name || `${batch.batch_name} Batch`;
+          const att = batch.attendance || 0;
+          const score = batch.test_average || batch.testAverage || 0;
+          const branch = batch.branch || 'Main';
+
+          return (
+            <View key={`attention-${batch.id || batch.name}`} style={styles.attentionRow}>
+              <View style={styles.attentionIcon}>
+                <Clock size={18} color="#EA580C" />
+              </View>
+              <View style={styles.attentionInfo}>
+                <Text style={styles.attentionTitle}>{name}</Text>
+                <Text style={styles.attentionMeta}>
+                  {att}% attendance • {score}% score • {branch}
+                </Text>
+              </View>
             </View>
-            <View style={styles.attentionInfo}>
-              <Text style={styles.attentionTitle}>{batch.name}</Text>
-              <Text style={styles.attentionMeta}>
-                {batch.attendance}% attendance • {batch.testAverage}% score • {batch.branch}
-              </Text>
-            </View>
-          </View>
-        ))}
+          );
+        })}
       </ScrollView>
     </View>
   );

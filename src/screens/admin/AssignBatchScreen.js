@@ -31,7 +31,12 @@ export default function AssignBatchScreen({ navigation }) {
         apiRequest('/admin/batches'),
       ]);
 
-      setStudents(Array.isArray(studentData.students) ? studentData.students : []);
+      setStudents((studentData.students || []).map(student => ({
+        id: student.id,
+        name: student.student_name || student.name || 'Student',
+        batch: student.sdc_batch || student.batch || 'Unassigned',
+        currentClass: student.student_std ? `Class ${student.student_std}` : (student.currentClass || 'Class N/A'),
+      })));
       setTeachers(Array.isArray(teacherData) ? teacherData : []);
       setBatches(Array.isArray(batchData) ? batchData : []);
     } catch (err) {

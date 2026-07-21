@@ -38,6 +38,12 @@ import MarkAttendanceScreen from './src/screens/admin/MarkAttendanceScreen';
 import AttendanceScreen from './src/screens/student/AttendanceScreen';
 import StudentListScreen from './src/screens/admin/StudentListScreen';
 import AddEditStudentScreen from './src/screens/admin/AddEditStudentScreen';
+import {
+  DisciplinaryManagerScreen,
+  PortionTrackerScreen,
+  FeedbackViewerScreen,
+  SMSBroadcastScreen
+} from './src/screens/admin/AdminExtraScreens';
 
 const Stack = createNativeStackNavigator();
 
@@ -116,6 +122,10 @@ function AppNavigator() {
       <Stack.Screen name="AttendanceScreen" component={AttendanceScreen} />
       <Stack.Screen name="StudentListScreen" component={StudentListScreen} />
       <Stack.Screen name="AddEditStudentScreen" component={AddEditStudentScreen} />
+      <Stack.Screen name="DisciplinaryManager" component={DisciplinaryManagerScreen} />
+      <Stack.Screen name="PortionTracker" component={PortionTrackerScreen} />
+      <Stack.Screen name="FeedbackViewer" component={FeedbackViewerScreen} />
+      <Stack.Screen name="SMSBroadcast" component={SMSBroadcastScreen} />
     </Stack.Navigator>
   );
 }

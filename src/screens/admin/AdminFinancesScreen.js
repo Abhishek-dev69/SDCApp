@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Banknote, ChevronLeft, CreditCard, FileText, TrendingUp, Users } from 'lucide-react-native';
@@ -9,6 +9,7 @@ import {
   formatCurrency,
   getAdminBatchTotals,
 } from '../../data/adminBatchOverview';
+import { apiRequest } from '../../services/api';
 
 function ProgressBar({ value, color = '#16A34A' }) {
   return (
@@ -37,11 +38,47 @@ export default function AdminFinancesScreen({ navigation }) {
   const [activeView, setActiveView] = useState('batches');
   const totals = getAdminBatchTotals();
 
+  const [liveSummary, setLiveSummary] = useState(null);
+  const [liveBatches, setLiveBatches] = useState([]);
+  const [liveDueStudents, setLiveDueStudents] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchFinances = async () => {
+    try {
+      setLoading(true);
+      const [summary, batches, dueStudents] = await Promise.all([
+        apiRequest('/admin/finances/summary'),
+        apiRequest('/admin/finances/batches'),
+        apiRequest('/admin/finances/due-students'),
+      ]);
+      setLiveSummary(summary);
+      setLiveBatches(batches || []);
+      setLiveDueStudents(dueStudents || []);
+    } catch (err) {
+      console.log('Error fetching admin finances:', err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', fetchFinances);
+    fetchFinances();
+    return unsubscribe;
+  }, [navigation]);
+
+  const liveExpected = liveSummary ? liveSummary.expected_amount : totals.expectedAmount;
+  const liveCollected = liveSummary ? liveSummary.collected_amount : totals.collectedAmount;
+  const livePending = liveSummary ? liveSummary.pending_amount : totals.pendingAmount;
+  const liveDuesCount = liveSummary ? liveSummary.due_students : totals.dueStudents;
+  const liveOverdueCount = liveSummary ? liveSummary.overdue_students : totals.overdueStudents;
+  const liveRate = liveSummary ? liveSummary.collection_rate : totals.collectionRate;
+
   const summaryCards = [
     {
       id: 'expected',
       label: 'Expected Fees',
-      value: formatCurrency(totals.expectedAmount),
+      value: formatCurrency(liveExpected),
       meta: 'Full academic cycle',
       icon: FileText,
       color: '#2563EB',
@@ -49,23 +86,23 @@ export default function AdminFinancesScreen({ navigation }) {
     {
       id: 'collected',
       label: 'Collected',
-      value: formatCurrency(totals.collectedAmount),
-      meta: `${totals.collectionRate}% collection rate`,
+      value: formatCurrency(liveCollected),
+      meta: `${liveRate}% collection rate`,
       icon: Banknote,
       color: '#16A34A',
     },
     {
       id: 'pending',
       label: 'Pending',
-      value: formatCurrency(totals.pendingAmount),
-      meta: `${totals.overdueStudents} overdue students`,
+      value: formatCurrency(livePending),
+      meta: `${liveOverdueCount} overdue students`,
       icon: CreditCard,
       color: '#DC2626',
     },
     {
       id: 'dueStudents',
       label: 'Students Due',
-      value: totals.dueStudents,
+      value: liveDuesCount,
       meta: 'Across all batches',
       icon: Users,
       color: '#EA580C',
@@ -104,19 +141,19 @@ export default function AdminFinancesScreen({ navigation }) {
             <View>
               <Text style={styles.panelTitle}>Overall Collection</Text>
               <Text style={styles.panelMeta}>
-                {formatCurrency(totals.collectedAmount)} collected of {formatCurrency(totals.expectedAmount)}
+                {formatCurrency(liveCollected)} collected of {formatCurrency(liveExpected)}
               </Text>
             </View>
             <View style={styles.collectionBadge}>
               <TrendingUp size={14} color="#16A34A" />
-              <Text style={styles.collectionBadgeText}>{totals.collectionRate}%</Text>
+              <Text style={styles.collectionBadgeText}>{liveRate}%</Text>
             </View>
           </View>
-          <ProgressBar value={totals.collectionRate} />
+          <ProgressBar value={liveRate} />
           <View style={styles.collectionFooter}>
-            <Text style={styles.collectionFooterText}>{totals.activeBatches} batches</Text>
-            <Text style={styles.collectionFooterText}>{totals.dueStudents} due students</Text>
-            <Text style={styles.collectionFooterText}>{formatCurrency(totals.pendingAmount)} pending</Text>
+            <Text style={styles.collectionFooterText}>{liveSummary ? liveBatches.length : totals.activeBatches} batches</Text>
+            <Text style={styles.collectionFooterText}>{liveDuesCount} due students</Text>
+            <Text style={styles.collectionFooterText}>{formatCurrency(livePending)} pending</Text>
           </View>
         </View>
 
@@ -139,55 +176,73 @@ export default function AdminFinancesScreen({ navigation }) {
           </TouchableOpacity>
         </View>
 
-        {activeView === 'batches' ? (
+        {loading ? (
+          <ActivityIndicator size="large" color="#047857" style={{ marginTop: 40 }} />
+        ) : activeView === 'batches' ? (
           <View>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Batch Wise Fees</Text>
               <Text style={styles.sectionCaption}>Collection status for every active batch</Text>
             </View>
 
-            {ADMIN_BATCH_OVERVIEW.map((batch) => (
-              <View key={batch.id} style={styles.batchCard}>
-                <View style={styles.batchHeaderRow}>
-                  <View style={styles.batchCodeCircle}>
-                    <Text style={styles.batchCodeText}>{batch.label}</Text>
-                  </View>
-                  <View style={styles.batchInfo}>
-                    <Text style={styles.batchName}>{batch.name}</Text>
-                    <Text style={styles.batchMeta}>{batch.branch} • {batch.program} • {batch.stream}</Text>
-                  </View>
-                  <View style={styles.duePill}>
-                    <Text style={styles.duePillText}>{batch.dueStudents} due</Text>
-                  </View>
-                </View>
+            {(liveSummary ? liveBatches : ADMIN_BATCH_OVERVIEW).map((batch) => {
+              const label = batch.label || batch.batch_name || 'B';
+              const name = batch.name || `${batch.batch_name} Batch`;
+              const branch = batch.branch || 'Main';
+              const program = batch.program || 'JEE/NEET';
+              const stream = batch.stream || 'PCM';
+              const dueCount = batch.due_students !== undefined ? batch.due_students : (batch.dueStudents || 0);
+              const studentCount = batch.student_count !== undefined ? batch.student_count : (batch.studentCount || 0);
+              const pendingVal = batch.pending_amount !== undefined ? batch.pending_amount : (batch.pendingAmount || 0);
+              const collectedVal = batch.collected_amount !== undefined ? batch.collected_amount : (batch.collectedAmount || 0);
+              const expectedVal = batch.expected_amount !== undefined ? batch.expected_amount : (batch.expectedAmount || 0);
+              const rate = expectedVal > 0 ? Math.round((collectedVal / expectedVal) * 100) : 0;
+              const feePerStud = studentCount > 0 ? Math.round(expectedVal / studentCount) : (batch.feePerStudent || 0);
+              const overdueCount = batch.overdue_students !== undefined ? batch.overdue_students : (batch.overdueStudents || 0);
 
-                <View style={styles.feeInfoRow}>
-                  <View>
-                    <Text style={styles.feeLabel}>Fee / student</Text>
-                    <Text style={styles.feeValue}>{formatCurrency(batch.feePerStudent)}</Text>
+              return (
+                <View key={batch.id || batch.batch_name} style={styles.batchCard}>
+                  <View style={styles.batchHeaderRow}>
+                    <View style={styles.batchCodeCircle}>
+                      <Text style={styles.batchCodeText}>{label}</Text>
+                    </View>
+                    <View style={styles.batchInfo}>
+                      <Text style={styles.batchName}>{name}</Text>
+                      <Text style={styles.batchMeta}>{branch} • {program} • {stream}</Text>
+                    </View>
+                    <View style={styles.duePill}>
+                      <Text style={styles.duePillText}>{dueCount} due</Text>
+                    </View>
                   </View>
-                  <View>
-                    <Text style={styles.feeLabel}>Students</Text>
-                    <Text style={styles.feeValue}>{batch.studentCount}</Text>
-                  </View>
-                  <View>
-                    <Text style={styles.feeLabel}>Pending</Text>
-                    <Text style={[styles.feeValue, styles.pendingValue]}>{formatCurrency(batch.pendingAmount)}</Text>
-                  </View>
-                </View>
 
-                <View style={styles.amountRow}>
-                  <Text style={styles.amountCollected}>{formatCurrency(batch.collectedAmount)} collected</Text>
-                  <Text style={styles.amountExpected}>{formatCurrency(batch.expectedAmount)} total</Text>
-                </View>
-                <ProgressBar value={batch.collectionRate} color={batch.collectionRate >= 85 ? '#16A34A' : '#EA580C'} />
+                  <View style={styles.feeInfoRow}>
+                    <View>
+                      <Text style={styles.feeLabel}>Fee / student</Text>
+                      <Text style={styles.feeValue}>{formatCurrency(feePerStud)}</Text>
+                    </View>
+                    <View>
+                      <Text style={styles.feeLabel}>Students</Text>
+                      <Text style={styles.feeValue}>{studentCount}</Text>
+                    </View>
+                    <View>
+                      <Text style={styles.feeLabel}>Pending</Text>
+                      <Text style={[styles.feeValue, styles.pendingValue]}>{formatCurrency(pendingVal)}</Text>
+                    </View>
+                  </View>
 
-                <View style={styles.batchFooterRow}>
-                  <Text style={styles.batchFooterText}>{batch.collectionRate}% collection</Text>
-                  <Text style={styles.overdueText}>{batch.overdueStudents} overdue</Text>
+                  <View style={styles.amountRow}>
+                    <Text style={styles.amountCollected}>{formatCurrency(collectedVal)} collected</Text>
+                    <Text style={styles.amountExpected}>{formatCurrency(expectedVal)} total</Text>
+                  </View>
+                  <ProgressBar value={rate} color={rate >= 85 ? '#16A34A' : '#EA580C'} />
+
+                  <View style={styles.batchFooterRow}>
+                    <Text style={styles.batchFooterText}>{rate}% collection</Text>
+                    <Text style={styles.overdueText}>{overdueCount} overdue</Text>
+                  </View>
                 </View>
-              </View>
-            ))}
+              );
+            })}
           </View>
         ) : (
           <View>
@@ -196,18 +251,24 @@ export default function AdminFinancesScreen({ navigation }) {
               <Text style={styles.sectionCaption}>Students requiring fee follow-up this cycle</Text>
             </View>
 
-            {ADMIN_DUE_STUDENTS.map((student) => {
+            {(liveSummary ? liveDueStudents : ADMIN_DUE_STUDENTS).map((student) => {
               const isOverdue = student.status === 'Overdue';
+              const name = student.name || 'Student';
+              const batchName = student.batchName || student.batch_id || 'Batch';
+              const branch = student.branch || 'Main';
+              const formattedDate = student.due_date 
+                ? new Date(student.due_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
+                : student.dueDate;
 
               return (
                 <View key={student.id} style={styles.studentDueCard}>
                   <View style={styles.studentAvatar}>
-                    <Text style={styles.studentAvatarText}>{student.name.charAt(0)}</Text>
+                    <Text style={styles.studentAvatarText}>{name.charAt(0)}</Text>
                   </View>
                   <View style={styles.studentDueInfo}>
-                    <Text style={styles.studentName}>{student.name}</Text>
+                    <Text style={styles.studentName}>{name}</Text>
                     <Text style={styles.studentMeta}>
-                      {student.batchName} • {student.branch} • Due {student.dueDate}
+                      {batchName} • {branch} • Due {formattedDate}
                     </Text>
                   </View>
                   <View style={styles.studentRight}>

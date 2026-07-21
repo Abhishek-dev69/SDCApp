@@ -276,10 +276,20 @@ router.post('/', verifyToken, requireRole('admin'), async (req, res) => {
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15, true)
        RETURNING id`,
       [
-        newParentId, serial_number, email_address, student_name,
-        student_whatsapp_number, date_of_birth, student_std,
-        sdc_branch, sdc_batch, sdc_course_opted, tenth_std_school,
-        student_address, school_board, tenth_std_percentage,
+        newParentId,
+        serial_number && String(serial_number).trim() !== '' ? Number(serial_number) : null,
+        email_address || null,
+        student_name,
+        student_whatsapp_number || null,
+        date_of_birth || null,
+        student_std || null,
+        sdc_branch || null,
+        sdc_batch || null,
+        sdc_course_opted || null,
+        tenth_std_school || null,
+        student_address || null,
+        school_board || null,
+        tenth_std_percentage && String(tenth_std_percentage).trim() !== '' ? Number(tenth_std_percentage) : null,
         studentAuth.id,
       ]
     );
@@ -383,10 +393,21 @@ router.put('/:id', verifyToken, requireRole('admin'), async (req, res) => {
          data_verified = $14
        WHERE id = $15`,
       [
-        serial_number, email_address, student_name, student_whatsapp_number,
-        date_of_birth, student_std, sdc_branch, sdc_batch, sdc_course_opted,
-        tenth_std_school, student_address, school_board, tenth_std_percentage,
-        data_verified, id,
+        serial_number && String(serial_number).trim() !== '' ? Number(serial_number) : null,
+        email_address || null,
+        student_name,
+        student_whatsapp_number || null,
+        date_of_birth || null,
+        student_std || null,
+        sdc_branch || null,
+        sdc_batch || null,
+        sdc_course_opted || null,
+        tenth_std_school || null,
+        student_address || null,
+        school_board || null,
+        tenth_std_percentage && String(tenth_std_percentage).trim() !== '' ? Number(tenth_std_percentage) : null,
+        data_verified,
+        id,
       ]
     );
 
@@ -457,21 +478,23 @@ router.put('/:id', verifyToken, requireRole('admin'), async (req, res) => {
 // ---------------------------------------------------------------------------
 router.patch('/:id/deactivate', verifyToken, requireRole('admin'), async (req, res) => {
   const { id } = req.params;
+  const { status } = req.body;
+  const archiveStatus = status || 'Left';
 
   try {
     const result = await pool.query(
-      `UPDATE students SET is_active = false WHERE id = $1 RETURNING id`,
-      [id]
+      `UPDATE students SET is_active = false, status = $1 WHERE id = $2 RETURNING id`,
+      [archiveStatus, id]
     );
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Student not found' });
     }
 
-    res.json({ message: 'Student deactivated successfully' });
+    res.json({ message: `Student archived as ${archiveStatus} successfully` });
   } catch (err) {
     console.error('Student deactivation error:', err.message);
-    res.status(500).json({ error: 'Failed to deactivate student' });
+    res.status(500).json({ error: 'Failed to archive student' });
   }
 });
 

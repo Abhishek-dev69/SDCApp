@@ -15,6 +15,23 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronLeft, User, Phone, BookOpen, Clock } from 'lucide-react-native';
 import { apiRequest } from '../../services/api';
 
+const InputField = ({ label, icon: Icon, placeholder, value, onChangeText, keyboardType = 'default' }) => (
+  <View style={styles.inputContainer}>
+    <Text style={styles.label}>{label}</Text>
+    <View style={styles.inputWrapper}>
+      <Icon size={20} color="#64748b" style={styles.inputIcon} />
+      <TextInput
+        style={styles.input}
+        placeholder={placeholder}
+        placeholderTextColor="#94a3b8"
+        value={value}
+        onChangeText={onChangeText}
+        keyboardType={keyboardType}
+      />
+    </View>
+  </View>
+);
+
 export default function AddTeacherScreen({ navigation }) {
   const [formData, setFormData] = useState({
     fullName: '',
@@ -46,23 +63,6 @@ export default function AddTeacherScreen({ navigation }) {
       setSaving(false);
     }
   };
-
-  const InputField = ({ label, icon: Icon, placeholder, value, onChangeText, keyboardType = 'default' }) => (
-    <View style={styles.inputContainer}>
-      <Text style={styles.label}>{label}</Text>
-      <View style={styles.inputWrapper}>
-        <Icon size={20} color="#64748b" style={styles.inputIcon} />
-        <TextInput
-          style={styles.input}
-          placeholder={placeholder}
-          placeholderTextColor="#94a3b8"
-          value={value}
-          onChangeText={onChangeText}
-          keyboardType={keyboardType}
-        />
-      </View>
-    </View>
-  );
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>

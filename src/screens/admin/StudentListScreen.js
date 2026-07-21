@@ -102,23 +102,32 @@ export default function StudentListScreen({ navigation }) {
     return unsubscribe;
   }, [navigation, selectedBranch, selectedBatch, searchText]);
 
+  const performDeactivate = async (id, status) => {
+    try {
+      await apiRequest(`/admin/students/${id}/deactivate`, {
+        method: 'PATCH',
+        body: { status },
+      });
+      loadStudents(selectedBranch, selectedBatch, searchText);
+    } catch (err) {
+      Alert.alert('Error', err.message || 'Could not archive student.');
+    }
+  };
+
   const handleDeactivate = (student) => {
     Alert.alert(
-      'Deactivate Student',
-      `Are you sure you want to deactivate ${student.student_name}? This can be reversed later if needed.`,
+      'Archive Student',
+      `Select archive reason for ${student.student_name}:`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Deactivate',
+          text: 'Left SDC Classes',
           style: 'destructive',
-          onPress: async () => {
-            try {
-              await apiRequest(`/admin/students/${student.id}/deactivate`, { method: 'PATCH' });
-              loadStudents(selectedBranch, selectedBatch, searchText);
-            } catch (err) {
-              Alert.alert('Error', err.message || 'Could not deactivate student.');
-            }
-          },
+          onPress: () => performDeactivate(student.id, 'Left'),
+        },
+        {
+          text: 'Completed Duration',
+          onPress: () => performDeactivate(student.id, 'Completed'),
         },
       ]
     );

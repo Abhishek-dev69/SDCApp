@@ -1,5 +1,5 @@
-import React from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View, Modal, Switch } from 'react-native';
 import { CommonActions } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -18,10 +18,9 @@ import {
   Users,
 } from 'lucide-react-native';
 import { getAdminBatchTotals, getBranchSummaries } from '../../data/adminBatchOverview';
-import { clearAuthToken } from '../../services/api';
+import { clearAuthToken, apiRequest } from '../../services/api';
 
 const ACCOUNT_OPTIONS = [
-  { id: 'edit-profile', title: 'Profile Details', subtitle: 'Update name, phone, and admin contact info', icon: UserCog },
   { id: 'notifications', title: 'Notifications', subtitle: 'Batch alerts, fee reminders, and reports', icon: Bell },
   { id: 'security', title: 'Security & Password', subtitle: 'Change password and review login access', icon: Lock, route: 'ChangePassword' },
 ];
@@ -71,6 +70,65 @@ export default function AdminSettingsScreen({ navigation, route }) {
   const totals = getAdminBatchTotals();
   const branchCount = getBranchSummaries().length;
   const roleLabel = userRole === 'teacher' ? 'Teacher Admin' : 'Admin';
+
+  const [branchModalVisible, setBranchModalVisible] = useState(false);
+  const [permissionsModalVisible, setPermissionsModalVisible] = useState(false);
+  const [notificationsModalVisible, setNotificationsModalVisible] = useState(false);
+  const [activeViewBranch, setActiveViewBranch] = useState('Kandivali');
+
+  // Notifications State
+  const [notificationConfig, setNotificationConfig] = useState({
+    emailAlerts: true,
+    whatsappAlerts: true,
+    weeklyReports: false,
+    syllabusProgress: true,
+  });
+
+  const toggleNotificationSetting = (key) => {
+    setNotificationConfig(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const [permissions, setPermissions] = useState({
+    admin: { createBatch: true, editStudent: true, answerDoubts: true, postAnnouncements: true },
+    teacher: { createBatch: false, editStudent: false, answerDoubts: true, postAnnouncements: true },
+    finance: { createBatch: false, editStudent: false, answerDoubts: false, postAnnouncements: false },
+  });
+
+  const togglePermission = (role, key) => {
+    setPermissions(prev => ({
+      ...prev,
+      [role]: { ...prev[role], [key]: !prev[role][key] }
+    }));
+  };
+
+  const handleAccountOption = (id, route) => {
+    if (id === 'notifications') {
+      setNotificationsModalVisible(true);
+    } else {
+      navigateToRoute(route);
+    }
+  };
+
+  const [liveOverview, setLiveOverview] = useState(null);
+
+  React.useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      apiRequest('/admin/overview')
+        .then(data => setLiveOverview(data))
+        .catch(err => console.log('Settings fetch metrics failed:', err.message));
+    });
+    return unsubscribe;
+  }, [navigation]);
+
+  const handleInstituteOption = (id) => {
+    if (id === 'branches') {
+      setBranchModalVisible(true);
+    } else if (id === 'permissions') {
+      setPermissionsModalVisible(true);
+    } else {
+      Alert.alert('Support', 'Contact SDC App Coordinator at: support@sdcclasses.in');
+    }
+  };
 
   const navigateToRoute = (screenName) => {
     if (!screenName) {
@@ -143,16 +201,16 @@ export default function AdminSettingsScreen({ navigation, route }) {
         </View>
 
         <View style={styles.statsRow}>
-          <StatPill icon={BookOpen} value={totals.activeBatches} label="Batches" color="#2563EB" />
-          <StatPill icon={Users} value={totals.totalStudents} label="Students" color="#16A34A" />
-          <StatPill icon={Building2} value={branchCount} label="Branches" color="#EA580C" />
+          <StatPill icon={BookOpen} value={liveOverview?.activeBatches ?? totals.activeBatches} label="Batches" color="#2563EB" />
+          <StatPill icon={Users} value={liveOverview?.totalStudents ?? totals.totalStudents} label="Students" color="#16A34A" />
+          <StatPill icon={Building2} value={liveOverview?.batches ? new Set(liveOverview.batches.map(b => b.branch)).size : branchCount} label="Branches" color="#EA580C" />
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Account</Text>
           <View style={styles.settingsGroup}>
             {ACCOUNT_OPTIONS.map((item) => (
-              <SettingsRow key={item.id} item={item} onPress={() => navigateToRoute(item.route)} />
+              <SettingsRow key={item.id} item={item} onPress={() => handleAccountOption(item.id, item.route)} />
             ))}
           </View>
         </View>
@@ -161,7 +219,7 @@ export default function AdminSettingsScreen({ navigation, route }) {
           <Text style={styles.sectionTitle}>Institute</Text>
           <View style={styles.settingsGroup}>
             {INSTITUTE_OPTIONS.map((item) => (
-              <SettingsRow key={item.id} item={item} onPress={() => navigateToRoute(item.route)} />
+              <SettingsRow key={item.id} item={item} onPress={() => handleInstituteOption(item.id)} />
             ))}
           </View>
         </View>
@@ -174,13 +232,150 @@ export default function AdminSettingsScreen({ navigation, route }) {
               onPress={handleLogout}
               danger
             />
-            <SettingsRow
-              item={{ title: 'Delete Account', subtitle: 'Request permanent admin account deletion', icon: Trash2 }}
-              onPress={handleDeleteAccount}
-              danger
-            />
           </View>
         </View>
+
+        {/* Branch Access Modal */}
+        <Modal visible={branchModalVisible} animationType="slide" transparent>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Branch Access Manager</Text>
+              <Text style={styles.modalSubtitle}>Switch view to manage other branches:</Text>
+
+              {['Kandivali', 'Andheri', 'Dahisar', 'Goregaon'].map((b) => (
+                <TouchableOpacity
+                  key={b}
+                  style={[styles.branchCard, activeViewBranch === b && styles.branchCardActive]}
+                  onPress={() => {
+                    setActiveViewBranch(b);
+                    Alert.alert('Branch Switched', `Now viewing SDC classes data for ${b} branch.`);
+                    setBranchModalVisible(false);
+                  }}
+                >
+                  <View>
+                    <Text style={[styles.branchName, activeViewBranch === b && styles.branchNameActive]}>{b} Branch</Text>
+                    <Text style={styles.branchMeta}>SDC Classes regional operations</Text>
+                  </View>
+                  <ChevronRight size={18} color={activeViewBranch === b ? '#FFF' : '#64748B'} />
+                </TouchableOpacity>
+              ))}
+
+              <TouchableOpacity style={styles.closeBtn} onPress={() => setBranchModalVisible(false)}>
+                <Text style={styles.closeBtnText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Role Permissions Modal */}
+        <Modal visible={permissionsModalVisible} animationType="slide" transparent>
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { maxHeight: '90%' }]}>
+              <Text style={styles.modalTitle}>Role Permissions Matrix</Text>
+              <Text style={styles.modalSubtitle}>Grant operational permissions to staff roles:</Text>
+
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {['admin', 'teacher', 'finance'].map((role) => (
+                  <View key={role} style={styles.rolePermCard}>
+                    <Text style={styles.roleTitle}>{role.toUpperCase()} Role</Text>
+                    
+                    <View style={styles.permRow}>
+                      <Text style={styles.permText}>Create Batches</Text>
+                      <Switch
+                        value={permissions[role].createBatch}
+                        onValueChange={() => togglePermission(role, 'createBatch')}
+                        thumbColor="#28388F"
+                      />
+                    </View>
+
+                    <View style={styles.permRow}>
+                      <Text style={styles.permText}>Edit Student Records</Text>
+                      <Switch
+                        value={permissions[role].editStudent}
+                        onValueChange={() => togglePermission(role, 'editStudent')}
+                        thumbColor="#28388F"
+                      />
+                    </View>
+
+                    <View style={styles.permRow}>
+                      <Text style={styles.permText}>Resolve Doubts</Text>
+                      <Switch
+                        value={permissions[role].answerDoubts}
+                        onValueChange={() => togglePermission(role, 'answerDoubts')}
+                        thumbColor="#28388F"
+                      />
+                    </View>
+
+                    <View style={styles.permRow}>
+                      <Text style={styles.permText}>Post Announcements</Text>
+                      <Switch
+                        value={permissions[role].postAnnouncements}
+                        onValueChange={() => togglePermission(role, 'postAnnouncements')}
+                        thumbColor="#28388F"
+                      />
+                    </View>
+                  </View>
+                ))}
+              </ScrollView>
+
+              <TouchableOpacity style={styles.closeBtn} onPress={() => setPermissionsModalVisible(false)}>
+                <Text style={styles.closeBtnText}>Save & Close</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Notifications Modal */}
+        <Modal visible={notificationsModalVisible} animationType="slide" transparent>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Notifications Settings</Text>
+              <Text style={styles.modalSubtitle}>Configure system alerts and notifications:</Text>
+
+              <View style={styles.rolePermCard}>
+                <View style={styles.permRow}>
+                  <Text style={styles.permText}>Enable Email Alerts</Text>
+                  <Switch
+                    value={notificationConfig.emailAlerts}
+                    onValueChange={() => toggleNotificationSetting('emailAlerts')}
+                    thumbColor="#28388F"
+                  />
+                </View>
+
+                <View style={styles.permRow}>
+                  <Text style={styles.permText}>Enable WhatsApp Reminders</Text>
+                  <Switch
+                    value={notificationConfig.whatsappAlerts}
+                    onValueChange={() => toggleNotificationSetting('whatsappAlerts')}
+                    thumbColor="#28388F"
+                  />
+                </View>
+
+                <View style={styles.permRow}>
+                  <Text style={styles.permText}>Weekly Batch Reports</Text>
+                  <Switch
+                    value={notificationConfig.weeklyReports}
+                    onValueChange={() => toggleNotificationSetting('weeklyReports')}
+                    thumbColor="#28388F"
+                  />
+                </View>
+
+                <View style={styles.permRow}>
+                  <Text style={styles.permText}>Syllabus Portion Updates</Text>
+                  <Switch
+                    value={notificationConfig.syllabusProgress}
+                    onValueChange={() => toggleNotificationSetting('syllabusProgress')}
+                    thumbColor="#28388F"
+                  />
+                </View>
+              </View>
+
+              <TouchableOpacity style={styles.closeBtn} onPress={() => setNotificationsModalVisible(false)}>
+                <Text style={styles.closeBtnText}>Save & Close</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
       </ScrollView>
     </SafeAreaView>
   );
@@ -353,5 +548,96 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
     marginTop: 3,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15,23,42,0.4)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+  },
+  modalTitle: {
+    color: '#0F172A',
+    fontSize: 19,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  modalSubtitle: {
+    color: '#64748B',
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 20,
+  },
+  branchCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 10,
+  },
+  branchCardActive: {
+    backgroundColor: '#28388F',
+    borderColor: '#28388F',
+  },
+  branchName: {
+    color: '#0F172A',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  branchNameActive: {
+    color: '#FFFFFF',
+  },
+  branchMeta: {
+    color: '#94A3B8',
+    fontSize: 11,
+    marginTop: 2,
+  },
+  closeBtn: {
+    backgroundColor: '#EEF2FF',
+    height: 50,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 14,
+  },
+  closeBtnText: {
+    color: '#28388F',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  rolePermCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 14,
+  },
+  roleTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#28388F',
+    marginBottom: 8,
+  },
+  permRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEF2FF',
+  },
+  permText: {
+    color: '#475569',
+    fontSize: 13,
+    fontWeight: '700',
   },
 });
