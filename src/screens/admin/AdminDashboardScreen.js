@@ -3,13 +3,8 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
-  BarChart3, 
   Users, 
-  Banknote, 
-  Settings, 
-  LayoutDashboard,
   Bell,
-  TrendingUp,
   UserCheck,
   BookOpen,
   FileText,
@@ -17,21 +12,12 @@ import {
   UserPlus,
   Megaphone,
   Star,
-  ChevronRight,
-  ShieldAlert,
-  Send,
-  MessageSquare
+  ChevronRight
 } from 'lucide-react-native';
 import { apiRequest } from '../../services/api';
+import { useUserSession } from '../../context/UserSessionContext';
 
 const { width } = Dimensions.get('window');
-
-const CORE_METRICS = [
-  { id: '1', title: 'Total Students', value: '842', trend: '+12', icon: Users, color: '#3B82F6', trendColor: '#10B981' },
-  { id: '2', title: 'Total Teachers', value: '24', trend: '+2', icon: UserCheck, color: '#10B981', trendColor: '#10B981' },
-  { id: '3', title: 'Active Batches', value: '18', trend: '+3', icon: BookOpen, color: '#8B5CF6', trendColor: '#10B981' },
-  { id: '4', title: 'Pending Reports', value: '7', trend: '-5', icon: FileText, color: '#F97316', trendColor: '#EF4444' },
-];
 
 const MANAGEMENT_ACTIONS = [
   { id: '1', title: 'Manage Students', icon: Users, color: '#3B82F6' },
@@ -40,37 +26,16 @@ const MANAGEMENT_ACTIONS = [
   { id: '4', title: 'Post Announcement', icon: Megaphone, color: '#F97316' },
 ];
 
-const ACADEMIC_ACTIONS = [
-  { id: 'portion', title: 'Portion Tracker', icon: BookOpen, color: '#8B5CF6' },
-  { id: 'disciplinary', title: 'Disciplinary Logs', icon: ShieldAlert, color: '#EF4444' },
-  { id: 'feedback', title: 'View Feedbacks', icon: MessageSquare, color: '#F59E0B' },
-  { id: 'broadcast', title: 'Send Broadcast', icon: Send, color: '#10B981' },
-];
-
-const PERFORMANCE_METRICS = [
-  { label: 'Average Student Score', value: '82.3%', progress: 0.823, color: '#3B82F6' },
-  { label: 'Overall Attendance', value: '89.7%', progress: 0.897, color: '#10B981' },
-  { label: 'Fee Collection Rate', value: '76%', progress: 0.76, color: '#F59E0B' },
-];
-
-const RECENT_STUDENTS = [
-  { id: '1', name: 'Manasvi Gawli', class: 'Class 12th', batch: 'NEET A7', score: '94%', status: 'Active', color: '#3B82F6' },
-  { id: '2', name: 'Aarav Patel', class: 'Class 11th', batch: 'JEE K8', score: '88%', status: 'Active', color: '#10B981' },
-];
-
-const TEACHERS = [
-  { id: '1', name: 'Dr. Vivek Sharma', subject: 'Physics', students: '120', rating: '4.8', color: '#8B5CF6' },
-  { id: '2', name: 'Prof. Anjali Roy', subject: 'Chemistry', students: '95', rating: '4.9', color: '#F97316' },
-];
-
 export default function AdminDashboardScreen({ navigation, route }) {
-  const userRole = route?.params?.userRole || 'admin';
-  const displayName = route?.params?.displayName || 'Admin';
+  const { userProfile } = useUserSession();
+  const userRole = userProfile?.role || route?.params?.userRole || 'admin';
+  const displayName = userProfile?.name || route?.params?.displayName || 'Admin';
   const [overview, setOverview] = useState(null);
-  const [liveAnalytics, setLiveAnalytics] = useState(null);
-  const [liveFinances, setLiveFinances] = useState(null);
-  const [recentStudents, setRecentStudents] = useState(RECENT_STUDENTS);
-  const [teachers, setTeachers] = useState(TEACHERS);
+  const [operationalOverview, setOperationalOverview] = useState(null);
+  const [recentStudents, setRecentStudents] = useState([]);
+  const [teachers, setTeachers] = useState([]);
+  const [openDoubts, setOpenDoubts] = useState(0);
+  const [announcementCount, setAnnouncementCount] = useState(0);
   const roleBadgeText = userRole === 'owner'
     ? 'Owner View'
     : userRole === 'teacher'
@@ -79,23 +44,26 @@ export default function AdminDashboardScreen({ navigation, route }) {
 
   const loadDashboard = async () => {
     try {
-      const [overviewData, studentData, teacherData, analyticsData, financesData] = await Promise.all([
+      const optional = (path) => apiRequest(path).catch((err) => err.status === 501 ? [] : Promise.reject(err));
+      const [overviewData, studentData, teacherData, operationData, doubtData, announcementData] = await Promise.all([
         apiRequest('/admin/overview'),
         apiRequest('/admin/students'),
         apiRequest('/admin/teachers'),
-        apiRequest('/admin/analytics/overview').catch(() => null),
-        apiRequest('/admin/finances/summary').catch(() => null),
+        userRole === 'teacher' ? Promise.resolve(null) : apiRequest('/dashboard/owner'),
+        optional('/operations/doubts'),
+        apiRequest('/announcements'),
       ]);
 
       setOverview(overviewData);
-      setLiveAnalytics(analyticsData);
-      setLiveFinances(financesData);
+      setOperationalOverview(operationData);
+      setOpenDoubts((doubtData || []).filter((doubt) => !['answered', 'closed'].includes(doubt.status)).length);
+      setAnnouncementCount((announcementData || []).length);
       setRecentStudents((studentData.students || []).slice(0, 2).map((student, index) => ({
         id: student.id,
-        name: student.student_name || student.name || 'Student',
-        class: student.student_std ? `Class ${student.student_std}` : (student.currentClass ? `Class ${student.currentClass}` : 'Class N/A'),
-        batch: student.sdc_batch || student.batch || 'Unassigned',
-        score: 'Live',
+        name: student.name,
+        class: student.currentClass ? `Class ${student.currentClass}` : 'Class N/A',
+        batch: student.batch || 'Unassigned',
+        score: student.batch || 'Unassigned',
         status: student.status || 'Active',
         color: index % 2 === 0 ? '#3B82F6' : '#10B981',
       })));
@@ -104,7 +72,7 @@ export default function AdminDashboardScreen({ navigation, route }) {
         name: teacher.name,
         subject: teacher.subject || 'Subject',
         students: teacher.batch && teacher.batch !== 'Unassigned' ? 'Assigned' : '0',
-        rating: 'Live',
+        rating: teacher.status || 'Active',
         color: '#8B5CF6',
       })));
     } catch (err) {
@@ -118,38 +86,36 @@ export default function AdminDashboardScreen({ navigation, route }) {
     return unsubscribe;
   }, [navigation]);
 
-  const liveAvgScore = liveAnalytics?.averageScore ?? 80;
-  const liveAvgAtt = liveAnalytics?.averageAttendance ?? 90;
-  const liveCollectionRate = liveFinances?.collection_rate ?? 75;
-
-  const performanceMetrics = [
-    { label: 'Average Student Score', value: `${liveAvgScore}%`, progress: liveAvgScore / 100, color: '#3B82F6' },
-    { label: 'Overall Attendance', value: `${liveAvgAtt}%`, progress: liveAvgAtt / 100, color: '#10B981' },
-    { label: 'Fee Collection Rate', value: `${liveCollectionRate}%`, progress: liveCollectionRate / 100, color: '#F59E0B' },
-  ];
-
   const coreMetrics = [
     { id: '1', title: 'Total Students', value: `${overview?.totalStudents ?? '...'}`, trend: 'Live', icon: Users, color: '#3B82F6', trendColor: '#10B981' },
     { id: '2', title: 'Total Teachers', value: `${overview?.totalTeachers ?? '...'}`, trend: 'Live', icon: UserCheck, color: '#10B981', trendColor: '#10B981' },
     { id: '3', title: 'Active Batches', value: `${overview?.activeBatches ?? '...'}`, trend: 'Live', icon: BookOpen, color: '#8B5CF6', trendColor: '#10B981' },
-    { id: '4', title: 'Pending Reports', value: '0', trend: 'Live', icon: FileText, color: '#F97316', trendColor: '#10B981' },
+    { id: '4', title: 'Open Doubts', value: `${openDoubts}`, trend: 'Live', icon: FileText, color: '#F97316', trendColor: '#10B981' },
   ];
+  const performanceMetrics = [
+    {
+      label: 'Average Student Score',
+      value: operationalOverview?.testAverage == null ? 'N/A' : `${operationalOverview.testAverage}%`,
+      progress: (operationalOverview?.testAverage || 0) / 100,
+      color: '#3B82F6',
+    },
+    {
+      label: 'Overall Attendance',
+      value: operationalOverview?.attendancePercent == null ? 'N/A' : `${operationalOverview.attendancePercent}%`,
+      progress: (operationalOverview?.attendancePercent || 0) / 100,
+      color: '#10B981',
+    },
+  ];
+  const managementActions = userRole === 'teacher'
+    ? MANAGEMENT_ACTIONS.filter((action) => action.id === '4')
+    : MANAGEMENT_ACTIONS;
 
   const handleAction = (id) => {
     switch(id) {
       case '1': navigation.navigate('StudentListScreen'); break;
       case '2': navigation.navigate('AddTeacher'); break;
       case '3': navigation.navigate('AssignBatch'); break;
-      default: break;
-    }
-  };
-
-  const handleAcademicAction = (id) => {
-    switch(id) {
-      case 'portion': navigation.navigate('PortionTracker'); break;
-      case 'disciplinary': navigation.navigate('DisciplinaryManager'); break;
-      case 'feedback': navigation.navigate('FeedbackViewer'); break;
-      case 'broadcast': navigation.navigate('SMSBroadcast'); break;
+      case '4': navigation.navigate('PostAnnouncement'); break;
       default: break;
     }
   };
@@ -160,7 +126,7 @@ export default function AdminDashboardScreen({ navigation, route }) {
       showsVerticalScrollIndicator={false}
       contentContainerStyle={{ paddingBottom: 100 }}
     >
-      {/* Header & Revenue Banner */}
+      {/* Header */}
       <View style={styles.header}>
         <LinearGradient
           colors={['#2b58ed', '#1e3a8a']}
@@ -180,11 +146,14 @@ export default function AdminDashboardScreen({ navigation, route }) {
             
             <TouchableOpacity style={styles.notificationBell}>
               <Bell size={24} color="#fff" />
-              <View style={styles.notificationBadge}>
-                <Text style={styles.notificationBadgeText}>5</Text>
-              </View>
+              {announcementCount > 0 && (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationBadgeText}>{announcementCount}</Text>
+                </View>
+              )}
             </TouchableOpacity>
           </View>
+
         </SafeAreaView>
       </View>
 
@@ -216,35 +185,13 @@ export default function AdminDashboardScreen({ navigation, route }) {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Management</Text>
           <View style={styles.managementGrid}>
-            {MANAGEMENT_ACTIONS.map((action) => {
+            {managementActions.map((action) => {
               const Icon = action.icon;
               return (
                 <TouchableOpacity 
                   key={action.id} 
                   style={styles.managementCard}
                   onPress={() => handleAction(action.id)}
-                >
-                  <View style={[styles.managementIconContainer, { backgroundColor: `${action.color}10` }]}>
-                    <Icon size={28} color={action.color} />
-                  </View>
-                  <Text style={styles.managementLabel}>{action.title}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-
-        {/* Academic Operations Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Academic Operations</Text>
-          <View style={styles.managementGrid}>
-            {ACADEMIC_ACTIONS.map((action) => {
-              const Icon = action.icon;
-              return (
-                <TouchableOpacity 
-                  key={action.id} 
-                  style={styles.managementCard}
-                  onPress={() => handleAcademicAction(action.id)}
                 >
                   <View style={[styles.managementIconContainer, { backgroundColor: `${action.color}10` }]}>
                     <Icon size={28} color={action.color} />
@@ -417,46 +364,9 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: 'bold',
   },
-  revenueCard: {
-    marginHorizontal: 24,
-    padding: 24,
-    borderRadius: 24,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-  },
-  glassBackground: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  revenueHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  revenueTitle: {
-    color: 'rgba(255, 255, 255, 0.9)',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  trendRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  trendText: {
-    color: '#4ade80',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  revenueValue: {
-    color: '#fff',
-    fontSize: 32,
-    fontWeight: 'bold',
-  },
   content: {
     paddingHorizontal: 24,
-    marginTop: -20,
+    marginTop: 24,
   },
   metricsGrid: {
     flexDirection: 'row',

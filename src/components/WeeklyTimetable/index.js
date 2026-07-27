@@ -10,8 +10,6 @@ import {
 } from 'react-native';
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 
-const { width } = Dimensions.get('window');
-
 const SUBJECT_COLORS = {
   Physics: '#28388f',
   Chemistry: '#10B981',
@@ -24,19 +22,10 @@ const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 const STATUS_STYLES = {
   scheduled:   { bg: '#e8eaf6', text: '#28388f', label: 'Scheduled' },
-  in_progress: { bg: '#dcfce7', text: '#16a34a', label: 'Live' },
-  conducted:   { bg: '#f1f5f9', text: '#94a3b8', label: 'Conducted' },
+  live:        { bg: '#dcfce7', text: '#16a34a', label: 'Live' },
+  completed:   { bg: '#f1f5f9', text: '#64748b', label: 'Completed' },
   cancelled:   { bg: '#fee2e2', text: '#dc2626', label: 'Cancelled' },
 };
-
-function getWeekStart(date) {
-  const d = new Date(date);
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-  d.setDate(diff);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
 
 function formatWeekLabel(weekStart) {
   const end = new Date(weekStart);
@@ -71,6 +60,13 @@ export default function WeeklyTimetable({ lectures = [], onLecturePress, filterC
 
   const today = new Date();
 
+  useEffect(() => {
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekEnd.getDate() + 7);
+    if (selectedDay < weekStart || selectedDay >= weekEnd) {
+      setSelectedDay(new Date(weekStart));
+    }
+  }, [selectedDay, weekStart]);
   const handlePrevWeek = async () => {
   setWeekLoading(true);
   await onPrevWeek();

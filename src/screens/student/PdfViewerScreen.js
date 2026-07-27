@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { ChevronLeft } from 'lucide-react-native';
 
-export default function PdfViewerScreen({ route }) {
+export default function PdfViewerScreen({ navigation, route }) {
   const { pdfUrl, title } = route.params || {};
   const [status, setStatus] = useState(pdfUrl ? 'opening' : 'missing');
 
@@ -51,7 +53,10 @@ export default function PdfViewerScreen({ route }) {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
+      <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+        <ChevronLeft size={24} color="#1e293b" />
+      </TouchableOpacity>
       {status === 'opening' && (
         <>
           <ActivityIndicator size="large" color="#2b58ed" />
@@ -89,7 +94,7 @@ export default function PdfViewerScreen({ route }) {
           <Text style={styles.message}>No PDF link was provided for this document.</Text>
         </>
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -100,6 +105,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
+  },
+  backButton: {
+    position: 'absolute',
+    top: 12,
+    left: 16,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F1F5F9',
   },
   title: {
     fontSize: 22,

@@ -3,10 +3,12 @@ import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView } from 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronLeft, Mail, Lock, Eye, EyeOff } from 'lucide-react-native';
-import { apiRequest, saveAuthToken } from '../../services/api';
+import { apiRequest, saveAuthToken, fetchAndStoreProfile } from '../../services/api';
+import { useUserSession } from '../../context/UserSessionContext';
 
 export default function EmailSignInScreen({ navigation, route }) {
   const { role } = route.params || {};
+  const { setUserProfile } = useUserSession();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -14,12 +16,7 @@ export default function EmailSignInScreen({ navigation, route }) {
 
   const getAdminRouteParams = (currentRole) => ({
     userRole: currentRole,
-    displayName:
-      currentRole === 'owner'
-        ? 'Natik Sir'
-        : currentRole === 'teacher'
-        ? 'Teacher'
-        : 'Admin',
+    displayName: currentRole === 'teacher' ? 'Teacher' : 'Admin',
   });
 
   const validatePassword = (password) => {
@@ -32,8 +29,6 @@ export default function EmailSignInScreen({ navigation, route }) {
   };
 
   const handleSignIn = async () => {
-    console.log('handleSignIn called');
-
     try {
       const error = validatePassword(password);
       if (error) {
@@ -41,26 +36,24 @@ export default function EmailSignInScreen({ navigation, route }) {
         return;
       }
 
-      console.log('Fetching...');
-
       const data = await apiRequest('/auth/email/signin', {
         method: 'POST',
         auth: false,
         body: { email, password },
       });
 
-      console.log('Data:', JSON.stringify(data));
-
       if (data.jwt) {
         await saveAuthToken(data.jwt);
+        await fetchAndStoreProfile(setUserProfile);
 
         if (data.is_temp_password) {
-          console.log('Login response data:', JSON.stringify(data));
           navigation.navigate('ChangePassword');
         } else {
           if (data.role === 'owner') {
-            navigation.navigate('OwnerTabs', { displayName: 'Natik Sir' });
-          } else if (data.role === 'admin' || data.role === 'teacher') {
+            navigation.navigate('OwnerTabs', { displayName: 'Owner' });
+          } else if (data.role === 'teacher') {
+            navigation.navigate('TeacherTabs');
+          } else if (data.role === 'admin') {
             navigation.navigate('AdminTabs', getAdminRouteParams(data.role));
           } else if (data.role === 'parent') {
             navigation.navigate('ParentTabs');

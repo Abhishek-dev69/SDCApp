@@ -3,21 +3,50 @@ const router = express.Router();
 const pool = require('../db');
 const verifyToken = require('../middleware/verifyToken');
 const requireRole = require('../middleware/requireRole');
+const { canAccessBatch, getVisibleBatchIds } = require('../utils/batchAccess');
 
-// GET /announcements - students and parents view announcements
+const canPostAnnouncements = requireRole('teacher', 'admin', 'owner');
+
 router.get('/', verifyToken, async (req, res) => {
-  const { batch_id } = req.query;
+  const requestedBatchId = req.query.batch_id;
+
+  if (requestedBatchId && !/^\d+$/.test(String(requestedBatchId))) {
+    return res.status(400).json({ error: 'batch_id must be an integer' });
+  }
 
   try {
-    // Return global announcements + batch specific ones
+    const visibleBatchIds = await getVisibleBatchIds(pool, req.user);
+    if (
+      requestedBatchId
+      && Array.isArray(visibleBatchIds)
+      && !visibleBatchIds.includes(Number(requestedBatchId))
+    ) {
+      return res.status(403).json({ error: 'This batch is not visible to your account' });
+    }
+
+    const values = [];
+    const conditions = [];
+
+    if (Array.isArray(visibleBatchIds)) {
+      values.push(visibleBatchIds);
+      conditions.push(`(a.batch_id IS NULL OR a.batch_id = ANY($${values.length}::int[]))`);
+    }
+    if (requestedBatchId) {
+      values.push(Number(requestedBatchId));
+      conditions.push(`(a.batch_id IS NULL OR a.batch_id = $${values.length})`);
+    }
+    const visibility = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+
     const result = await pool.query(
-      `SELECT a.*, auth.name as posted_by_name 
+      `SELECT a.id, a.title, a.content, a.batch_id, a.created_at, a.updated_at,
+              au.name AS posted_by_name, b.name AS batch_name
        FROM announcements a
-       JOIN auth ON a.posted_by = auth.id
-       WHERE a.batch_id IS NULL 
-       OR a.batch_id = $1
-       ORDER BY a.created_at DESC`,
-      [batch_id || null]
+       JOIN auth au ON au.id = a.posted_by
+       LEFT JOIN batches b ON b.id = a.batch_id
+       ${visibility}
+       ORDER BY a.created_at DESC, a.id DESC
+       LIMIT 100`,
+      values
     );
     res.json(result.rows);
   } catch (err) {
@@ -26,35 +55,66 @@ router.get('/', verifyToken, async (req, res) => {
   }
 });
 
-// POST /announcements - teachers only
-router.post('/', verifyToken, requireRole('teacher', 'admin'), async (req, res) => {
-  const { title, content, batch_id } = req.body;
+router.post('/', verifyToken, canPostAnnouncements, async (req, res) => {
+  const { title, content, batch_id: batchId } = req.body;
 
   if (!title || !content) {
     return res.status(400).json({ error: 'Title and content are required' });
   }
 
+  if (batchId && !/^\d+$/.test(String(batchId))) {
+    return res.status(400).json({ error: 'batch_id must be an integer' });
+  }
+
   try {
+    if (req.user.role === 'teacher' && !batchId) {
+      return res.status(403).json({ error: 'Teachers must post announcements to an assigned batch' });
+    }
+    if (batchId && !(await canAccessBatch(pool, req.user, batchId))) {
+      return res.status(403).json({ error: 'This batch is not assigned to your account' });
+    }
+
     const result = await pool.query(
       `INSERT INTO announcements (title, content, batch_id, posted_by)
        VALUES ($1, $2, $3, $4)
-       RETURNING *`,
-      [title, content, batch_id || null, req.user.authId]
+       RETURNING id, title, content, batch_id, created_at, updated_at`,
+      [
+        String(title).trim(),
+        String(content).trim(),
+        batchId ? Number(batchId) : null,
+        req.user.authId,
+      ]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
     console.error('Announcement post error:', err.message);
-    res.status(500).json({ error: 'Failed to post announcement' });
+    const status = err.code === '23503' ? 400 : 500;
+    res.status(status).json({
+      error: status === 400 ? 'The selected batch does not exist' : 'Failed to post announcement',
+    });
   }
 });
 
-// DELETE /announcements/:id - teachers and admins only
-router.delete('/:id', verifyToken, requireRole('teacher', 'admin'), async (req, res) => {
+router.delete('/:id', verifyToken, canPostAnnouncements, async (req, res) => {
   try {
-    await pool.query(
-      'DELETE FROM announcements WHERE id = $1 AND posted_by = $2',
-      [req.params.id, req.user.authId]
+    const values = [req.params.id];
+    const ownerCondition = req.user.role === 'admin' || req.user.role === 'owner'
+      ? ''
+      : 'AND posted_by = $2';
+
+    if (ownerCondition) values.push(req.user.authId);
+
+    const result = await pool.query(
+      `DELETE FROM announcements
+       WHERE id = $1 ${ownerCondition}
+       RETURNING id`,
+      values
     );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Announcement not found or not owned by you' });
+    }
+
     res.json({ message: 'Announcement deleted' });
   } catch (err) {
     console.error('Announcement delete error:', err.message);

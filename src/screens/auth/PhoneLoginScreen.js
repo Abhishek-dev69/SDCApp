@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { Alert, View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronLeft, Phone } from 'lucide-react-native';
@@ -9,12 +9,14 @@ export default function PhoneLoginScreen({ navigation, route }) {
   const [phoneNumber, setPhoneNumber] = useState('');
 
   const handleSendOTP = () => {
-    // Phone validation logic here
     if (phoneNumber.length < 10) {
       alert("Please enter a valid phone number");
       return;
     }
-    navigation.navigate('OTPVerification', { phoneNumber, role });
+    Alert.alert(
+      'Phone Login Not Configured',
+      'Use SDC ID, Google, or email login until the production SMS provider is connected.'
+    );
   };
 
   return (

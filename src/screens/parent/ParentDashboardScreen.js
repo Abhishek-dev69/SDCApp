@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Modal, FlatList, Alert, TextInput } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { 
@@ -11,125 +11,27 @@ import {
   Bell, 
   ChevronRight,
   AlertCircle,
-  Check
+  Megaphone,
 } from 'lucide-react-native';
-import { useUserSession } from '../../context/UserSessionContext';
 import { apiRequest } from '../../services/api';
 
 export default function ParentDashboardScreen() {
-  const { userProfile, activeChild, setActiveChild } = useUserSession();
-  const [children, setChildren] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [childData, setChildData] = useState({
-    attendance: null,
-    performance: null,
-    fees: null,
-  });
-  const [showChildModal, setShowChildModal] = useState(false);
-  const [showCallbackModal, setShowCallbackModal] = useState(false);
-  const [selectedSubject, setSelectedSubject] = useState('Mathematics');
-  const [callbackMessage, setCallbackMessage] = useState('');
-  const [sendingCallback, setSendingCallback] = useState(false);
-
-  const parentName = userProfile ? (userProfile.father_name || userProfile.mother_name || userProfile.name) : 'Parent';
-
-  const fetchChildren = async () => {
-    try {
-      const data = await apiRequest('/parent/children');
-      if (data.children && data.children.length > 0) {
-        setChildren(data.children);
-        // Default to first child if activeChild is not set
-        if (!activeChild) {
-          setActiveChild(data.children[0]);
-        }
-      } else {
-        setLoading(false);
-      }
-    } catch (err) {
-      console.error('Failed to fetch children:', err);
-      setLoading(false);
-    }
-  };
-
-  const fetchChildDetails = async (studentSdcId) => {
-    try {
-      const [attData, perfData, feeData] = await Promise.all([
-        apiRequest(`/parent/child/${studentSdcId}/attendance`),
-        apiRequest(`/parent/child/${studentSdcId}/performance`),
-        apiRequest(`/parent/child/${studentSdcId}/fees`),
-      ]);
-
-      setChildData({
-        attendance: attData,
-        performance: perfData,
-        fees: feeData,
-      });
-    } catch (err) {
-      console.error('Failed to fetch child data:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [dashboard, setDashboard] = useState(null);
+  const [announcements, setAnnouncements] = useState([]);
 
   useEffect(() => {
-    fetchChildren();
+    Promise.all([apiRequest('/dashboard/parent'), apiRequest('/announcements')])
+      .then(([dashboardData, announcementData]) => {
+        setDashboard(dashboardData);
+        setAnnouncements(Array.isArray(announcementData) ? announcementData.slice(0, 3) : []);
+      })
+      .catch((err) => console.log('Parent dashboard fetch error:', err.message));
   }, []);
 
-  useEffect(() => {
-    if (activeChild) {
-      setLoading(true);
-      fetchChildDetails(activeChild.student_sdc_id);
-    }
-  }, [activeChild]);
-
-  const selectChild = (child) => {
-    setActiveChild(child);
-    setShowChildModal(false);
-  };
-
-  const handleRequestCallback = async () => {
-    if (!activeChild) return;
-    setSendingCallback(true);
-    try {
-      const res = await apiRequest('/parent/request-callback', {
-        method: 'POST',
-        body: {
-          studentSdcId: activeChild.student_sdc_id,
-          subject: selectedSubject,
-          message: callbackMessage || 'Requesting a phone callback to discuss recent academic progress.',
-        }
-      });
-      
-      Alert.alert(
-        'Request Sent',
-        res.message || 'Callback request submitted successfully!',
-        [{ text: 'OK' }]
-      );
-      setShowCallbackModal(false);
-      setCallbackMessage('');
-    } catch (err) {
-      console.error('Callback request failed:', err);
-      Alert.alert('Request Failed', err.message || 'Unable to request callback. Please try again.');
-    } finally {
-      setSendingCallback(false);
-    }
-  };
-
-  if (loading && !activeChild) {
-    return (
-      <View style={styles.loaderContainer}>
-        <ActivityIndicator size="large" color="#2b58ed" />
-      </View>
-    );
-  }
-
-  // Calculate upcoming tests (future dates)
-  const upcomingTestsCount = childData.performance?.tests?.filter(
-    (t) => t.due_at && new Date(t.due_at) > new Date()
-  )?.length || 0;
-
-  // Recent graded tests
-  const recentTests = childData.performance?.tests?.filter((t) => t.score !== null).slice(0, 3) || [];
+  const child = dashboard?.children?.find(
+    (item) => item.auth_id === dashboard?.selectedStudentAuthId
+  ) || dashboard?.children?.[0];
+  const metrics = dashboard?.metrics || {};
 
   return (
     <View style={styles.container}>
@@ -143,30 +45,16 @@ export default function ParentDashboardScreen() {
             <View style={styles.headerContent}>
               <View>
                 <Text style={styles.greetingText}>Good Morning,</Text>
-                <Text style={styles.userNameText}>{parentName}</Text>
+                <Text style={styles.userNameText}>{dashboard?.parent?.name || 'Parent'}</Text>
                 <View style={styles.roleBadge}>
                   <Text style={styles.roleText}>Parent</Text>
                 </View>
               </View>
               <View style={styles.headerActions}>
-                <TouchableOpacity 
-                  style={styles.inviteButton}
-                  onPress={() => Alert.alert(
-                    'Invite Co-Parent',
-                    `Share SDC ID: "${activeChild?.student_sdc_id || 'N/A'}" with another parent to link their account.`,
-                    [{ text: 'OK' }]
-                  )}
-                >
+                <TouchableOpacity style={styles.inviteButton}>
                   <Text style={styles.inviteButtonText}>Invite</Text>
                 </TouchableOpacity>
-                <TouchableOpacity 
-                  style={styles.notificationButton}
-                  onPress={() => Alert.alert(
-                    'Notifications',
-                    `1. Attendance Marked: ${activeChild?.student_name || 'Ayush'} was marked PRESENT for Chemistry.\n\n2. New Test Published: Physics Electromagnetism Quiz is scheduled in 4 days.\n\n3. Fees Due: Outstanding course balance is unpaid.`,
-                    [{ text: 'Dismiss' }]
-                  )}
-                >
+                <TouchableOpacity style={styles.notificationButton}>
                   <Bell size={24} color="#fff" />
                   <View style={styles.notificationBadge} />
                 </TouchableOpacity>
@@ -174,35 +62,22 @@ export default function ParentDashboardScreen() {
             </View>
 
             {/* Child Summary Card */}
-            <TouchableOpacity 
-              style={styles.childCard} 
-              onPress={() => children.length > 1 && setShowChildModal(true)}
-              disabled={children.length <= 1}
-            >
+            <View style={styles.childCard}>
               <View style={styles.childHeader}>
                 <View style={styles.childAvatar}>
                   <Users size={24} color="#28388f" />
                 </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.childName}>{activeChild?.student_name || 'No Child Assigned'}</Text>
+                <View>
+                  <Text style={styles.childName}>{child?.student_name || 'No linked student'}</Text>
                   <Text style={styles.childInfo}>
-                    {activeChild ? `${activeChild.student_std} • ${activeChild.sdc_batch}` : 'Unassigned'}
+                    {child ? `${child.student_std || ''}th · ${child.sdc_batch || 'Unassigned'}` : 'Contact the institute'}
                   </Text>
                 </View>
-                {children.length > 1 && (
-                  <View style={styles.switchButton}>
-                    <ChevronRight size={20} color="#64748b" />
-                  </View>
-                )}
+                <TouchableOpacity style={styles.switchButton}>
+                  <ChevronRight size={20} color="#64748b" />
+                </TouchableOpacity>
               </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={styles.requestCallbackBtn}
-              onPress={() => setShowCallbackModal(true)}
-            >
-              <Text style={styles.requestCallbackBtnText}>📞 Request Teacher Callback</Text>
-            </TouchableOpacity>
+            </View>
           </SafeAreaView>
         </LinearGradient>
 
@@ -211,50 +86,70 @@ export default function ParentDashboardScreen() {
           <View style={styles.metricsGrid}>
             <MetricCard 
               title="Attendance" 
-              value={childData.attendance ? `${childData.attendance.overall}%` : '0%'} 
+              value={metrics.attendancePercent === null || metrics.attendancePercent === undefined
+                ? '—'
+                : `${metrics.attendancePercent}%`}
               icon={Calendar} 
               color="#10b981" 
               bgColor="#ecfdf5" 
             />
             <MetricCard 
               title="Upcoming Tests" 
-              value={String(upcomingTestsCount)} 
+              value={metrics.upcomingTests ?? '—'}
               icon={FileText} 
               color="#3b82f6" 
               bgColor="#eff6ff" 
             />
             <MetricCard 
               title="Fee Status" 
-              value={childData.fees?.pendingFees > 0 ? "Due" : "Paid"} 
+              value={metrics.feeStatus?.label || '—'}
               icon={Banknote} 
-              color={childData.fees?.pendingFees > 0 ? "#ef4444" : "#10b981"} 
-              bgColor={childData.fees?.pendingFees > 0 ? "#fef2f2" : "#ecfdf5"} 
+              color="#ef4444" 
+              bgColor="#fef2f2" 
             />
             <MetricCard 
               title="Performance" 
-              value={childData.performance ? `${childData.performance.averageScore}%` : '0%'} 
+              value={metrics.performancePercent === null || metrics.performancePercent === undefined
+                ? '—'
+                : `${metrics.performancePercent}%`}
               icon={TrendingUp} 
               color="#8b5cf6" 
               bgColor="#f5f3ff" 
             />
           </View>
 
-          {/* Fee Payment Alert */}
-          {childData.fees?.pendingFees > 0 && (
-            <TouchableOpacity style={styles.feeAlertCard}>
-              <View style={[styles.alertIconBox, { backgroundColor: '#fee2e2' }]}>
-                <AlertCircle size={24} color="#ef4444" />
-              </View>
-              <View style={styles.alertContent}>
-                <Text style={styles.alertTitle}>Fee Payment Due</Text>
-                <Text style={styles.alertDescription}>
-                  Outstanding balance of ₹{childData.fees.pendingFees.toLocaleString('en-IN')} is due.
-                </Text>
-              </View>
-              <TouchableOpacity style={styles.payNowButton}>
-                <Text style={styles.payNowText}>Pay Now</Text>
-              </TouchableOpacity>
+          {metrics.feeStatus?.amountDue > 0 && (
+          <TouchableOpacity style={styles.feeAlertCard}>
+            <View style={[styles.alertIconBox, { backgroundColor: '#fee2e2' }]}>
+              <AlertCircle size={24} color="#ef4444" />
+            </View>
+            <View style={styles.alertContent}>
+              <Text style={styles.alertTitle}>Fee Payment Due</Text>
+              <Text style={styles.alertDescription}>
+                ₹{metrics.feeStatus.amountDue.toLocaleString('en-IN')} is currently due
+              </Text>
+            </View>
+            <TouchableOpacity style={styles.payNowButton}>
+              <Text style={styles.payNowText}>Pay Now</Text>
             </TouchableOpacity>
+          </TouchableOpacity>
+          )}
+
+          {announcements.length > 0 && (
+            <>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Announcements</Text>
+              </View>
+              {announcements.map((announcement) => (
+                <View key={announcement.id} style={styles.announcementRow}>
+                  <Megaphone size={19} color="#EA580C" />
+                  <View style={styles.announcementCopy}>
+                    <Text style={styles.announcementTitle}>{announcement.title}</Text>
+                    <Text style={styles.announcementText} numberOfLines={2}>{announcement.content}</Text>
+                  </View>
+                </View>
+              ))}
+            </>
           )}
 
           {/* Recent Results Section */}
@@ -265,128 +160,20 @@ export default function ParentDashboardScreen() {
             </TouchableOpacity>
           </View>
 
-          {recentTests.length > 0 ? (
-            recentTests.map((test) => (
-              <ResultItem 
-                key={test.id}
-                subject={`${test.subject} - ${test.title}`} 
-                score={`${test.score}/${test.total_marks}`} 
-                rank={`#${test.rank}`} 
-                date={test.due_at ? new Date(test.due_at).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'} 
-              />
-            ))
-          ) : (
-            <Text style={styles.noResultsText}>No recent test results available.</Text>
+          {(dashboard?.recentResults || []).map((result) => (
+            <ResultItem
+              key={result.id}
+              subject={result.title}
+              score={`${result.marks}/${result.total_marks}`}
+              rank={result.rank ? `#${result.rank}` : '—'}
+              date={new Date(result.scheduled_at).toLocaleDateString()}
+            />
+          ))}
+          {dashboard && dashboard.recentResults.length === 0 && (
+            <Text style={styles.emptyText}>No published test results yet.</Text>
           )}
         </View>
       </ScrollView>
-
-      {/* Sibling Switching Modal */}
-      <Modal
-        visible={showChildModal}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setShowChildModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Select Child</Text>
-            <FlatList
-              data={children}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <TouchableOpacity 
-                  style={[
-                    styles.childSelectItem, 
-                    item.id === activeChild?.id && styles.childSelectItemActive
-                  ]}
-                  onPress={() => selectChild(item)}
-                >
-                  <View>
-                    <Text style={styles.selectItemName}>{item.student_name}</Text>
-                    <Text style={styles.selectItemDetails}>{item.student_std} • {item.sdc_batch}</Text>
-                  </View>
-                  {item.id === activeChild?.id && <Check size={20} color="#2b58ed" />}
-                </TouchableOpacity>
-              )}
-            />
-            <TouchableOpacity 
-              style={styles.closeModalButton}
-              onPress={() => setShowChildModal(false)}
-            >
-              <Text style={styles.closeModalButtonText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Callback Request Modal */}
-      <Modal
-        visible={showCallbackModal}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setShowCallbackModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { maxHeight: '70%' }]}>
-            <Text style={styles.modalTitle}>Request Callback</Text>
-            <Text style={{ fontSize: 13, color: '#64748b', marginBottom: 12 }}>
-              Select subject to request a callback from the teacher:
-            </Text>
-            
-            <View style={styles.subjectContainer}>
-              {['Mathematics', 'Physics', 'Chemistry', 'Biology'].map((subj) => (
-                <TouchableOpacity
-                  key={subj}
-                  style={[
-                    styles.subjectOption,
-                    selectedSubject === subj && styles.subjectOptionActive
-                  ]}
-                  onPress={() => setSelectedSubject(subj)}
-                >
-                  <Text style={[
-                    styles.subjectOptionText,
-                    selectedSubject === subj && styles.subjectOptionTextActive
-                  ]}>
-                    {subj}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <Text style={{ fontSize: 13, color: '#64748b', marginBottom: 8 }}>
-              Optional message or reason for discussion:
-            </Text>
-            <TextInput
-              style={styles.textInput}
-              multiline={true}
-              numberOfLines={4}
-              placeholder="e.g., Discuss child's performance in recent Chemistry unit test."
-              placeholderTextColor="#94a3b8"
-              value={callbackMessage}
-              onChangeText={setCallbackMessage}
-            />
-
-            <TouchableOpacity 
-              style={[styles.submitModalButton, sendingCallback && { backgroundColor: '#94a3b8' }]}
-              onPress={handleRequestCallback}
-              disabled={sendingCallback}
-            >
-              <Text style={styles.submitModalButtonText}>
-                {sendingCallback ? 'Submitting...' : 'Submit Request'}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={styles.closeModalButton}
-              onPress={() => setShowCallbackModal(false)}
-              disabled={sendingCallback}
-            >
-              <Text style={styles.closeModalButtonText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -426,12 +213,6 @@ function ResultItem({ subject, score, rank, date }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
-  },
-  loaderContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
     backgroundColor: '#f8fafc',
   },
   header: {
@@ -545,6 +326,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 24,
     paddingBottom: 40,
+  },
+  announcementRow: {
+    minHeight: 66,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 11,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 8,
+    padding: 13,
+    marginBottom: 8,
+  },
+  announcementCopy: { flex: 1 },
+  announcementTitle: { color: '#0F172A', fontSize: 14, fontWeight: '700' },
+  announcementText: { color: '#64748B', fontSize: 12, lineHeight: 17, marginTop: 3 },
+  emptyText: {
+    color: '#64748B',
+    fontSize: 14,
+    textAlign: 'center',
+    paddingVertical: 20,
   },
   metricsGrid: {
     flexDirection: 'row',
@@ -700,126 +502,5 @@ const styles = StyleSheet.create({
   rankLabel: {
     fontSize: 12,
     color: '#64748b',
-  },
-  noResultsText: {
-    textAlign: 'center',
-    color: '#64748b',
-    marginTop: 20,
-    fontSize: 14,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-    maxHeight: '50%',
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#0f172a',
-    marginBottom: 20,
-  },
-  childSelectItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    marginBottom: 8,
-    backgroundColor: '#f8fafc',
-  },
-  childSelectItemActive: {
-    backgroundColor: '#eff6ff',
-    borderWidth: 1,
-    borderColor: '#bfdbfe',
-  },
-  selectItemName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#1e293b',
-  },
-  selectItemDetails: {
-    fontSize: 13,
-    color: '#64748b',
-    marginTop: 2,
-  },
-  closeModalButton: {
-    backgroundColor: '#f1f5f9',
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginTop: 12,
-  },
-  closeModalButtonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#475569',
-  },
-  requestCallbackBtn: {
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    marginTop: 10,
-    alignItems: 'center',
-  },
-  requestCallbackBtnText: {
-    color: '#ffffff',
-    fontSize: 13,
-    fontWeight: 'bold',
-  },
-  subjectContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginVertical: 12,
-  },
-  subjectOption: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#f1f5f9',
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  subjectOptionActive: {
-    backgroundColor: '#2b58ed',
-  },
-  subjectOptionText: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    color: '#475569',
-  },
-  subjectOptionTextActive: {
-    color: '#ffffff',
-  },
-  textInput: {
-    borderWidth: 1,
-    borderColor: '#cbd5e1',
-    borderRadius: 12,
-    padding: 12,
-    fontSize: 14,
-    minHeight: 80,
-    textAlignVertical: 'top',
-    marginBottom: 20,
-    color: '#1e293b',
-  },
-  submitModalButton: {
-    backgroundColor: '#2b58ed',
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginTop: 12,
-  },
-  submitModalButtonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#ffffff',
   },
 });

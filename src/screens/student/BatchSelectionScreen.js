@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { ChevronLeft } from 'lucide-react-native';
 import { useUserSession } from '../../context/UserSessionContext';
 import { apiRequest } from '../../services/api';
 
@@ -9,13 +10,21 @@ export default function BatchSelectionScreen({ navigation }) {
   const [searchText, setSearchText] = useState('');
   const [batches, setBatches] = useState([]);
   const [loading, setLoading] = useState(true);
-  const { setSelectedBatch: setSessionBatch } = useUserSession();
+  const { userProfile, setSelectedBatch: setSessionBatch } = useUserSession();
 
   const loadBatches = async () => {
     setLoading(true);
     try {
       const data = await apiRequest('/batches');
-      setBatches(Array.isArray(data) ? data : []);
+      const availableBatches = Array.isArray(data) ? data : [];
+      setBatches(availableBatches);
+      const profileBatch = availableBatches.find(
+        (item) => String(item.id) === String(userProfile?.batch_id)
+          || item.label === userProfile?.sdc_batch
+      );
+      if (profileBatch) {
+        setSelectedBatch(profileBatch.id);
+      }
     } catch (err) {
       Alert.alert('Unable to Load Batches', err.message || 'Please try again.');
     } finally {
@@ -57,6 +66,18 @@ export default function BatchSelectionScreen({ navigation }) {
       <View style={styles.header}>
 
         <View style={styles.headerTop}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => {
+              if (navigation.canGoBack()) {
+                navigation.goBack();
+              } else {
+                navigation.navigate('SDCLogin');
+              }
+            }}
+          >
+            <ChevronLeft size={26} color="#FFFFFF" />
+          </TouchableOpacity>
           <Text style={styles.title}>Select Your Batch</Text>
         </View>
 
@@ -161,7 +182,13 @@ marginBottom:4
 },
 
 backButton:{
-marginRight:8
+width:38,
+height:38,
+borderRadius:19,
+alignItems:"center",
+justifyContent:"center",
+marginRight:10,
+backgroundColor:"rgba(255,255,255,0.14)"
 },
 
 title:{

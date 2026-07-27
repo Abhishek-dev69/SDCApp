@@ -6,138 +6,210 @@ const requireRole = require('../middleware/requireRole');
 const {
   inferStream,
   inferTextbookSources,
-  normalizeBatch,
   tableExists,
 } = require('../utils/dbIntrospection');
+const { canAccessBatch, getVisibleBatchIds } = require('../utils/batchAccess');
 
-const canManageInstitute = requireRole('admin', 'owner', 'teacher');
+const canViewInstitute = requireRole('admin', 'owner', 'teacher');
+const canManageInstitute = requireRole('admin', 'owner');
 
 function formatStudent(row) {
   return {
     id: String(row.id),
+    authId: row.auth_id || null,
     name: row.student_name || row.name,
-    rollNo: row.serial_number ? String(row.serial_number) : row.roll_no || '',
-    currentClass: row.student_std || row.current_class || '',
-    batch: row.sdc_batch || row.batch || 'Unassigned',
-    branch: row.sdc_branch || row.branch || '',
-    program: row.sdc_course_opted || row.program || '',
-    phone: row.student_whatsapp_number || row.phone || '',
-    email: row.email_address || row.email || '',
+    rollNo: row.serial_number ? String(row.serial_number) : '',
+    currentClass: row.student_std || '',
+    batch: row.sdc_batch || 'Unassigned',
+    branch: row.sdc_branch || '',
+    program: row.sdc_course_opted || '',
+    phone: row.student_whatsapp_number || '',
+    email: row.email_address || '',
     status: row.status || 'Active',
   };
 }
 
 function formatTeacher(row) {
+  const subjects = Array.isArray(row.subjects)
+    ? row.subjects.filter(Boolean)
+    : row.subject
+      ? [row.subject]
+      : [];
+
   return {
     id: String(row.id),
     name: row.name,
-    subject: row.subject || '',
+    subject: subjects.join(', '),
+    subjects,
     experience: row.experience || '',
     phone: row.phone || '',
-    batch: row.batch_code || row.batch || 'Unassigned',
+    email: row.email || '',
+    batch: row.batch_name || row.batch || 'Unassigned',
     status: row.status || 'Active',
   };
 }
 
-async function listBatches() {
-  if (await tableExists('batches')) {
-    const result = await pool.query(
-      `SELECT id, name, location AS branch, standard AS program, is_active AS active
-       FROM batches
-       WHERE COALESCE(is_active, true) = true
-       ORDER BY name ASC`
-    );
-    return result.rows.map(normalizeBatch);
+function formatBatch(row) {
+  const streams = Array.isArray(row.streams) ? row.streams.filter(Boolean) : [];
+  const subjects = Array.isArray(row.subjects) ? row.subjects.filter(Boolean) : [];
+  const program = streams.join(' + ');
+
+  return {
+    id: String(row.id),
+    label: row.name,
+    name: `${row.name} Batch`,
+    branch: row.location || 'Main',
+    location: row.location || 'Main',
+    standard: row.standard || '',
+    academicYear: row.academic_year || '',
+    active: row.is_active !== false,
+    streams,
+    subjects,
+    stream: streams.join(', ') || inferStream(subjects.join(' ')),
+    program: program || inferStream(subjects.join(' ')),
+    studentCount: Number(row.student_count || 0),
+    teacherCount: Number(row.teacher_count || 0),
+    timing: '',
+    startDate: row.created_at || null,
+    textbookSources: inferTextbookSources(program),
+  };
+}
+
+function parseStringList(value) {
+  if (Array.isArray(value)) {
+    return [...new Set(value.map((item) => String(item).trim()).filter(Boolean))];
   }
 
-  if (!(await tableExists('students'))) {
-    return [];
+  if (!value) return [];
+
+  return [...new Set(
+    String(value)
+      .split(/[,+/]/)
+      .map((item) => item.trim())
+      .filter(Boolean)
+  )];
+}
+
+function currentAcademicYear() {
+  const now = new Date();
+  const year = now.getUTCFullYear();
+  const startYear = now.getUTCMonth() >= 3 ? year : year - 1;
+  return `${startYear}-${String(startYear + 1).slice(-2)}`;
+}
+
+async function listBatches(user = null) {
+  const hasTeacherAssignments = await tableExists('teacher_batch_assignments');
+
+  const teacherSelect = hasTeacherAssignments
+    ? `(SELECT COUNT(DISTINCT tba.teacher_id)::int
+        FROM teacher_batch_assignments tba
+        WHERE tba.batch_id = b.id) AS teacher_count`
+    : '0::int AS teacher_count';
+
+  const conditions = ['COALESCE(b.is_active, true) = true'];
+  const values = [];
+  if (user?.role === 'teacher') {
+    if (!hasTeacherAssignments || !(await tableExists('teachers'))) return [];
+    values.push(user.authId);
+    conditions.push(
+      `EXISTS (
+         SELECT 1
+         FROM teachers t
+         JOIN teacher_batch_assignments tba ON tba.teacher_id = t.id
+         WHERE t.auth_id = $${values.length}
+           AND tba.batch_id = b.id
+       )`
+    );
   }
 
   const result = await pool.query(
     `SELECT
-       sdc_batch AS code,
-       COALESCE(sdc_branch, 'Main') AS branch,
-       COALESCE(sdc_course_opted, '') AS program,
-       COUNT(*)::int AS student_count
-     FROM students
-     WHERE sdc_batch IS NOT NULL AND TRIM(sdc_batch) <> ''
-     GROUP BY sdc_batch, sdc_branch, sdc_course_opted
-     ORDER BY branch ASC, code ASC`
+       b.id,
+       b.name,
+       b.standard,
+       b.academic_year,
+       b.location,
+       b.is_active,
+       b.created_at,
+       COALESCE(
+         ARRAY_AGG(DISTINCT bst.stream ORDER BY bst.stream)
+           FILTER (WHERE bst.stream IS NOT NULL),
+         ARRAY[]::varchar[]
+       ) AS streams,
+       COALESCE(
+         ARRAY_AGG(DISTINCT bsu.subject ORDER BY bsu.subject)
+           FILTER (WHERE bsu.subject IS NOT NULL),
+         ARRAY[]::varchar[]
+       ) AS subjects,
+       (SELECT COUNT(*)::int FROM students s WHERE s.sdc_batch = b.name) AS student_count,
+       ${teacherSelect}
+     FROM batches b
+     LEFT JOIN batch_streams bst ON bst.batch_id = b.id
+     LEFT JOIN batch_subjects bsu ON bsu.batch_id = b.id
+     WHERE ${conditions.join(' AND ')}
+     GROUP BY b.id, b.name, b.standard, b.academic_year, b.location, b.is_active, b.created_at
+     ORDER BY b.location ASC, b.name ASC`,
+    values
   );
 
-  return result.rows.map(normalizeBatch);
+  return result.rows.map(formatBatch);
 }
 
-async function hydrateBatchCounts(batch) {
-  const [studentCountResult, teacherTableExists] = await Promise.all([
-    tableExists('students')
-      ? pool.query('SELECT COUNT(*)::int AS count FROM students WHERE sdc_batch = $1', [batch.label])
-      : Promise.resolve({ rows: [{ count: 0 }] }),
-    tableExists('teachers'),
+async function getBatchByIdOrName(idOrName, client = pool) {
+  const value = String(idOrName || '').trim();
+  if (!value) return null;
+
+  const isIntegerId = /^\d+$/.test(value);
+  const result = await client.query(
+    `SELECT id, name, standard, academic_year, location, is_active, created_at
+     FROM batches
+     WHERE ${isIntegerId ? 'id = $1' : 'LOWER(name) = LOWER($1)'}
+     LIMIT 1`,
+    [isIntegerId ? Number(value) : value]
+  );
+
+  if (!result.rows[0]) return null;
+
+  const [streamsResult, subjectsResult] = await Promise.all([
+    client.query('SELECT stream FROM batch_streams WHERE batch_id = $1 ORDER BY stream', [result.rows[0].id]),
+    client.query('SELECT subject FROM batch_subjects WHERE batch_id = $1 ORDER BY subject', [result.rows[0].id]),
   ]);
 
-  let teacherCount = 0;
-  if (teacherTableExists && (await tableExists('batch_teachers'))) {
-    const teacherCountResult = await pool.query(
-      `SELECT COUNT(DISTINCT bt.teacher_id)::int AS count
-       FROM batch_teachers bt
-       JOIN batches b ON b.id = bt.batch_id
-       WHERE b.id::text = $1 OR b.code = $2`,
-      [batch.id, batch.label]
-    );
-    teacherCount = teacherCountResult.rows[0]?.count || 0;
-  }
-
-  let pendingAmount = 0;
-  if (await tableExists('student_fees')) {
-    const feesResult = await pool.query(
-      `SELECT 
-         COALESCE(SUM(sf.expected_amount), 0)::int AS expected,
-         COALESCE(SUM(sf.collected_amount), 0)::int AS collected
-       FROM students s
-       JOIN student_fees sf ON s.id = sf.student_id
-       WHERE s.sdc_batch = $1 AND s.is_active = true`,
-      [batch.label]
-    );
-    pendingAmount = Math.max((feesResult.rows[0]?.expected || 0) - (feesResult.rows[0]?.collected || 0), 0);
-  }
-
-  return {
-    ...batch,
-    studentCount: studentCountResult.rows[0]?.count || batch.studentCount || 0,
-    teacherCount,
-    pendingAmount,
-  };
+  return formatBatch({
+    ...result.rows[0],
+    streams: streamsResult.rows.map((row) => row.stream),
+    subjects: subjectsResult.rows.map((row) => row.subject),
+  });
 }
 
-async function getBatchByIdOrCode(idOrCode) {
-  const batches = await listBatches();
-  return batches.find((batch) => batch.id === String(idOrCode) || batch.label === String(idOrCode)) || null;
+async function getDefaultLocation(user) {
+  if (!user?.sdcId || !(await tableExists('admins'))) return 'Main';
+
+  const result = await pool.query(
+    'SELECT location FROM admins WHERE sdc_id = $1 LIMIT 1',
+    [user.sdcId]
+  );
+  return result.rows[0]?.location || 'Main';
 }
 
-function generateSdcId(batchCode, serialNumber) {
-  const cleanBatch = String(batchCode || 'SDC').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+function generateSdcId(batchName, serialNumber) {
+  const cleanBatch = String(batchName || 'SDC').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
   const paddedSerial = String(serialNumber || Date.now()).slice(-5).padStart(5, '0');
   return `${cleanBatch}${paddedSerial}`;
 }
 
-router.get('/batches', verifyToken, async (_req, res) => {
+router.get('/batches', verifyToken, async (req, res) => {
   try {
-    const batches = await listBatches();
-    const hydrated = await Promise.all(batches.map(hydrateBatchCounts));
-    res.json(hydrated);
+    res.json(await listBatches(req.user));
   } catch (err) {
     console.error('Batch list error:', err.message);
     res.status(500).json({ error: 'Failed to fetch batches' });
   }
 });
 
-router.get('/admin/batches', verifyToken, canManageInstitute, async (_req, res) => {
+router.get('/admin/batches', verifyToken, canViewInstitute, async (req, res) => {
   try {
-    const batches = await listBatches();
-    const hydrated = await Promise.all(batches.map(hydrateBatchCounts));
-    res.json(hydrated);
+    res.json(await listBatches(req.user));
   } catch (err) {
     console.error('Admin batch list error:', err.message);
     res.status(500).json({ error: 'Failed to fetch admin batches' });
@@ -145,90 +217,116 @@ router.get('/admin/batches', verifyToken, canManageInstitute, async (_req, res) 
 });
 
 router.post('/admin/batches', verifyToken, canManageInstitute, async (req, res) => {
-  if (!(await tableExists('batches'))) {
-    return res.status(501).json({ error: 'Batches table is not available. Run backend/migrations/001_core_institute.sql first.' });
+  const batchName = String(req.body.batchName || req.body.name || req.body.code || '').trim().toUpperCase();
+  const subjects = parseStringList(req.body.selectedSubjects || req.body.subjects);
+  const streams = parseStringList(req.body.streams || req.body.stream || req.body.program);
+  const standard = String(req.body.standard || '12').trim();
+  const academicYear = String(req.body.academicYear || currentAcademicYear()).trim();
+  const location = String(req.body.location || req.body.branch || await getDefaultLocation(req.user)).trim();
+
+  if (!batchName) {
+    return res.status(400).json({ error: 'Batch name is required' });
   }
 
-  const {
-    batchName,
-    code,
-    branch,
-    stream,
-    program,
-    capacity,
-    timing,
-    startDate,
-    selectedSubjects,
-    textbookSources,
-  } = req.body;
-  const batchCode = String(code || batchName || '').trim().toUpperCase();
-
-  if (!batchCode) {
-    return res.status(400).json({ error: 'Batch name/code is required' });
-  }
+  const client = await pool.connect();
 
   try {
-    const normalizedProgram = program || (selectedSubjects || []).join(' + ') || inferStream(stream);
-    const result = await pool.query(
-      `INSERT INTO batches (code, name, branch, stream, program, capacity, timing, start_date, textbook_sources, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-       RETURNING id, code, name, branch, stream, program, capacity, timing, start_date, textbook_sources`,
-      [
-        batchCode,
-        `${batchCode} Batch`,
-        branch || 'Main',
-        stream || inferStream(normalizedProgram),
-        normalizedProgram,
-        capacity ? Number(capacity) : null,
-        timing || null,
-        startDate || null,
-        textbookSources || inferTextbookSources(normalizedProgram),
-        req.user.authId,
-      ]
+    await client.query('BEGIN');
+
+    const duplicate = await client.query(
+      `SELECT id FROM batches
+       WHERE LOWER(name) = LOWER($1)
+         AND LOWER(location) = LOWER($2)
+         AND academic_year = $3
+       LIMIT 1`,
+      [batchName, location, academicYear]
     );
 
-    res.status(201).json(normalizeBatch(result.rows[0]));
+    if (duplicate.rows.length > 0) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: 'This batch already exists at the selected location' });
+    }
+
+    const batchResult = await client.query(
+      `INSERT INTO batches (name, standard, academic_year, is_active, location)
+       VALUES ($1, $2, $3, true, $4)
+       RETURNING id, name, standard, academic_year, location, is_active, created_at`,
+      [batchName, standard, academicYear, location]
+    );
+    const batch = batchResult.rows[0];
+
+    for (const subject of subjects) {
+      await client.query(
+        `INSERT INTO batch_subjects (batch_id, subject)
+         VALUES ($1, $2)
+         ON CONFLICT (batch_id, subject) DO NOTHING`,
+        [batch.id, subject]
+      );
+    }
+
+    for (const stream of streams) {
+      await client.query(
+        'INSERT INTO batch_streams (batch_id, stream) VALUES ($1, $2)',
+        [batch.id, stream]
+      );
+    }
+
+    await client.query('COMMIT');
+    res.status(201).json(formatBatch({ ...batch, subjects, streams }));
   } catch (err) {
+    await client.query('ROLLBACK');
     console.error('Batch create error:', err.message);
-    const status = err.code === '23505' ? 409 : 500;
-    res.status(status).json({ error: status === 409 ? 'Batch already exists' : 'Failed to create batch' });
+    res.status(500).json({ error: 'Failed to create batch' });
+  } finally {
+    client.release();
   }
 });
 
-router.get('/admin/batches/:id/people', verifyToken, canManageInstitute, async (req, res) => {
+router.get('/admin/batches/:id/people', verifyToken, canViewInstitute, async (req, res) => {
   try {
-    const batch = await getBatchByIdOrCode(req.params.id);
+    const batch = await getBatchByIdOrName(req.params.id);
     if (!batch) {
       return res.status(404).json({ error: 'Batch not found' });
     }
+    if (!(await canAccessBatch(pool, req.user, batch.id))) {
+      return res.status(403).json({ error: 'This batch is not assigned to your account' });
+    }
 
-    const students = await tableExists('students')
-      ? pool.query(
-          `SELECT id, serial_number, student_name, student_whatsapp_number, student_std, sdc_branch, sdc_batch, sdc_course_opted, email_address
-           FROM students
-           WHERE sdc_batch = $1
-           ORDER BY student_name ASC`,
-          [batch.label]
-        )
-      : { rows: [] };
+    const students = await pool.query(
+      `SELECT id, auth_id, serial_number, student_name, student_whatsapp_number, student_std,
+              sdc_branch, sdc_batch, sdc_course_opted, email_address
+       FROM students
+       WHERE sdc_batch = $1
+       ORDER BY student_name ASC`,
+      [batch.label]
+    );
 
-    let teachers = { rows: [] };
-    if ((await tableExists('teachers')) && (await tableExists('batch_teachers')) && (await tableExists('batches'))) {
-      teachers = await pool.query(
-        `SELECT t.id, t.name, t.subject, t.experience, t.phone, t.status, b.code AS batch_code
+    let teachers = [];
+    if ((await tableExists('teachers')) && (await tableExists('teacher_batch_assignments'))) {
+      const teacherResult = await pool.query(
+        `SELECT t.id, t.name, t.experience, t.phone, t.email, t.status,
+                b.name AS batch_name,
+                COALESCE(
+                  ARRAY_AGG(DISTINCT ts.subject ORDER BY ts.subject)
+                    FILTER (WHERE ts.subject IS NOT NULL),
+                  ARRAY[]::varchar[]
+                ) AS subjects
          FROM teachers t
-         JOIN batch_teachers bt ON bt.teacher_id = t.id
-         JOIN batches b ON b.id = bt.batch_id
-         WHERE b.id::text = $1 OR b.code = $2
+         JOIN teacher_batch_assignments tba ON tba.teacher_id = t.id
+         JOIN batches b ON b.id = tba.batch_id
+         LEFT JOIN teacher_subjects ts ON ts.teacher_id = t.id
+         WHERE b.id = $1
+         GROUP BY t.id, t.name, t.experience, t.phone, t.email, t.status, b.name
          ORDER BY t.name ASC`,
-        [batch.id, batch.label]
+        [Number(batch.id)]
       );
+      teachers = teacherResult.rows.map(formatTeacher);
     }
 
     res.json({
       batch,
       students: students.rows.map(formatStudent),
-      teachers: teachers.rows.map(formatTeacher),
+      teachers,
     });
   } catch (err) {
     console.error('Batch people fetch error:', err.message);
@@ -350,7 +448,7 @@ router.get('/admin/batches/:id/people', verifyToken, canManageInstitute, async (
 //   }
 // });
 
-router.get('/admin/teachers', verifyToken, canManageInstitute, async (req, res) => {
+router.get('/admin/teachers', verifyToken, canViewInstitute, async (req, res) => {
   if (!(await tableExists('teachers'))) return res.json([]);
 
   const { q } = req.query;
@@ -359,23 +457,29 @@ router.get('/admin/teachers', verifyToken, canManageInstitute, async (req, res) 
 
   if (q) {
     values.push(`%${q}%`);
-    where = `WHERE a.name ILIKE $1 OR ts.subject ILIKE $1`;
+    where = `WHERE (t.name ILIKE $1 OR t.email ILIKE $1 OR ts.subject ILIKE $1)`;
+  }
+  if (req.user.role === 'teacher') {
+    values.push(req.user.authId);
+    where = `${where ? `${where} AND` : 'WHERE'} t.auth_id = $${values.length}`;
   }
 
   try {
     const result = await pool.query(
-      `SELECT 
-         t.id, 
-         a.name, 
-         COALESCE(a.phone, a.phone_number) AS phone, 
-         COALESCE(string_agg(DISTINCT ts.subject, ', '), 'Subject') AS subject,
-         'Active' AS status
+      `SELECT t.id, t.name, t.experience, t.phone, t.email, t.status,
+              MIN(b.name) AS batch_name,
+              COALESCE(
+                ARRAY_AGG(DISTINCT ts.subject ORDER BY ts.subject)
+                  FILTER (WHERE ts.subject IS NOT NULL),
+                ARRAY[]::varchar[]
+              ) AS subjects
        FROM teachers t
-       JOIN auth a ON t.sdc_id = a.sdc_id
-       LEFT JOIN teacher_subjects ts ON t.sdc_id = ts.sdc_id
+       LEFT JOIN teacher_subjects ts ON ts.teacher_id = t.id
+       LEFT JOIN teacher_batch_assignments tba ON tba.teacher_id = t.id
+       LEFT JOIN batches b ON b.id = tba.batch_id
        ${where}
-       GROUP BY t.id, a.name, a.phone, a.phone_number
-       ORDER BY a.name ASC
+       GROUP BY t.id, t.name, t.experience, t.phone, t.email, t.status
+       ORDER BY t.name ASC
        LIMIT 200`,
       values
     );
@@ -388,68 +492,93 @@ router.get('/admin/teachers', verifyToken, canManageInstitute, async (req, res) 
 
 router.post('/admin/teachers', verifyToken, canManageInstitute, async (req, res) => {
   if (!(await tableExists('teachers'))) {
-    return res.status(501).json({ error: 'Teachers table is not available. Run backend/migrations/001_core_institute.sql first.' });
+    return res.status(501).json({
+      error: 'Teacher tables are not installed. Apply backend/migrations/002_teachers.sql first.',
+    });
   }
 
-  const { fullName, subject, experience, phone, email } = req.body;
+  const { fullName, experience, phone, email } = req.body;
+  const subjects = parseStringList(req.body.subjects || req.body.subject);
 
-  if (!fullName || !subject || !phone) {
+  if (!fullName || subjects.length === 0 || !phone) {
     return res.status(400).json({ error: 'Teacher name, subject, and phone are required' });
   }
 
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-
-    // 1. Insert into auth table to generate sdc_id and store details
-    const authResult = await client.query(
-      `INSERT INTO auth (name, email, phone_number, phone, role)
-       VALUES ($1, $2, $3, $3, 'teacher')
-       RETURNING id, sdc_id, name, phone`,
-      [fullName, email || null, phone]
+    const existingAuth = await client.query(
+      `SELECT id, sdc_id, role
+       FROM auth
+       WHERE phone_number = $1
+          OR ($2::varchar IS NOT NULL AND LOWER(email) = LOWER($2))
+       LIMIT 1`,
+      [phone, email || null]
     );
-    const newAuth = authResult.rows[0];
 
-    // 2. Insert into teachers table linking with sdc_id
-    const location = req.user.location || 'Main';
-    const teacherResult = await client.query(
-      `INSERT INTO teachers (sdc_id, location)
-       VALUES ($1, $2)
-       RETURNING id`,
-      [newAuth.sdc_id, location]
-    );
-    const newTeacher = teacherResult.rows[0];
-
-    // 3. Find a batch to assign by default (satisfying NOT NULL constraint on batch_id)
-    const batchResult = await client.query(
-      `SELECT id FROM batches WHERE is_active = true LIMIT 1`
-    );
-    const defaultBatchId = batchResult.rows[0]?.id;
-    if (!defaultBatchId) {
-      throw new Error('Please create at least one active batch before registering a teacher.');
+    if (existingAuth.rows[0] && existingAuth.rows[0].role !== 'teacher') {
+      await client.query('ROLLBACK');
+      return res.status(409).json({
+        error: 'The teacher phone or email is already used by a non-teacher account',
+      });
     }
 
-    // 4. Insert subject into teacher_subjects with batch_id
-    await client.query(
-      `INSERT INTO teacher_subjects (sdc_id, subject, batch_id)
-       VALUES ($1, $2, $3)
-       ON CONFLICT DO NOTHING`,
-      [newAuth.sdc_id, subject, defaultBatchId]
+    const result = await client.query(
+      `INSERT INTO teachers (auth_id, name, experience, phone, email, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id, name, experience, phone, email, status`,
+      [
+        existingAuth.rows[0]?.id || null,
+        fullName,
+        experience || null,
+        phone,
+        email || null,
+        req.user.authId,
+      ]
     );
+    const teacher = result.rows[0];
+    let teacherSdcId = existingAuth.rows[0]?.sdc_id || null;
+
+    if (!existingAuth.rows[0]) {
+      teacherSdcId = `TEA${String(teacher.id).padStart(6, '0')}`;
+      const authResult = await client.query(
+        `INSERT INTO auth (
+           sdc_id, name, role, email, phone_number, auth_provider, google_linked
+         ) VALUES ($1, $2, 'teacher', $3, $4, 'sdc', false)
+         RETURNING id`,
+        [teacherSdcId, fullName, email || null, phone]
+      );
+      await client.query(
+        'UPDATE teachers SET auth_id = $1 WHERE id = $2',
+        [authResult.rows[0].id, teacher.id]
+      );
+    }
+
+    for (const subject of subjects) {
+      await client.query(
+        `INSERT INTO teacher_subjects (teacher_id, subject)
+         VALUES ($1, $2)
+         ON CONFLICT (teacher_id, subject) DO NOTHING`,
+        [teacher.id, subject]
+      );
+    }
 
     await client.query('COMMIT');
-
     res.status(201).json({
-      id: newTeacher.id,
-      name: newAuth.name,
-      phone: newAuth.phone,
-      subject: subject,
-      status: 'Active',
+      ...formatTeacher({ ...teacher, subjects }),
+      sdcId: teacherSdcId,
     });
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('Teacher create error:', err.message);
-    res.status(500).json({ error: 'Failed to create teacher' });
+    const status = ['23505', '23514'].includes(err.code) ? 409 : 500;
+    res.status(status).json({
+      error: err.code === '23514'
+        ? 'The auth role constraint does not allow teacher accounts yet. Inspect and update the auth role check before retrying.'
+        : status === 409
+          ? 'A teacher with this email or phone already exists'
+          : 'Failed to create teacher',
+    });
   } finally {
     client.release();
   }
@@ -457,50 +586,93 @@ router.post('/admin/teachers', verifyToken, canManageInstitute, async (req, res)
 
 router.post('/admin/assignments', verifyToken, canManageInstitute, async (req, res) => {
   const { personType, personId, batchId } = req.body;
-  const batch = await getBatchByIdOrCode(batchId);
+  const batch = await getBatchByIdOrName(batchId);
 
   if (!batch) {
     return res.status(404).json({ error: 'Batch not found' });
   }
 
+  const client = await pool.connect();
   try {
+    await client.query('BEGIN');
+
     if (personType === 'student') {
-      await pool.query('UPDATE students SET sdc_batch = $1, sdc_branch = $2, sdc_course_opted = $3 WHERE id = $4', [
-        batch.label,
-        batch.branch,
-        batch.program,
-        personId,
-      ]);
+      const studentResult = await client.query(
+        `UPDATE students
+         SET sdc_batch = $1, sdc_branch = $2, sdc_course_opted = $3
+         WHERE id = $4
+         RETURNING auth_id`,
+        [batch.label, batch.branch, batch.program, personId]
+      );
+
+      if (studentResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Student not found' });
+      }
+
+      const authResult = await client.query(
+        'SELECT sdc_id FROM auth WHERE id = $1',
+        [studentResult.rows[0].auth_id]
+      );
+      const studentSdcId = authResult.rows[0]?.sdc_id;
+
+      if (studentSdcId) {
+        await client.query('DELETE FROM student_batches WHERE sdc_id = $1', [studentSdcId]);
+        await client.query(
+          'INSERT INTO student_batches (batch_id, sdc_id) VALUES ($1, $2)',
+          [Number(batch.id), studentSdcId]
+        );
+      }
+
+      await client.query('COMMIT');
       return res.json({ message: 'Student assigned successfully' });
     }
 
     if (personType === 'teacher') {
-      if (!(await tableExists('batch_teachers')) || !(await tableExists('batches'))) {
-        return res.status(501).json({ error: 'Batch teacher assignment tables are not available.' });
+      if (!(await tableExists('teacher_batch_assignments'))) {
+        await client.query('ROLLBACK');
+        return res.status(501).json({
+          error: 'Teacher assignment tables are not installed. Apply backend/migrations/002_teachers.sql first.',
+        });
       }
 
-      await pool.query(
-        `INSERT INTO batch_teachers (batch_id, teacher_id)
-         SELECT id, $1 FROM batches WHERE id::text = $2 OR code = $3
-         ON CONFLICT DO NOTHING`,
-        [personId, batch.id, batch.label]
+      await client.query(
+        `INSERT INTO teacher_batch_assignments (batch_id, teacher_id, assigned_by)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (batch_id, teacher_id) DO NOTHING`,
+        [Number(batch.id), Number(personId), req.user.authId]
       );
+      await client.query('COMMIT');
       return res.json({ message: 'Teacher assigned successfully' });
     }
 
+    await client.query('ROLLBACK');
     res.status(400).json({ error: 'personType must be student or teacher' });
   } catch (err) {
+    await client.query('ROLLBACK');
     console.error('Assignment error:', err.message);
     res.status(500).json({ error: 'Failed to assign batch' });
+  } finally {
+    client.release();
   }
 });
 
-router.get('/admin/overview', verifyToken, canManageInstitute, async (_req, res) => {
+router.get('/admin/overview', verifyToken, canViewInstitute, async (req, res) => {
   try {
-    const batches = await Promise.all((await listBatches()).map(hydrateBatchCounts));
-    const totalStudents = batches.reduce((sum, batch) => sum + (batch.studentCount || 0), 0);
+    const batches = await listBatches(req.user);
+    const batchNames = batches.map((batch) => batch.label);
+    const totalStudents = req.user.role === 'teacher'
+      ? (
+        await pool.query(
+          'SELECT COUNT(*)::int AS count FROM students WHERE sdc_batch = ANY($1::varchar[])',
+          [batchNames]
+        )
+      ).rows[0].count
+      : (await pool.query('SELECT COUNT(*)::int AS count FROM students')).rows[0].count;
     const totalTeachers = await tableExists('teachers')
-      ? (await pool.query('SELECT COUNT(*)::int AS count FROM teachers')).rows[0]?.count || 0
+      ? req.user.role === 'teacher'
+        ? 1
+        : (await pool.query('SELECT COUNT(*)::int AS count FROM teachers')).rows[0].count
       : 0;
 
     res.json({
@@ -512,320 +684,6 @@ router.get('/admin/overview', verifyToken, canManageInstitute, async (_req, res)
   } catch (err) {
     console.error('Overview error:', err.message);
     res.status(500).json({ error: 'Failed to fetch overview' });
-  }
-});
-
-// GET /admin/disciplinary - Retrieve all disciplinary records
-router.get('/admin/disciplinary', verifyToken, canManageInstitute, async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM disciplinary_records ORDER BY created_at DESC');
-    res.json(result.rows);
-  } catch (err) {
-    console.error('Fetch disciplinary error:', err.message);
-    res.status(500).json({ error: 'Failed to fetch disciplinary records' });
-  }
-});
-
-// POST /admin/disciplinary - Add a new disciplinary record
-router.post('/admin/disciplinary', verifyToken, canManageInstitute, async (req, res) => {
-  const { studentSdcId, studentName, incidentType, description, actionTaken } = req.body;
-  if (!studentSdcId || !incidentType) {
-    return res.status(400).json({ error: 'Student SDC ID and Incident Type are required.' });
-  }
-  try {
-    const result = await pool.query(
-      `INSERT INTO disciplinary_records (student_sdc_id, student_name, incident_type, description, action_taken)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING *`,
-      [studentSdcId, studentName || null, incidentType, description || null, actionTaken || null]
-    );
-    res.status(201).json(result.rows[0]);
-  } catch (err) {
-    console.error('Create disciplinary error:', err.message);
-    res.status(500).json({ error: 'Failed to log disciplinary record' });
-  }
-});
-
-// GET /admin/portions - Retrieve portions completion logs
-router.get('/admin/portions', verifyToken, canManageInstitute, async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM portion_progress ORDER BY updated_at DESC');
-    res.json(result.rows);
-  } catch (err) {
-    console.error('Fetch portions error:', err.message);
-    res.status(500).json({ error: 'Failed to fetch portion progress' });
-  }
-});
-
-// POST /admin/portions - Log a new portion progress update
-router.post('/admin/portions', verifyToken, canManageInstitute, async (req, res) => {
-  const { batchName, subject, topic, percentage, loggedBy } = req.body;
-  if (!batchName || !subject || !topic || percentage === undefined) {
-    return res.status(400).json({ error: 'Batch Name, Subject, Topic, and Percentage are required.' });
-  }
-  try {
-    const result = await pool.query(
-      `INSERT INTO portion_progress (batch_name, subject, topic, percentage, logged_by)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING *`,
-      [batchName, subject, topic, parseInt(percentage, 10), loggedBy || null]
-    );
-    res.status(201).json(result.rows[0]);
-  } catch (err) {
-    console.error('Log portion error:', err.message);
-    res.status(500).json({ error: 'Failed to log portion progress' });
-  }
-});
-
-// GET /admin/feedback - Retrieve anonymous feedback logs
-router.get('/admin/feedback', verifyToken, canManageInstitute, async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM anonymous_feedback ORDER BY created_at DESC');
-    res.json(result.rows);
-  } catch (err) {
-    console.error('Fetch feedback error:', err.message);
-    res.status(500).json({ error: 'Failed to fetch feedback logs' });
-  }
-});
-
-// POST /feedback - Log a new anonymous feedback (open to verified users)
-router.post('/feedback', verifyToken, async (req, res) => {
-  const { feedbackText, category } = req.body;
-  if (!feedbackText) {
-    return res.status(400).json({ error: 'Feedback text is required.' });
-  }
-  try {
-    const result = await pool.query(
-      `INSERT INTO anonymous_feedback (user_role, feedback_text, category)
-       VALUES ($1, $2, $3)
-       RETURNING *`,
-      [req.user.role || 'anonymous', feedbackText, category || 'General']
-    );
-    res.status(201).json(result.rows[0]);
-  } catch (err) {
-    console.error('Create feedback error:', err.message);
-    res.status(500).json({ error: 'Failed to submit anonymous feedback' });
-  }
-});
-
-// GET /admin/broadcast - Retrieve all broadcasts
-router.get('/admin/broadcast', verifyToken, canManageInstitute, async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM broadcasts ORDER BY sent_at DESC');
-    res.json(result.rows);
-  } catch (err) {
-    console.error('Fetch broadcasts error:', err.message);
-    res.status(500).json({ error: 'Failed to fetch broadcast logs' });
-  }
-});
-
-// POST /admin/broadcast - Log a new broadcast
-router.post('/admin/broadcast', verifyToken, canManageInstitute, async (req, res) => {
-  const { batchName, channel, template, message } = req.body;
-  if (!batchName || !channel || !template || !message) {
-    return res.status(400).json({ error: 'Batch Name, Channel, Template, and Message are required.' });
-  }
-  try {
-    const result = await pool.query(
-      `INSERT INTO broadcasts (batch_name, channel, template, message, status)
-       VALUES ($1, $2, $3, $4, 'Sent')
-       RETURNING *`,
-      [batchName, channel, template, message]
-    );
-    res.status(201).json(result.rows[0]);
-  } catch (err) {
-    console.error('Create broadcast error:', err.message);
-    res.status(500).json({ error: 'Failed to log broadcast' });
-  }
-});
-
-// GET /admin/finances/summary - Expected, collected, pending, due student aggregates
-router.get('/admin/finances/summary', verifyToken, canManageInstitute, async (req, res) => {
-  try {
-    const summaryQuery = await pool.query(`
-      SELECT 
-        COALESCE(SUM(expected_amount), 0)::int AS expected_amount,
-        COALESCE(SUM(collected_amount), 0)::int AS collected_amount,
-        COALESCE(SUM(expected_amount - collected_amount), 0)::int AS pending_amount,
-        COUNT(CASE WHEN expected_amount > collected_amount THEN 1 END)::int AS due_students,
-        COUNT(CASE WHEN expected_amount > collected_amount AND due_date < NOW() THEN 1 END)::int AS overdue_students
-      FROM student_fees
-    `);
-    
-    const summary = summaryQuery.rows[0];
-    const expected = summary.expected_amount || 0;
-    const collected = summary.collected_amount || 0;
-    summary.collection_rate = expected > 0 ? Math.round((collected / expected) * 100) : 0;
-    
-    res.json(summary);
-  } catch (err) {
-    console.error('Finances summary error:', err.message);
-    res.status(500).json({ error: 'Failed to fetch financial summary' });
-  }
-});
-
-// GET /admin/finances/batches - Fee collection details grouped by batch
-router.get('/admin/finances/batches', verifyToken, canManageInstitute, async (req, res) => {
-  try {
-    const result = await pool.query(`
-      SELECT 
-        s.sdc_batch AS batch_name,
-        COUNT(s.id)::int AS student_count,
-        COALESCE(SUM(sf.expected_amount), 0)::int AS expected_amount,
-        COALESCE(SUM(sf.collected_amount), 0)::int AS collected_amount,
-        COALESCE(SUM(sf.expected_amount - sf.collected_amount), 0)::int AS pending_amount,
-        COUNT(CASE WHEN sf.expected_amount > sf.collected_amount THEN 1 END)::int AS due_students,
-        COUNT(CASE WHEN sf.expected_amount > sf.collected_amount AND sf.due_date < NOW() THEN 1 END)::int AS overdue_students
-      FROM students s
-      JOIN student_fees sf ON s.id = sf.student_id
-      WHERE s.is_active = true AND s.sdc_batch IS NOT NULL AND s.sdc_batch != ''
-      GROUP BY s.sdc_batch
-      ORDER BY s.sdc_batch ASC
-    `);
-    res.json(result.rows);
-  } catch (err) {
-    console.error('Finances batches error:', err.message);
-    res.status(500).json({ error: 'Failed to fetch batch finances' });
-  }
-});
-
-// GET /admin/finances/due-students - List of students with outstanding dues
-router.get('/admin/finances/due-students', verifyToken, canManageInstitute, async (req, res) => {
-  try {
-    const result = await pool.query(`
-      SELECT 
-        s.id,
-        s.student_name AS name,
-        s.sdc_batch AS batch_id,
-        s.sdc_branch AS branch,
-        s.student_whatsapp_number AS phone,
-        (sf.expected_amount - sf.collected_amount)::int AS amount,
-        sf.due_date AS due_date,
-        CASE WHEN sf.due_date < NOW() THEN 'Overdue' ELSE 'Installment due' END AS status
-      FROM students s
-      JOIN student_fees sf ON s.id = sf.student_id
-      WHERE s.is_active = true AND sf.expected_amount > sf.collected_amount
-      ORDER BY sf.due_date ASC, s.student_name ASC
-    `);
-    res.json(result.rows);
-  } catch (err) {
-    console.error('Due students error:', err.message);
-    res.status(500).json({ error: 'Failed to fetch due students' });
-  }
-});
-
-// GET /admin/analytics/overview - Attendance, test scores, occupancy, and attention batches
-router.get('/admin/analytics/overview', verifyToken, canManageInstitute, async (req, res) => {
-  try {
-    // 1. Avg Attendance
-    const attQuery = await pool.query(`
-      SELECT COALESCE(ROUND(COUNT(CASE WHEN status IN ('Present', 'Late') THEN 1 END) * 100.0 / NULLIF(COUNT(*), 0)), 90)::int AS avg_attendance
-      FROM student_attendance
-    `);
-    
-    // 2. Avg Test Score
-    const scoreQuery = await pool.query(`
-      SELECT COALESCE(ROUND(AVG(score)), 80)::int AS avg_score
-      FROM test_scores
-    `);
-
-    // 3. Batch Occupancy Rate
-    const occupancyQuery = await pool.query(`
-      SELECT 
-        COALESCE(ROUND(SUM(student_count) * 100.0 / NULLIF(SUM(capacity), 0)), 88)::int AS occupancy_rate
-      FROM (
-        SELECT 
-          s.sdc_batch,
-          COUNT(s.id) AS student_count,
-          40 AS capacity
-        FROM students s
-        WHERE s.is_active = true AND s.sdc_batch IS NOT NULL AND s.sdc_batch != ''
-        GROUP BY s.sdc_batch
-      ) sub
-    `);
-
-    // 4. Attention Batches
-    const attentionQuery = await pool.query(`
-      WITH batch_attendance AS (
-        SELECT 
-          s.sdc_batch,
-          ROUND(COUNT(CASE WHEN sa.status IN ('Present', 'Late') THEN 1 END) * 100.0 / COUNT(*))::int AS avg_att
-        FROM students s
-        JOIN student_attendance sa ON s.id = sa.student_id
-        WHERE s.is_active = true
-        GROUP BY s.sdc_batch
-      ),
-      batch_scores AS (
-        SELECT 
-          s.sdc_batch,
-          ROUND(AVG(ts.score))::int AS avg_score
-        FROM students s
-        JOIN test_scores ts ON s.id = ts.student_id
-        WHERE s.is_active = true
-        GROUP BY s.sdc_batch
-      )
-      SELECT 
-        b.name,
-        b.location AS branch,
-        COALESCE(ba.avg_att, 90) AS attendance,
-        COALESCE(bs.avg_score, 80) AS test_average
-      FROM batches b
-      LEFT JOIN batch_attendance ba ON b.name = ba.sdc_batch
-      LEFT JOIN batch_scores bs ON b.name = bs.sdc_batch
-      WHERE b.is_active = true AND (ba.avg_att < 92 OR bs.avg_score < 80)
-    `);
-
-    // 5. Total Pending Fees
-    const pendingQuery = await pool.query(`
-      SELECT COALESCE(SUM(expected_amount - collected_amount), 0)::int AS pending_amount
-      FROM student_fees
-    `);
-
-    res.json({
-      averageAttendance: attQuery.rows[0]?.avg_attendance || 90,
-      averageScore: scoreQuery.rows[0]?.avg_score || 80,
-      occupancyRate: occupancyQuery.rows[0]?.occupancy_rate || 88,
-      attentionBatches: attentionQuery.rows,
-      pendingAmount: pendingQuery.rows[0]?.pending_amount || 0,
-    });
-  } catch (err) {
-    console.error('Analytics overview error:', err.message);
-    res.status(500).json({ error: 'Failed to fetch analytics overview' });
-  }
-});
-
-// GET /admin/schedules - Fetch batch schedules (timetable)
-router.get('/admin/schedules', verifyToken, canManageInstitute, async (req, res) => {
-  try {
-    const result = await pool.query(`
-      SELECT 
-        sch.id,
-        b.name AS batch_name,
-        sch.subject,
-        a.name AS teacher_name,
-        sch.day_of_week,
-        sch.timing,
-        sch.room
-      FROM schedules sch
-      JOIN batches b ON sch.batch_id = b.id
-      LEFT JOIN teachers t ON sch.teacher_id = t.id
-      LEFT JOIN auth a ON t.sdc_id = a.sdc_id
-      ORDER BY 
-        CASE sch.day_of_week
-          WHEN 'Monday' THEN 1
-          WHEN 'Tuesday' THEN 2
-          WHEN 'Wednesday' THEN 3
-          WHEN 'Thursday' THEN 4
-          WHEN 'Friday' THEN 5
-          WHEN 'Saturday' THEN 6
-          WHEN 'Sunday' THEN 7
-        END,
-        sch.timing
-    `);
-    res.json(result.rows);
-  } catch (err) {
-    console.error('Timetable schedules error:', err.message);
-    res.status(500).json({ error: 'Failed to fetch schedules' });
   }
 });
 

@@ -41,6 +41,9 @@ export default function ChapterListScreen({ navigation, route }) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+          <ChevronLeft size={24} color="#28388f" />
+        </TouchableOpacity>
         <View>
           <Text style={styles.headerTitle}>{subjectName}</Text>
           <Text style={styles.headerSubtitle}>
