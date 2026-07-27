@@ -1,4 +1,9 @@
-require('dotenv').config();
+const fs = require('fs');
+const path = require('path');
+const dotenvPath = fs.existsSync(path.join(__dirname, '.env')) 
+  ? path.join(__dirname, '.env') 
+  : path.join(__dirname, '../env');
+require('dotenv').config({ path: dotenvPath });
 const express = require('express');
 const cors = require('cors');
 
@@ -23,6 +28,7 @@ const lecturesRoutes = require('./routes/lectures');
 const attendanceRoutes = require('./routes/attendance');
 const studentRoutes = require('./routes/students');
 const testsRoutes = require('./routes/tests');
+const parentRoutes = require('./routes/parent');
 
 app.use('/auth/sdc', sdcAuthRoutes);
 app.use('/pdfview', pdfviewRoutes);
@@ -40,6 +46,7 @@ app.use('/auth', authRoutes);
 app.use('/users', usersRouter);
 app.use('/admin/lectures', lecturesRoutes);
 app.use('/admin/students', studentRoutes);
+app.use('/parent', parentRoutes);
 
 // test route
 app.get('/', (req, res) => {

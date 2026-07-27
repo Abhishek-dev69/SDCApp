@@ -1,7 +1,12 @@
 const { Pool } = require('pg');
-require('dotenv').config();
+const fs = require('fs');
+const path = require('path');
+const dotenvPath = fs.existsSync(path.join(__dirname, '.env')) 
+  ? path.join(__dirname, '.env') 
+  : path.join(__dirname, '../env');
+require('dotenv').config({ path: dotenvPath });
 
-const isCloudRun = !!process.env.INSTANCE_UNIX_SOCKET;
+const isCloudRun = !!process.env.INSTANCE_UNIX_SOCKET && !!process.env.K_SERVICE;
 
 const pool = new Pool(
   isCloudRun
