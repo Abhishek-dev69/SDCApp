@@ -48,6 +48,9 @@ const handleLinkGoogle = async (googleToken) => {
     } else if (role === 'teacher') {
 <<<<<<< Updated upstream
       navigation.replace('TeacherTabs');
+=======
+      navigation.replace('TeacherTabs', { userRole: 'teacher' });
+>>>>>>> Stashed changes
     } else if (role === 'admin') {
       navigation.replace('AdminTabs', { userRole: role });
     } else if (role === 'parent') {

@@ -54,6 +54,11 @@ export default function EmailSignInScreen({ navigation, route }) {
             navigation.navigate('OwnerTabs', { displayName: 'Owner' });
           } else if (data.role === 'teacher') {
             navigation.navigate('TeacherTabs');
+=======
+            navigation.navigate('OwnerTabs', { displayName: 'Natik Sir' });
+          } else if (data.role === 'teacher') {
+            navigation.navigate('TeacherTabs', { userRole: 'teacher', displayName: 'Teacher' });
+>>>>>>> Stashed changes
           } else if (data.role === 'admin') {
             navigation.navigate('AdminTabs', getAdminRouteParams(data.role));
           } else if (data.role === 'parent') {
