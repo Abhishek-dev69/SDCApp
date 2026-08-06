@@ -57,23 +57,7 @@ async function requireLectureAccess(req, res, lectureId, requestedBatchId = null
   if (!result.rows[0]) {
     res.status(404).json({ error: 'Lecture not found' });
     return null;
-
-
-
-
-// =============================== ADMIN ROUTES ==============================================================
-
-
-
-// GET /admin/lectures — all lectures with batch name
-
-router.get('/', verifyToken, requireRole('admin'), async (req, res) => {
-  const { from, to } = req.query;
-
-  if (!from || !to) {
-    return res.status(400).json({ error: 'from and to query params are required' });
   }
-
   const batchId = requestedBatchId || result.rows[0].batch_id;
   if (!(await canAccessBatch(pool, req.user, batchId))) {
     res.status(403).json({ error: 'This batch is not assigned to your account' });
@@ -81,6 +65,8 @@ router.get('/', verifyToken, requireRole('admin'), async (req, res) => {
   }
   return result.rows[0];
 }
+
+// =============================== ADMIN ROUTES ==============================================================
 
 router.get('/batches', verifyToken, canManageLectures, async (req, res) => {
   try {
@@ -126,19 +112,8 @@ router.get('/', verifyToken, async (req, res) => {
     if (!Number.isFinite(rangeDays) || rangeDays < 0 || rangeDays > 31) {
       return res.status(400).json({ error: 'Invalid date range. Maximum range is 31 days.' });
     }
-
-
-
-
-// POST /admin/lectures — create a new lecture
-
-router.post('/', verifyToken, requireRole('admin'), async (req, res) => {
-  const { batch_id, subject, topic, teacher_name, scheduled_at, duration_mins } = req.body;
-  const created_by = req.user.sdcId;
-
-  if (!batch_id || !subject || !scheduled_at || !duration_mins) {
-    return res.status(400).json({ error: 'batch_id, subject, scheduled_at, and duration_mins are required' });
   }
+
 
   try {
     const allowedBatchIds = await getVisibleBatchIds(pool, req.user);
@@ -199,17 +174,7 @@ router.post('/', verifyToken, canManageLectures, async (req, res) => {
     return res.status(400).json({
       error: 'batchId, subject, scheduledAt, and durationMins are required',
     });
-  }
-
-
-
-// PATCH /admin/lectures/:id — edit a scheduled lecture
-
-router.patch('/:id', verifyToken, requireRole('admin'), async (req, res) => {
-  const { id } = req.params;
-  const { subject, topic, teacher_name, scheduled_at, duration_mins } = req.body;
-
-  try {
+  }  try {
     if (!(await canAccessBatch(pool, req.user, batchId))) {
       return res.status(403).json({ error: 'This batch is not assigned to your account' });
     }
@@ -217,7 +182,7 @@ router.patch('/:id', verifyToken, requireRole('admin'), async (req, res) => {
       `INSERT INTO lectures (
          batch_id, subject, topic, teacher_name, scheduled_at,
          duration_mins, status, notes, created_by
-       ) VALUES ($1,$2,$3,$4,$5,$6,'scheduled',$7,$8)
+       ) VALUES ($1, $2, $3, $4, $5, $6, 'scheduled', $7, $8)
        RETURNING *`,
       [
         Number(batchId),
@@ -227,7 +192,7 @@ router.patch('/:id', verifyToken, requireRole('admin'), async (req, res) => {
         scheduledAt,
         Number(durationMins),
         notes || null,
-        req.user.sdcId,
+        req.user.sdcId || null,
       ]
     );
     res.status(201).json(formatLecture(result.rows[0]));
@@ -237,6 +202,49 @@ router.patch('/:id', verifyToken, requireRole('admin'), async (req, res) => {
     res.status(statusCode).json({
       error: statusCode === 400 ? 'Invalid batch, status, date, or duration' : 'Failed to create lecture',
     });
+  }
+});
+
+// PATCH /admin/lectures/:id — edit a scheduled lecture
+
+router.patch('/:id', verifyToken, requireRole('admin'), async (req, res) => {
+  const { id } = req.params;
+  const { subject, topic, teacher_name, scheduled_at, duration_mins, notes } = req.body;
+
+  try {
+    const lecture = await requireLectureAccess(req, res, id);
+    if (!lecture) return;
+
+    const result = await pool.query(
+      `UPDATE lectures
+       SET subject = COALESCE($1, subject),
+           topic = COALESCE($2, topic),
+           teacher_name = COALESCE($3, teacher_name),
+           scheduled_at = COALESCE($4, scheduled_at),
+           duration_mins = COALESCE($5, duration_mins),
+           notes = COALESCE($6, notes),
+           updated_at = NOW()
+       WHERE id = $7
+       RETURNING *`,
+      [
+        subject ? String(subject).trim() : null,
+        topic ? String(topic).trim() : null,
+        teacher_name ? String(teacher_name).trim() : null,
+        scheduled_at || null,
+        duration_mins ? Number(duration_mins) : null,
+        notes || null,
+        id
+      ]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Lecture not found' });
+    }
+
+    res.json(formatLecture(result.rows[0]));
+  } catch (err) {
+    console.error('Lecture update error:', err.message);
+    res.status(500).json({ error: 'Failed to update lecture' });
   }
 });
 
@@ -355,26 +363,26 @@ router.get('/my', verifyToken, requireRole('student'), async (req, res) => {
   }
 
   try {
-    const targetBatchId = req.body.batchId || req.body.batch_id;
-    const lecture = await requireLectureAccess(req, res, req.params.id, targetBatchId);
-    if (!lecture) return;
-    values.push(req.params.id);
     const result = await pool.query(
-      `SELECT l.id, l.subject, l.topic, l.teacher_name, l.scheduled_at, l.duration_mins, l.status
+      `SELECT l.id, l.batch_id, b.name AS batch_name, b.location, l.subject,
+              l.topic, l.teacher_name, l.scheduled_at, l.duration_mins, l.status,
+              l.started_at, l.completed_at, l.notes, l.created_by, l.created_at, l.updated_at
        FROM lectures l
        JOIN student_batches sb ON sb.batch_id = l.batch_id
+       JOIN batches b ON b.id = l.batch_id
        WHERE sb.sdc_id = $1
        AND l.scheduled_at >= $2::timestamptz
        AND l.scheduled_at < $3::timestamptz
        ORDER BY l.scheduled_at ASC`,
       [sdcId, fromDate, toDate]
     );
-    res.json(formatLecture(result.rows[0]));
+    res.json(result.rows.map(formatLecture));
   } catch (err) {
     console.error('GET /lectures/my:', err);
     res.status(500).json({ error: 'Failed to fetch lectures' });
   }
 });
+
 
 router.delete('/:id', verifyToken, canManageLectures, async (req, res) => {
   try {

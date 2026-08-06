@@ -457,29 +457,32 @@ router.get('/admin/teachers', verifyToken, canViewInstitute, async (req, res) =>
 
   if (q) {
     values.push(`%${q}%`);
-    where = `WHERE (t.name ILIKE $1 OR t.email ILIKE $1 OR ts.subject ILIKE $1)`;
+    where = `WHERE (a.name ILIKE $1 OR a.email ILIKE $1 OR ts.subject ILIKE $1)`;
   }
   if (req.user.role === 'teacher') {
-    values.push(req.user.authId);
-    where = `${where ? `${where} AND` : 'WHERE'} t.auth_id = $${values.length}`;
+    values.push(req.user.sdcId);
+    where = `${where ? `${where} AND` : 'WHERE'} t.sdc_id = $${values.length}`;
   }
+
+  const tbaExists = await tableExists('teacher_batch_assignments');
 
   try {
     const result = await pool.query(
-      `SELECT t.id, t.name, t.experience, t.phone, t.email, t.status,
-              MIN(b.name) AS batch_name,
+      `SELECT t.id, a.name, a.email, a.phone_number AS phone, t.location, t.sdc_id,
+              ${tbaExists ? `MIN(b.name) AS batch_name,` : `NULL AS batch_name,`}
               COALESCE(
                 ARRAY_AGG(DISTINCT ts.subject ORDER BY ts.subject)
                   FILTER (WHERE ts.subject IS NOT NULL),
                 ARRAY[]::varchar[]
               ) AS subjects
        FROM teachers t
-       LEFT JOIN teacher_subjects ts ON ts.teacher_id = t.id
-       LEFT JOIN teacher_batch_assignments tba ON tba.teacher_id = t.id
-       LEFT JOIN batches b ON b.id = tba.batch_id
+       JOIN auth a ON a.sdc_id = t.sdc_id
+       LEFT JOIN teacher_subjects ts ON ts.sdc_id = t.sdc_id
+       ${tbaExists ? `LEFT JOIN teacher_batch_assignments tba ON tba.teacher_id = t.id
+       LEFT JOIN batches b ON b.id = tba.batch_id` : ''}
        ${where}
-       GROUP BY t.id, t.name, t.experience, t.phone, t.email, t.status
-       ORDER BY t.name ASC
+       GROUP BY t.id, a.name, a.email, a.phone_number, t.location, t.sdc_id
+       ORDER BY a.name ASC
        LIMIT 200`,
       values
     );
@@ -489,6 +492,7 @@ router.get('/admin/teachers', verifyToken, canViewInstitute, async (req, res) =>
     res.status(500).json({ error: 'Failed to fetch teachers' });
   }
 });
+
 
 router.post('/admin/teachers', verifyToken, canManageInstitute, async (req, res) => {
   if (!(await tableExists('teachers'))) {

@@ -48,6 +48,7 @@ import {
   FeedbackViewerScreen,
   SMSBroadcastScreen
 } from './src/screens/admin/AdminExtraScreens';
+import FeesManagerScreen from './src/screens/admin/FeesManagerScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -137,6 +138,7 @@ function AppNavigator() {
       <Stack.Screen name="PortionTracker" component={PortionTrackerScreen} />
       <Stack.Screen name="FeedbackViewer" component={FeedbackViewerScreen} />
       <Stack.Screen name="SMSBroadcast" component={SMSBroadcastScreen} />
+      <Stack.Screen name="FeesManager" component={FeesManagerScreen} />
     </Stack.Navigator>
   );
 }

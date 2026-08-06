@@ -161,6 +161,15 @@ router.get('/owner', verifyToken, requireRole('owner', 'admin'), async (_req, re
 
     if (await tableExists('teachers')) {
       overview.totalTeachers = (await pool.query('SELECT COUNT(*)::int AS count FROM teachers')).rows[0].count;
+      const teacherHours = await pool.query(
+        `SELECT t.id, a.name, COALESCE(SUM(l.duration_mins)::numeric / 60.0, 0.0)::float AS hours_taught
+         FROM teachers t
+         JOIN auth a ON a.sdc_id = t.sdc_id
+         LEFT JOIN lectures l ON l.teacher_name = a.name AND l.status = 'conducted'
+         GROUP BY t.id, a.name
+         ORDER BY hours_taught DESC`
+      );
+      overview.teacherWorkload = teacherHours.rows;
     }
 
     if (await tableExists('attendance_records')) {

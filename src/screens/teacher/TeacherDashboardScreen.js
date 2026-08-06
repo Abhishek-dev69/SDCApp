@@ -1,16 +1,16 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Bell, BookOpen, CalendarDays, ChevronRight, MessageCircle } from 'lucide-react-native';
+import { Bell, BookOpen, CalendarDays, ChevronRight, MessageCircle, Filter } from 'lucide-react-native';
 import { apiRequest } from '../../services/api';
 import { useUserSession } from '../../context/UserSessionContext';
 
-function getTodayRange() {
+function getWeekRange() {
   const start = new Date();
   start.setHours(0, 0, 0, 0);
   const end = new Date(start);
-  end.setDate(end.getDate() + 1);
+  end.setDate(end.getDate() + 7);
   return { start: start.toISOString(), end: end.toISOString() };
 }
 
@@ -40,10 +40,15 @@ export default function TeacherDashboardScreen({ navigation }) {
   const [doubts, setDoubts] = useState([]);
   const [lectures, setLectures] = useState([]);
 
+  // Filter states
+  const [selectedBatchFilter, setSelectedBatchFilter] = useState('All');
+  const [topicSearch, setTopicSearch] = useState('');
+  const [showBatchList, setShowBatchList] = useState(false);
+
   const teacherName = userProfile?.name || userProfile?.teacher_name || 'Teacher';
 
   const loadDashboard = async () => {
-    const { start, end } = getTodayRange();
+    const { start, end } = getWeekRange();
     setLoading(true);
     try {
       const [doubtData, lectureData] = await Promise.all([
@@ -67,6 +72,29 @@ export default function TeacherDashboardScreen({ navigation }) {
     () => doubts.filter((doubt) => !['answered', 'closed'].includes(doubt.status)).length,
     [doubts]
   );
+
+  // Extract unique batch names from the schedule
+  const uniqueBatches = useMemo(() => {
+    const batchNames = new Set();
+    lectures.forEach(l => {
+      const name = l.batchName || l.batch;
+      if (name) batchNames.add(name);
+    });
+    return ['All', ...Array.from(batchNames)];
+  }, [lectures]);
+
+  // Filter lectures locally
+  const filteredLectures = useMemo(() => {
+    return lectures.filter(l => {
+      const bName = l.batchName || l.batch || '';
+      const matchesBatch = selectedBatchFilter === 'All' || bName === selectedBatchFilter;
+      
+      const topic = l.topic || '';
+      const matchesTopic = topicSearch.trim() === '' || topic.toLowerCase().includes(topicSearch.toLowerCase());
+      
+      return matchesBatch && matchesTopic;
+    });
+  }, [lectures, selectedBatchFilter, topicSearch]);
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -95,25 +123,72 @@ export default function TeacherDashboardScreen({ navigation }) {
       ) : (
         <>
           <View style={styles.statsGrid}>
-            <StatCard icon={MessageCircle} value={pendingDoubts} label="Pending Doubts" color="#F97316" />
-            <StatCard icon={CalendarDays} value={lectures.length} label="Classes Today" color="#10B981" />
+            <StatCard icon={MessageCircle} value={pendingDoubts} label="Pending doubts" color="#F97316" />
+            <StatCard icon={CalendarDays} value={lectures.length} label="Weekly Lectures" color="#10B981" />
+          </View>
+
+          {/* Schedule Filters section */}
+          <View style={styles.filterSection}>
+            <Text style={styles.filterSectionTitle}>Schedule Filter Options</Text>
+            
+            <View style={styles.filterRow}>
+              {/* Batch Filter selector */}
+              <View style={{ flex: 1 }}>
+                <Text style={styles.filterLabel}>Batch</Text>
+                <TouchableOpacity 
+                  style={styles.batchSelectorBtn}
+                  onPress={() => setShowBatchList(!showBatchList)}
+                >
+                  <Filter size={14} color="#28388F" style={{ marginRight: 6 }} />
+                  <Text style={styles.batchSelectorText}>{selectedBatchFilter}</Text>
+                </TouchableOpacity>
+                {showBatchList && (
+                  <View style={styles.batchDropdownMenu}>
+                    {uniqueBatches.map(b => (
+                      <TouchableOpacity 
+                        key={b} 
+                        style={styles.batchMenuItem} 
+                        onPress={() => {
+                          setSelectedBatchFilter(b);
+                          setShowBatchList(false);
+                        }}
+                      >
+                        <Text style={styles.batchMenuItemText}>{b}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </View>
+
+              {/* Topic Search input */}
+              <View style={{ flex: 1.2 }}>
+                <Text style={styles.filterLabel}>Chapter / Topic</Text>
+                <TextInput
+                  style={styles.searchBar}
+                  placeholder="Search topic..."
+                  placeholderTextColor="#94A3B8"
+                  value={topicSearch}
+                  onChangeText={setTopicSearch}
+                />
+              </View>
+            </View>
           </View>
 
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Today's Lectures</Text>
-            <TouchableOpacity>
-              <Text style={styles.sectionAction}>Today</Text>
+            <Text style={styles.sectionTitle}>Lecture Schedule</Text>
+            <TouchableOpacity onPress={loadDashboard}>
+              <Text style={styles.sectionAction}>7 Days</Text>
             </TouchableOpacity>
           </View>
 
-          {lectures.length === 0 ? (
+          {filteredLectures.length === 0 ? (
             <View style={styles.emptyCard}>
               <BookOpen size={24} color="#94A3B8" />
-              <Text style={styles.emptyTitle}>No classes scheduled today</Text>
-              <Text style={styles.emptyText}>Your assigned lectures will appear here.</Text>
+              <Text style={styles.emptyTitle}>No matching classes found</Text>
+              <Text style={styles.emptyText}>Adjust your filters to see scheduled lectures.</Text>
             </View>
           ) : (
-            lectures.map((lecture) => (
+            filteredLectures.map((lecture) => (
               <View key={lecture.id} style={styles.lectureCard}>
                 <View style={styles.lectureIcon}>
                   <BookOpen size={23} color="#2446A7" />
@@ -312,5 +387,80 @@ const styles = StyleSheet.create({
   emptyText: {
     color: '#64748B',
     marginTop: 5,
+  },
+  filterSection: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 24,
+    marginTop: 20,
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  filterSectionTitle: {
+    color: '#0F172A',
+    fontSize: 15,
+    fontWeight: '800',
+    marginBottom: 12,
+  },
+  filterRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  filterLabel: {
+    color: '#64748B',
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  batchSelectorBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+  },
+  batchSelectorText: {
+    color: '#0F172A',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  batchDropdownMenu: {
+    position: 'absolute',
+    top: 55,
+    left: 0,
+    right: 0,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 10,
+    zIndex: 999,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  batchMenuItem: {
+    padding: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  batchMenuItemText: {
+    color: '#334155',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  searchBar: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    color: '#0F172A',
+    fontSize: 13,
   },
 });

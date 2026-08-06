@@ -613,26 +613,32 @@ router.patch('/fees/:id', verifyToken, canManageFees, requireTables('fee_invoice
 
 router.get('/doubts', verifyToken, requireTables('doubts'), async (req, res) => {
   try {
-    const visibleStudents = await getVisibleStudents(req.user);
-    const visibleBatchIds = await getVisibleBatchIds(pool, req.user);
+    const where = [];
     const values = [];
-    const conditions = [];
-    if (Array.isArray(visibleStudents)) {
-      values.push(visibleStudents);
-      conditions.push(`d.student_auth_id = ANY($${values.length}::int[])`);
+
+    // For students/parents: filter by their student_id (sdc_id)
+    if (req.user.role === 'student') {
+      values.push(req.user.sdcId);
+      where.push(`d.student_id = $${values.length}`);
+    } else if (req.user.role === 'parent') {
+      const children = await pool.query(
+        `SELECT a.sdc_id FROM student_parents sp
+         JOIN auth a ON a.id = sp.student_auth_id
+         WHERE sp.parent_auth_id = $1`,
+        [req.user.authId]
+      );
+      const sdcIds = children.rows.map(r => r.sdc_id);
+      if (sdcIds.length === 0) return res.json([]);
+      values.push(sdcIds);
+      where.push(`d.student_id = ANY($${values.length})`);
     }
-    if (Array.isArray(visibleBatchIds)) {
-      values.push(visibleBatchIds);
-      conditions.push(`d.batch_id = ANY($${values.length}::int[])`);
-    }
-    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const whereClause = where.length ? `WHERE ${where.join(' AND ')}` : '';
     const result = await pool.query(
-      `SELECT d.*, a.name AS student_name, t.name AS teacher_name
+      `SELECT d.*
        FROM doubts d
-       JOIN auth a ON a.id = d.student_auth_id
-       LEFT JOIN teachers t ON t.id = d.assigned_teacher_id
-       ${where}
-       ORDER BY d.updated_at DESC`,
+       ${whereClause}
+       ORDER BY d.created_at DESC`,
       values
     );
     res.json(result.rows);
@@ -641,6 +647,7 @@ router.get('/doubts', verifyToken, requireTables('doubts'), async (req, res) => 
     res.status(500).json({ error: 'Failed to fetch doubts' });
   }
 });
+
 
 router.post(
   '/doubts',
@@ -822,5 +829,154 @@ router.post(
     }
   }
 );
+
+// GET /operations/remarks - List remarks based on user role
+router.get('/remarks', verifyToken, async (req, res) => {
+  try {
+    let queryText = '';
+    let params = [];
+
+    if (req.user.role === 'teacher') {
+      queryText = `
+        SELECT r.*, a.name AS student_name, t.name AS teacher_name
+        FROM teacher_remarks r
+        JOIN auth a ON a.id = r.student_auth_id
+        LEFT JOIN auth t ON t.id = r.teacher_auth_id
+        WHERE r.teacher_auth_id = $1
+        ORDER BY r.created_at DESC`;
+      params = [req.user.authId];
+    } else if (req.user.role === 'student') {
+      queryText = `
+        SELECT r.*, t.name AS teacher_name
+        FROM teacher_remarks r
+        LEFT JOIN auth t ON t.id = r.teacher_auth_id
+        WHERE r.student_auth_id = $1 AND r.visible_to_student = true
+        ORDER BY r.created_at DESC`;
+      params = [req.user.authId];
+    } else if (req.user.role === 'parent') {
+      const childrenRes = await pool.query(
+        'SELECT student_auth_id FROM student_parents WHERE parent_auth_id = $1',
+        [req.user.authId]
+      );
+      const studentAuthIds = childrenRes.rows.map((row) => row.student_auth_id);
+      
+      if (studentAuthIds.length === 0) {
+        return res.json([]);
+      }
+
+      queryText = `
+        SELECT r.*, a.name AS student_name, t.name AS teacher_name
+        FROM teacher_remarks r
+        JOIN auth a ON a.id = r.student_auth_id
+        LEFT JOIN auth t ON t.id = r.teacher_auth_id
+        WHERE r.student_auth_id = ANY($1::int[]) AND r.visible_to_parent = true
+        ORDER BY r.created_at DESC`;
+      params = [studentAuthIds];
+    } else {
+      queryText = `
+        SELECT r.*, a.name AS student_name, t.name AS teacher_name
+        FROM teacher_remarks r
+        JOIN auth a ON a.id = r.student_auth_id
+        LEFT JOIN auth t ON t.id = r.teacher_auth_id
+        WHERE r.visible_to_admin = true
+        ORDER BY r.created_at DESC`;
+    }
+
+    const result = await pool.query(queryText, params);
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Fetch remarks error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch teacher remarks' });
+  }
+});
+
+// POST /operations/remarks - Create a teacher remark
+router.post('/remarks', verifyToken, requireRole('teacher', 'admin', 'owner'), async (req, res) => {
+  const {
+    student_auth_id,
+    category,
+    remark_text,
+    visible_to_student = true,
+    visible_to_parent = true,
+    visible_to_admin = true
+  } = req.body;
+
+  if (!student_auth_id || !category || !remark_text) {
+    return res.status(400).json({ error: 'Student ID, category, and remark text are required' });
+  }
+
+  try {
+    const result = await pool.query(
+      `INSERT INTO teacher_remarks (
+         teacher_auth_id, student_auth_id, category, remark_text, 
+         visible_to_student, visible_to_parent, visible_to_admin
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING *`,
+      [
+        req.user.authId,
+        Number(student_auth_id),
+        category,
+        remark_text,
+        visible_to_student,
+        visible_to_parent,
+        visible_to_admin
+      ]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error('Create remark error:', err.message);
+    res.status(500).json({ error: 'Failed to submit teacher remark' });
+  }
+});
+
+// GET /operations/teacher/batches - Get batches assigned to teacher
+router.get('/teacher/batches', verifyToken, async (req, res) => {
+  try {
+    const { tableExists: tblExists } = require('../utils/dbIntrospection');
+    const tbaExists = await tblExists('teacher_batch_assignments');
+    if (!tbaExists) {
+      // fallback: return all batches for admin/owner, empty for teacher without assignments
+      if (['admin', 'owner'].includes(req.user.role)) {
+        const r = await pool.query('SELECT id, name FROM batches WHERE COALESCE(is_active, true) = true ORDER BY name');
+        return res.json(r.rows);
+      }
+      return res.json([]);
+    }
+    const result = await pool.query(
+      `SELECT DISTINCT b.id, b.name
+       FROM batches b
+       JOIN teacher_batch_assignments tba ON tba.batch_id = b.id
+       JOIN teachers t ON t.id = tba.teacher_id
+       JOIN auth a ON a.sdc_id = t.sdc_id
+       WHERE a.id = $1`,
+      [req.user.authId]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Fetch teacher batches error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch teacher batches' });
+  }
+});
+
+
+// GET /operations/teacher/batches/:batchId/students - Get students in batch
+router.get('/teacher/batches/:batchId/students', verifyToken, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT sb.sdc_id, s.student_name AS name, a.id AS auth_id
+       FROM student_batches sb
+       JOIN auth a ON a.sdc_id = sb.sdc_id
+       JOIN students s ON s.auth_id = a.id
+       WHERE sb.batch_id = $1
+       ORDER BY s.student_name`,
+      [req.params.batchId]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Fetch batch students error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch batch students' });
+  }
+});
 
 module.exports = router;

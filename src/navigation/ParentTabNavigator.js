@@ -1,12 +1,13 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Home, BarChart3, Calendar, Banknote, User } from 'lucide-react-native';
+import { Home, BarChart3, Calendar, Banknote, User, ClipboardList } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ParentDashboardScreen from '../screens/parent/ParentDashboardScreen';
 import ParentPerformanceScreen from '../screens/parent/ParentPerformanceScreen';
 import ParentAttendanceScreen from '../screens/parent/ParentAttendanceScreen';
 import ParentFeesScreen from '../screens/parent/ParentFeesScreen';
 import ParentProfileScreen from '../screens/parent/ParentProfileScreen';
+import StudentRemarksScreen from '../screens/student/StudentRemarksScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -24,6 +25,7 @@ export default function ParentTabNavigator() {
           else if (route.name === 'Performance') IconComponent = BarChart3;
           else if (route.name === 'Attendance') IconComponent = Calendar;
           else if (route.name === 'Fees') IconComponent = Banknote;
+          else if (route.name === 'Remarks') IconComponent = ClipboardList;
           else if (route.name === 'Profile') IconComponent = User;
 
           return <IconComponent size={size} color={color} />;
@@ -45,6 +47,7 @@ export default function ParentTabNavigator() {
       <Tab.Screen name="Performance" component={ParentPerformanceScreen} />
       <Tab.Screen name="Attendance" component={ParentAttendanceScreen} />
       <Tab.Screen name="Fees" component={ParentFeesScreen} />
+      <Tab.Screen name="Remarks" component={StudentRemarksScreen} />
       <Tab.Screen name="Profile" component={ParentProfileScreen} />
     </Tab.Navigator>
   );

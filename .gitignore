@@ -42,6 +42,9 @@ Thumbs.db
 *.pem
 *.key
 *.pub
+*credentials.json
+*key.json
+firebase-credentials.json
 
 # Local configuration files
 .env
@@ -75,4 +78,14 @@ backend/set_*.js
 backend/seed_*.js
 backend/check_*.js
 backend/run_*.js
+
+# Local Assets & Requirement Notes
+*.jpg
+*.jpeg
+*.png
+
+# Data and Scratch folders
+question_banks/
+backend/scratch/
+testing_credentials.txt
 

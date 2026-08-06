@@ -6,23 +6,31 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  ActivityIndicator
+  ActivityIndicator,
+  Modal,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
+  Award,
   BookOpen,
   CalendarDays,
+  Check,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
   ClipboardList,
+  Clock,
   FileText,
   Filter,
   FilterX,
+  HelpCircle,
   Layers,
   NotebookPen,
   PlayCircle,
+  RefreshCw,
   Search,
+  X,
 } from 'lucide-react-native';
 import { apiRequest } from '../../services/api';
 import { useUserSession } from '../../context/UserSessionContext';
@@ -54,7 +62,7 @@ const TYPE_CONFIG = {
 const NOTE_TYPES = [
   { id: 'notes', label: 'Notes', disabled: false },
   { id: 'pyq', label: 'PYQs', disabled: false },
-  { id: 'assignment', label: 'Assignments', disabled: true },
+  { id: 'assignment', label: 'DPPs & Practice', disabled: false },
   { id: 'video', label: 'Videos', disabled: true },
 ];
 
@@ -93,6 +101,18 @@ export default function MaterialFilterScreen({ route, navigation }) {
   const [materials, setMaterials] = useState([]);
   const [materialsLoading, setMaterialsLoading] = useState(false);
 
+  const [dppModules, setDppModules] = useState([]);
+  const [dppLoading, setDppLoading] = useState(false);
+  const [activeDppCategory, setActiveDppCategory] = useState('All');
+
+  // DPP Modal State
+  const [selectedDpp, setSelectedDpp] = useState(null);
+  const [dppQuestions, setDppQuestions] = useState([]);
+  const [studentAnswers, setStudentAnswers] = useState({});
+  const [dppSubmitting, setDppSubmitting] = useState(false);
+  const [dppResult, setDppResult] = useState(null);
+  const [isDppModalOpen, setIsDppModalOpen] = useState(false);
+
   const activeSubjectLabel = SUBJECTS.find((s) => s.id === activeSubjectId)?.label || 'Subject';
   const normalizedQuery = query.trim().toLowerCase();
 
@@ -106,7 +126,20 @@ export default function MaterialFilterScreen({ route, navigation }) {
       });
   }, [materials, normalizedQuery, activeSort]);
 
-  const resultCount = activeFilter === 'pyq' ? (pyqData || []).length : noteItems.length;
+  const filteredDpps = useMemo(() => {
+    return (dppModules || []).filter(
+      (m) =>
+        m.title.toLowerCase().includes(normalizedQuery) ||
+        (m.chapter && m.chapter.toLowerCase().includes(normalizedQuery))
+    );
+  }, [dppModules, normalizedQuery]);
+
+  const resultCount =
+    activeFilter === 'pyq'
+      ? (pyqData || []).length
+      : activeFilter === 'assignment'
+      ? filteredDpps.length
+      : noteItems.length;
 
   const clearFilters = () => {
     setQuery('');
@@ -117,6 +150,7 @@ export default function MaterialFilterScreen({ route, navigation }) {
     setActiveSort('latest');
     setExam('JEE');
     setActiveMonth(null);
+    setActiveDppCategory('All');
   };
 
   const handleTypeChange = (filterId) => {
@@ -125,6 +159,60 @@ export default function MaterialFilterScreen({ route, navigation }) {
       setActiveYear('all');
       setActiveSort('latest');
       setActiveMonth(null);
+    }
+  };
+
+  const fetchDpps = async () => {
+    setDppLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (activeDppCategory !== 'All') params.append('exam_category', activeDppCategory);
+      if (activeSubjectId) params.append('subject', activeSubjectId);
+
+      const data = await apiRequest(`/operations/dpp?${params.toString()}`);
+      setDppModules(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.log('DPP fetch error:', err.message);
+      setDppModules([]);
+    } finally {
+      setDppLoading(false);
+    }
+  };
+
+  const startDppTest = async (dpp) => {
+    try {
+      setSelectedDpp(dpp);
+      setStudentAnswers({});
+      setDppResult(null);
+      setIsDppModalOpen(true);
+      const data = await apiRequest(`/operations/dpp/${dpp.id}`);
+      setDppQuestions(data.questions || []);
+    } catch (err) {
+      Alert.alert('Unable to load practice questions', err.message);
+    }
+  };
+
+  const selectDppOption = (questionId, option) => {
+    setStudentAnswers((prev) => ({ ...prev, [questionId]: option }));
+  };
+
+  const submitDppTest = async () => {
+    if (!selectedDpp) return;
+    if (Object.keys(studentAnswers).length === 0) {
+      Alert.alert('Attempt Questions', 'Please select an answer for at least one question before submitting.');
+      return;
+    }
+    setDppSubmitting(true);
+    try {
+      const result = await apiRequest(`/operations/dpp/${selectedDpp.id}/submit`, {
+        method: 'POST',
+        body: { answers: studentAnswers },
+      });
+      setDppResult(result);
+    } catch (err) {
+      Alert.alert('Submission Error', err.message);
+    } finally {
+      setDppSubmitting(false);
     }
   };
 
@@ -145,7 +233,7 @@ export default function MaterialFilterScreen({ route, navigation }) {
 };
 
   const fetchMaterials = async () => {
-    if (activeFilter === 'pyq') return;
+    if (activeFilter === 'pyq' || activeFilter === 'assignment') return;
     setMaterialsLoading(true);
     try {
       const params = new URLSearchParams({
@@ -153,7 +241,6 @@ export default function MaterialFilterScreen({ route, navigation }) {
         board: activeBoard,
       });
       if (studentStd) params.append('standard', `${studentStd}th`);
-      
 
       const data = await apiRequest(`/materials?${params.toString()}`);
 
@@ -168,7 +255,9 @@ export default function MaterialFilterScreen({ route, navigation }) {
 
   useEffect(() => {
     if (activeFilter === 'pyq') fetchPyqs();
-  }, [exam, activeFilter, activeYear, activeMonth, activeSubjectId]);
+    else if (activeFilter === 'assignment') fetchDpps();
+    else fetchMaterials();
+  }, [exam, activeFilter, activeYear, activeMonth, activeSubjectId, activeBoard, activeDppCategory]);
 
   useEffect(() => {
     if (activeFilter !== 'pyq') fetchMaterials();
@@ -348,6 +437,35 @@ return (
             ))}
           </View>
         </View>
+      {/* ── DPP / Assignment filters ── */}
+      {activeFilter === 'assignment' && (
+        <View style={styles.sectionBlock}>
+          <Text style={styles.sectionLabel}>Target Exam Target</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+            {['All', 'CET PCM', 'CET PCB', 'NEET', 'JEE Mains', 'JEE Adv'].map((cat) => (
+              <TouchableOpacity
+                key={cat}
+                style={[styles.chip, activeDppCategory === cat && styles.chipActive]}
+                onPress={() => setActiveDppCategory(cat)}
+              >
+                <Text style={[styles.chipText, activeDppCategory === cat && styles.chipTextActive]}>{cat}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+
+          <Text style={[styles.sectionLabel, { marginTop: 14 }]}>Subject</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+            {SUBJECTS.map((s) => (
+              <TouchableOpacity
+                key={s.id}
+                style={[styles.chip, activeSubjectId === s.id && styles.chipActive]}
+                onPress={() => setActiveSubjectId(s.id)}
+              >
+                <Text style={[styles.chipText, activeSubjectId === s.id && styles.chipTextActive]}>{s.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
       )}
 
       {/* ── Divider + result count ── */}
@@ -363,9 +481,28 @@ return (
       {/* ── Results list ── */}
       <View style={styles.resultsList}>
 
-        {(activeFilter === 'pyq' ? pyqLoading : materialsLoading) && (
+        {(activeFilter === 'pyq' ? pyqLoading : activeFilter === 'assignment' ? dppLoading : materialsLoading) && (
           <ActivityIndicator color="#2B58ED" style={{ marginTop: 32 }} />
         )}
+
+        {activeFilter === 'assignment' && !dppLoading &&
+          filteredDpps.map((dpp) => (
+            <TouchableOpacity key={dpp.id} style={styles.resultRow} onPress={() => startDppTest(dpp)}>
+              <View style={[styles.resultIconWrap, { backgroundColor: TYPE_CONFIG.assignment.bg }]}>
+                <ClipboardList size={18} color={TYPE_CONFIG.assignment.color} />
+              </View>
+              <View style={styles.resultCopy}>
+                <Text style={styles.resultTitle}>{dpp.title}</Text>
+                <Text style={styles.resultMeta}>
+                  {dpp.exam_category} · {dpp.subject} · {dpp.total_questions} Ques ({dpp.duration_mins} mins)
+                </Text>
+              </View>
+              <View style={styles.startBadge}>
+                <Text style={styles.startBadgeText}>Start</Text>
+              </View>
+            </TouchableOpacity>
+          ))
+        }
 
         {activeFilter === 'pyq' && !pyqLoading &&
           [...(pyqData || [])].sort((a, b) => {
@@ -407,7 +544,7 @@ return (
           ))
         }
 
-        {!resultCount && !pyqLoading && !materialsLoading && (
+        {!resultCount && !pyqLoading && !materialsLoading && !dppLoading && (
           <View style={styles.emptyState}>
             <FilterX size={28} color="#CBD5E1" />
             <Text style={styles.emptyTitle}>No results</Text>
@@ -420,6 +557,129 @@ return (
       </View>
 
     </ScrollView>
+
+    {/* ── Interactive DPP Practice Test Modal ── */}
+    <Modal visible={isDppModalOpen} animationType="slide" onRequestClose={() => setIsDppModalOpen(false)}>
+      <SafeAreaView style={styles.modalSafeArea}>
+        <View style={styles.modalHeader}>
+          <TouchableOpacity onPress={() => setIsDppModalOpen(false)} style={styles.modalCloseBtn}>
+            <X size={22} color="#0F172A" />
+          </TouchableOpacity>
+          <Text style={styles.modalTitle} numberOfLines={1}>
+            {selectedDpp?.title || 'DPP Practice Test'}
+          </Text>
+          <View style={{ width: 36 }} />
+        </View>
+
+        <ScrollView contentContainerStyle={styles.modalScroll}>
+          {/* Top Banner */}
+          <View style={styles.dppBanner}>
+            <Text style={styles.dppBannerBadge}>{selectedDpp?.exam_category} • {selectedDpp?.subject}</Text>
+            <Text style={styles.dppBannerTitle}>{selectedDpp?.chapter || 'Daily Practice Module'}</Text>
+            <View style={styles.dppBannerMetaRow}>
+              <View style={styles.dppMetaItem}>
+                <Clock size={14} color="#7C3AED" />
+                <Text style={styles.dppMetaText}>{selectedDpp?.duration_mins} mins</Text>
+              </View>
+              <View style={styles.dppMetaItem}>
+                <HelpCircle size={14} color="#7C3AED" />
+                <Text style={styles.dppMetaText}>{dppQuestions.length} Questions</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Submission Result View */}
+          {dppResult ? (
+            <View style={styles.resultContainer}>
+              <View style={styles.scoreCard}>
+                <Award size={48} color="#7C3AED" />
+                <Text style={styles.scoreTitle}>Practice Completed!</Text>
+                <Text style={styles.scoreBig}>{dppResult.score} / {dppResult.totalQuestions}</Text>
+                <Text style={styles.scorePercent}>{dppResult.percentage}% Accuracy</Text>
+              </View>
+
+              <Text style={styles.sectionHeaderTitle}>Question Breakdown & Solutions</Text>
+              {dppResult.results.map((res, idx) => (
+                <View key={res.questionId || idx} style={styles.solutionCard}>
+                  <View style={styles.solutionTopRow}>
+                    <Text style={styles.qNum}>Q{res.questionNumber}</Text>
+                    <View style={[styles.statusTag, { backgroundColor: res.isCorrect ? '#DCFCE7' : '#FEE2E2' }]}>
+                      <Text style={[styles.statusTagText, { color: res.isCorrect ? '#166534' : '#991B1B' }]}>
+                        {res.isCorrect ? 'Correct' : 'Incorrect'}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={styles.solutionQText}>{res.questionText}</Text>
+                  <Text style={styles.ansMeta}>Your Answer: {res.selectedOption || 'Not attempted'}</Text>
+                  <Text style={styles.ansMetaCorrect}>Correct Answer: Option {res.correctOption}</Text>
+                  {!!res.explanation && (
+                    <View style={styles.explanationBox}>
+                      <Text style={styles.explanationTitle}>Explanation:</Text>
+                      <Text style={styles.explanationText}>{res.explanation}</Text>
+                    </View>
+                  )}
+                </View>
+              ))}
+
+              <TouchableOpacity
+                style={styles.retryBtn}
+                onPress={() => {
+                  setDppResult(null);
+                  setStudentAnswers({});
+                }}
+              >
+                <RefreshCw size={18} color="#FFFFFF" />
+                <Text style={styles.retryBtnText}>Retake Practice Test</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            /* Questions View */
+            <View style={styles.questionsContainer}>
+              {dppQuestions.map((q) => (
+                <View key={q.id} style={styles.questionCard}>
+                  <Text style={styles.questionNumberText}>Question {q.question_number}</Text>
+                  <Text style={styles.questionBody}>{q.question_text}</Text>
+
+                  {['A', 'B', 'C', 'D'].map((opt) => {
+                    const optText = q[`option_${opt.toLowerCase()}`];
+                    const isSelected = studentAnswers[q.id] === opt;
+                    return (
+                      <TouchableOpacity
+                        key={opt}
+                        style={[styles.optionRow, isSelected && styles.optionRowSelected]}
+                        onPress={() => selectDppOption(q.id, opt)}
+                      >
+                        <View style={[styles.radioCircle, isSelected && styles.radioCircleSelected]}>
+                          <Text style={[styles.radioText, isSelected && styles.radioTextSelected]}>{opt}</Text>
+                        </View>
+                        <Text style={[styles.optionText, isSelected && styles.optionTextSelected]}>{optText}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              ))}
+
+              {dppQuestions.length > 0 && (
+                <TouchableOpacity
+                  style={[styles.submitDppBtn, dppSubmitting && { opacity: 0.7 }]}
+                  onPress={submitDppTest}
+                  disabled={dppSubmitting}
+                >
+                  {dppSubmitting ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <>
+                      <CheckCircle2 size={20} color="#FFFFFF" />
+                      <Text style={styles.submitDppBtnText}>Submit Practice Answers</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+        </ScrollView>
+      </SafeAreaView>
+    </Modal>
   </SafeAreaView>
 );
 }
@@ -778,16 +1038,288 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 7,
   },
-  pillButtonText: {
-    color: '#28388F',
+  startBadge: {
+    backgroundColor: '#7C3AED',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  startBadgeText: {
+    color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '800',
   },
-  emptyState: {
+
+  // Modal Styles
+  modalSafeArea: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+  },
+  modalHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
     backgroundColor: '#FFFFFF',
+  },
+  modalCloseBtn: {
+    width: 36,
+    height: 36,
     borderRadius: 18,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalTitle: {
+    color: '#0F172A',
+    fontSize: 16,
+    fontWeight: '800',
+    maxWidth: '75%',
+  },
+  modalScroll: {
+    padding: 16,
+    paddingBottom: 60,
+  },
+  dppBanner: {
+    backgroundColor: '#F3E8FF',
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 16,
     borderWidth: 1,
+    borderColor: '#E9D5FF',
+  },
+  dppBannerBadge: {
+    color: '#7C3AED',
+    fontSize: 11,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  },
+  dppBannerTitle: {
+    color: '#4C1D95',
+    fontSize: 18,
+    fontWeight: '800',
+    marginTop: 4,
+  },
+  dppBannerMetaRow: {
+    flexDirection: 'row',
+    gap: 16,
+    marginTop: 10,
+  },
+  dppMetaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  dppMetaText: {
+    color: '#6B21A8',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+
+  // Questions
+  questionsContainer: {
+    gap: 16,
+  },
+  questionCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  questionNumberText: {
+    color: '#7C3AED',
+    fontSize: 12,
+    fontWeight: '800',
+    marginBottom: 6,
+  },
+  questionBody: {
+    color: '#0F172A',
+    fontSize: 15,
+    fontWeight: '700',
+    lineHeight: 22,
+    marginBottom: 14,
+  },
+  optionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  optionRowSelected: {
+    backgroundColor: '#F3E8FF',
+    borderColor: '#7C3AED',
+  },
+  radioCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  radioCircleSelected: {
+    backgroundColor: '#7C3AED',
+  },
+  radioText: {
+    color: '#475569',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  radioTextSelected: {
+    color: '#FFFFFF',
+  },
+  optionText: {
+    flex: 1,
+    color: '#334155',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  optionTextSelected: {
+    color: '#4C1D95',
+    fontWeight: '800',
+  },
+  submitDppBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#7C3AED',
+    paddingVertical: 14,
+    borderRadius: 16,
+    marginTop: 10,
+  },
+  submitDppBtnText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+
+  // Results View
+  resultContainer: {
+    gap: 16,
+  },
+  scoreCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E9D5FF',
+    marginBottom: 10,
+  },
+  scoreTitle: {
+    color: '#4C1D95',
+    fontSize: 18,
+    fontWeight: '800',
+    marginTop: 10,
+  },
+  scoreBig: {
+    color: '#7C3AED',
+    fontSize: 36,
+    fontWeight: '900',
+    marginTop: 4,
+  },
+  scorePercent: {
+    color: '#6B21A8',
+    fontSize: 14,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  sectionHeaderTitle: {
+    color: '#0F172A',
+    fontSize: 17,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  solutionCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 12,
+  },
+  solutionTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  qNum: {
+    color: '#7C3AED',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  statusTag: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  statusTagText: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  solutionQText: {
+    color: '#0F172A',
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 10,
+  },
+  ansMeta: {
+    color: '#475569',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  ansMetaCorrect: {
+    color: '#166534',
+    fontSize: 13,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  explanationBox: {
+    backgroundColor: '#F8FAFC',
+    padding: 12,
+    borderRadius: 10,
+    marginTop: 10,
+    borderLeftWidth: 3,
+    borderLeftColor: '#7C3AED',
+  },
+  explanationTitle: {
+    color: '#7C3AED',
+    fontSize: 12,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  explanationText: {
+    color: '#334155',
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  retryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#28388F',
+    paddingVertical: 14,
+    borderRadius: 16,
+    marginTop: 10,
+  },
+  retryBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+});
     borderColor: '#E2E8F0',
     padding: 24,
   },

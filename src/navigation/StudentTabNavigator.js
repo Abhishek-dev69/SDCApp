@@ -1,12 +1,13 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Home, BookOpen, FileText, MessageCircle, User } from 'lucide-react-native';
+import { Home, BookOpen, FileText, MessageCircle, User, ClipboardList } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import StudentHomeScreen from '../screens/student/StudentHomeScreen';
 import LecturesStackNavigator from './LecturesStackNavigator';
 import TestsScreen from '../screens/student/TestsScreen';
 import DoubtsScreen from '../screens/student/DoubtsScreen';
 import ProfileScreen from '../screens/student/ProfileScreen';
+import StudentRemarksScreen from '../screens/student/StudentRemarksScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -24,6 +25,7 @@ export default function StudentTabNavigator() {
           else if (route.name === 'Lectures') IconComponent = BookOpen;
           else if (route.name === 'Tests') IconComponent = FileText;
           else if (route.name === 'Doubts') IconComponent = MessageCircle;
+          else if (route.name === 'Remarks') IconComponent = ClipboardList;
           else if (route.name === 'Profile') IconComponent = User;
 
           return <IconComponent size={size} color={color} />;
@@ -49,6 +51,7 @@ export default function StudentTabNavigator() {
       />
       <Tab.Screen name="Tests" component={TestsScreen} />
       <Tab.Screen name="Doubts" component={DoubtsScreen} />
+      <Tab.Screen name="Remarks" component={StudentRemarksScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );

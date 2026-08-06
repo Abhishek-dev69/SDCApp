@@ -12,7 +12,12 @@ import {
   UserPlus,
   Megaphone,
   Star,
-  ChevronRight
+  ChevronRight,
+  Banknote,
+  AlertTriangle,
+  TrendingUp,
+  MessageSquare,
+  Send
 } from 'lucide-react-native';
 import { apiRequest } from '../../services/api';
 import { useUserSession } from '../../context/UserSessionContext';
@@ -24,6 +29,11 @@ const MANAGEMENT_ACTIONS = [
   { id: '2', title: 'Add Teacher', icon: UserPlus, color: '#10B981' },
   { id: '3', title: 'Assign Batches', icon: BookOpen, color: '#8B5CF6' },
   { id: '4', title: 'Post Announcement', icon: Megaphone, color: '#F97316' },
+  { id: '5', title: 'Fees Manager', icon: Banknote, color: '#059669' },
+  { id: '6', title: 'Discipline Log', icon: AlertTriangle, color: '#DC2626' },
+  { id: '7', title: 'Portion Tracker', icon: TrendingUp, color: '#2563EB' },
+  { id: '8', title: 'Feedback Viewer', icon: MessageSquare, color: '#7C3AED' },
+  { id: '9', title: 'SMS Broadcast', icon: Send, color: '#EA580C' },
 ];
 
 export default function AdminDashboardScreen({ navigation, route }) {
@@ -116,6 +126,11 @@ export default function AdminDashboardScreen({ navigation, route }) {
       case '2': navigation.navigate('AddTeacher'); break;
       case '3': navigation.navigate('AssignBatch'); break;
       case '4': navigation.navigate('PostAnnouncement'); break;
+      case '5': navigation.navigate('FeesManager'); break;
+      case '6': navigation.navigate('DisciplinaryManager'); break;
+      case '7': navigation.navigate('PortionTracker'); break;
+      case '8': navigation.navigate('FeedbackViewer'); break;
+      case '9': navigation.navigate('SMSBroadcast'); break;
       default: break;
     }
   };

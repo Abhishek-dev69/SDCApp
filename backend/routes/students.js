@@ -48,6 +48,7 @@ router.get('/', verifyToken, requireRole('admin'), async (req, res) => {
     const result = await pool.query(
       `SELECT
          s.id,
+         s.auth_id AS auth_id,
          a.sdc_id,
          s.student_name,
          s.sdc_branch,
