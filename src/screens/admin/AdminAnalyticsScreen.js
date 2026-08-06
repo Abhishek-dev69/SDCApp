@@ -28,7 +28,7 @@ function MetricCard({ item }) {
   );
 }
 
-export default function AdminAnalyticsScreen() {
+export default function AdminAnalyticsScreen( {navigation}) {
   const [overview, setOverview] = useState(null);
   const [batches, setBatches] = useState([]);
   const [attendance, setAttendance] = useState([]);
