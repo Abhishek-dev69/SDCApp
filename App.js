@@ -42,6 +42,10 @@ import MarkAttendanceScreen from './src/screens/admin/MarkAttendanceScreen';
 import AttendanceScreen from './src/screens/student/AttendanceScreen';
 import StudentListScreen from './src/screens/admin/StudentListScreen';
 import AddEditStudentScreen from './src/screens/admin/AddEditStudentScreen';
+import TeacherTabNavigator from './src/navigation/TeacherTabNavigator';
+import TeacherTestsScreen from './src/screens/teacher/TeacherTestsScreen';
+import TeacherDoubtsScreen from './src/screens/teacher/TeacherDoubtsScreen';
+import UploadMaterialModalScreen from './src/screens/teacher/UploadMaterialModalScreen';
 import {
   DisciplinaryManagerScreen,
   PortionTrackerScreen,
@@ -108,6 +112,12 @@ function AppNavigator() {
       <Stack.Screen name="MainTabs" component={StudentTabNavigator} />
       <Stack.Screen name="AdminTabs" component={AdminTabNavigator} />
       <Stack.Screen name="TeacherTabs" component={TeacherTabNavigator} />
+<<<<<<< Updated upstream
+=======
+      <Stack.Screen name="TeacherTests" component={TeacherTestsScreen} />
+      <Stack.Screen name="TeacherDoubts" component={TeacherDoubtsScreen} />
+      <Stack.Screen name="UploadMaterial" component={UploadMaterialModalScreen} />
+>>>>>>> Stashed changes
       <Stack.Screen name="OwnerTabs" component={OwnerTabNavigator} />
       <Stack.Screen name="ParentTabs" component={ParentTabNavigator} />
       <Stack.Screen name="AddStudent" component={AddStudentScreen} />

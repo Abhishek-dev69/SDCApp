@@ -29,8 +29,12 @@ const attendanceRoutes = require('./routes/attendance');
 const studentRoutes = require('./routes/students');
 const testsRoutes = require('./routes/tests');
 const parentRoutes = require('./routes/parent');
+<<<<<<< Updated upstream
 const adminExtraRoutes = require('./routes/adminExtra');
 const dppRoutes = require('./routes/dpp');
+=======
+const doubtsRoutes = require('./routes/doubts');
+>>>>>>> Stashed changes
 
 app.use('/auth/sdc', sdcAuthRoutes);
 app.use('/pdfview', pdfviewRoutes);
@@ -43,6 +47,7 @@ app.use('/operations/dpp', dppRoutes);
 app.use('/operations', operationRoutes);
 app.use('/attendance', attendanceRoutes);
 app.use('/tests', testsRoutes);
+app.use('/doubts', doubtsRoutes);
 app.use('/', instituteRoutes);
 app.use('/announcements', announcementRoutes);
 app.use('/auth/email', emailRoutes);

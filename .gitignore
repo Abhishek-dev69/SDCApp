@@ -83,9 +83,18 @@ backend/run_*.js
 *.jpg
 *.jpeg
 *.png
+<<<<<<< Updated upstream
 
 # Data and Scratch folders
 question_banks/
 backend/scratch/
 testing_credentials.txt
 
+=======
+*.webp
+*.gif
+
+# Scratch & draft response files
+email_response_*.txt
+*.tmp
+>>>>>>> Stashed changes

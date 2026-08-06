@@ -50,6 +50,7 @@ export default function EmailSignInScreen({ navigation, route }) {
           navigation.navigate('ChangePassword');
         } else {
           if (data.role === 'owner') {
+<<<<<<< Updated upstream
             navigation.navigate('OwnerTabs', { displayName: 'Owner' });
           } else if (data.role === 'teacher') {
             navigation.navigate('TeacherTabs');

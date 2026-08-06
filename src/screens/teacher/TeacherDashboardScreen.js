@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -59,10 +60,81 @@ export default function TeacherDashboardScreen({ navigation }) {
       setLectures(Array.isArray(lectureData) ? lectureData : []);
     } finally {
       setLoading(false);
+=======
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Dimensions,
+  ActivityIndicator,
+  RefreshControl,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import {
+  Users,
+  BookOpen,
+  HelpCircle,
+  Award,
+  UploadCloud,
+  CheckCircle,
+  Clock,
+  ChevronRight,
+  ShieldAlert,
+  Calendar,
+  MessageSquare,
+  Sparkles,
+} from 'lucide-react-native';
+import { apiRequest } from '../../services/api';
+
+const { width } = Dimensions.get('window');
+
+export default function TeacherDashboardScreen({ navigation, route }) {
+  const displayName = route?.params?.displayName || 'Teacher';
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [stats, setStats] = useState({
+    activeBatches: 4,
+    pendingDoubts: 3,
+    todayLectures: 2,
+    upcomingTests: 1,
+  });
+  const [doubts, setDoubts] = useState([]);
+  const [lectures, setLectures] = useState([]);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const [doubtsData, overviewData] = await Promise.all([
+        apiRequest('/doubts?status=pending').catch(() => []),
+        apiRequest('/admin/overview').catch(() => null),
+      ]);
+
+      if (Array.isArray(doubtsData)) {
+        setDoubts(doubtsData.slice(0, 3));
+        setStats((prev) => ({ ...prev, pendingDoubts: doubtsData.length }));
+      }
+
+      if (overviewData) {
+        setStats((prev) => ({
+          ...prev,
+          activeBatches: overviewData.batchCount || prev.activeBatches,
+        }));
+      }
+    } catch (err) {
+      console.log('Error loading teacher dashboard:', err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+>>>>>>> Stashed changes
     }
   };
 
   useEffect(() => {
+<<<<<<< Updated upstream
     const unsubscribe = navigation.addListener('focus', loadDashboard);
     loadDashboard();
     return unsubscribe;
@@ -112,10 +184,41 @@ export default function TeacherDashboardScreen({ navigation }) {
           </View>
           <View style={styles.roleBadge}>
             <Text style={styles.roleBadgeText}>Teacher</Text>
+=======
+    loadData();
+  }, []);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadData();
+  };
+
+  return (
+    <View style={styles.container}>
+      {/* Dynamic Header */}
+      <View style={styles.header}>
+        <LinearGradient
+          colors={['#059669', '#10B981', '#047857']}
+          style={styles.headerGradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        />
+        <SafeAreaView edges={['top']}>
+          <View style={styles.headerTop}>
+            <View>
+              <View style={styles.badgeRow}>
+                <Sparkles size={14} color="#A7F3D0" />
+                <Text style={styles.roleBadge}>TEACHER PORTAL</Text>
+              </View>
+              <Text style={styles.welcomeText}>Hello, {displayName}</Text>
+              <Text style={styles.subWelcomeText}>Here is your academic overview for today</Text>
+            </View>
+>>>>>>> Stashed changes
           </View>
         </SafeAreaView>
       </View>
 
+<<<<<<< Updated upstream
       {loading ? (
         <View style={styles.loadingState}>
           <ActivityIndicator color="#28388F" />
@@ -207,6 +310,168 @@ export default function TeacherDashboardScreen({ navigation }) {
         </>
       )}
     </ScrollView>
+=======
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#10B981']} />}
+      >
+        {/* Metric Cards Grid */}
+        <View style={styles.statsGrid}>
+          <View style={[styles.statCard, { backgroundColor: '#ECFDF5', borderColor: '#A7F3D0' }]}>
+            <View style={[styles.statIconBox, { backgroundColor: '#10B981' }]}>
+              <BookOpen size={20} color="#fff" />
+            </View>
+            <Text style={styles.statNumber}>{stats.activeBatches}</Text>
+            <Text style={styles.statLabel}>Active Batches</Text>
+          </View>
+
+          <View style={[styles.statCard, { backgroundColor: '#FEF3C7', borderColor: '#FDE68A' }]}>
+            <View style={[styles.statIconBox, { backgroundColor: '#F59E0B' }]}>
+              <HelpCircle size={20} color="#fff" />
+            </View>
+            <Text style={styles.statNumber}>{stats.pendingDoubts}</Text>
+            <Text style={styles.statLabel}>Pending Doubts</Text>
+          </View>
+
+          <View style={[styles.statCard, { backgroundColor: '#EFF6FF', borderColor: '#BFDBFE' }]}>
+            <View style={[styles.statIconBox, { backgroundColor: '#3B82F6' }]}>
+              <Calendar size={20} color="#fff" />
+            </View>
+            <Text style={styles.statNumber}>{stats.todayLectures}</Text>
+            <Text style={styles.statLabel}>Lectures Today</Text>
+          </View>
+
+          <View style={[styles.statCard, { backgroundColor: '#F5F3FF', borderColor: '#DDD6FE' }]}>
+            <View style={[styles.statIconBox, { backgroundColor: '#8B5CF6' }]}>
+              <Award size={20} color="#fff" />
+            </View>
+            <Text style={styles.statNumber}>{stats.upcomingTests}</Text>
+            <Text style={styles.statLabel}>Active Tests</Text>
+          </View>
+        </View>
+
+        {/* Quick Action Hub */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Quick Academic Tools</Text>
+        </View>
+
+        <View style={styles.actionGrid}>
+          <TouchableOpacity
+            style={styles.actionCard}
+            onPress={() => navigation.navigate('MarkAttendance')}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.actionIconBg, { backgroundColor: '#D1FAE5' }]}>
+              <CheckCircle size={22} color="#059669" />
+            </View>
+            <Text style={styles.actionTitle}>Mark Attendance</Text>
+            <Text style={styles.actionSub}>Take attendance for batches</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionCard}
+            onPress={() => navigation.navigate('TeacherTests')}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.actionIconBg, { backgroundColor: '#EDE9FE' }]}>
+              <Award size={22} color="#7C3AED" />
+            </View>
+            <Text style={styles.actionTitle}>Tests & Grading</Text>
+            <Text style={styles.actionSub}>Create tests & enter marks</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionCard}
+            onPress={() => navigation.navigate('UploadMaterial')}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.actionIconBg, { backgroundColor: '#DBEAFE' }]}>
+              <UploadCloud size={22} color="#2563EB" />
+            </View>
+            <Text style={styles.actionTitle}>Upload Notes</Text>
+            <Text style={styles.actionSub}>Study material (Max 15MB)</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionCard}
+            onPress={() => navigation.navigate('TeacherDoubts')}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.actionIconBg, { backgroundColor: '#FEF3C7' }]}>
+              <MessageSquare size={22} color="#D97706" />
+            </View>
+            <Text style={styles.actionTitle}>Resolve Doubts</Text>
+            <Text style={styles.actionSub}>Answer student Q&As</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionCard}
+            onPress={() => navigation.navigate('PortionTracker')}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.actionIconBg, { backgroundColor: '#FCE7F3' }]}>
+              <BookOpen size={22} color="#DB2777" />
+            </View>
+            <Text style={styles.actionTitle}>Portion Tracker</Text>
+            <Text style={styles.actionSub}>Track syllabus progress</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionCard}
+            onPress={() => navigation.navigate('DisciplinaryManager')}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.actionIconBg, { backgroundColor: '#FEE2E2' }]}>
+              <ShieldAlert size={22} color="#DC2626" />
+            </View>
+            <Text style={styles.actionTitle}>Disciplinary Log</Text>
+            <Text style={styles.actionSub}>Log student conduct</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Pending Doubts Widget */}
+        <View style={styles.sectionHeaderBetween}>
+          <Text style={styles.sectionTitle}>Unresolved Doubts</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('TeacherDoubts')}>
+            <Text style={styles.viewAllText}>View All ({stats.pendingDoubts})</Text>
+          </TouchableOpacity>
+        </View>
+
+        {loading ? (
+          <ActivityIndicator size="small" color="#10B981" style={{ marginVertical: 16 }} />
+        ) : doubts.length === 0 ? (
+          <View style={styles.emptyCard}>
+            <CheckCircle size={32} color="#10B981" />
+            <Text style={styles.emptyText}>All student doubts resolved!</Text>
+          </View>
+        ) : (
+          doubts.map((doubt) => (
+            <TouchableOpacity
+              key={doubt.id}
+              style={styles.doubtCard}
+              onPress={() => navigation.navigate('TeacherDoubts')}
+            >
+              <View style={styles.doubtHeader}>
+                <Text style={styles.doubtSubjectTag}>{doubt.subject || 'Physics'}</Text>
+                <Text style={styles.doubtBatchTag}>{doubt.batch_code || 'NEET A7'}</Text>
+              </View>
+              <Text style={styles.doubtQuestion} numberOfLines={2}>
+                {doubt.question}
+              </Text>
+              <View style={styles.doubtFooter}>
+                <Text style={styles.doubtStudent}>Asked by {doubt.student_name || 'Student'}</Text>
+                <View style={styles.answerBtn}>
+                  <Text style={styles.answerBtnText}>Answer</Text>
+                  <ChevronRight size={16} color="#059669" />
+                </View>
+              </View>
+            </TouchableOpacity>
+          ))
+        )}
+      </ScrollView>
+    </View>
+>>>>>>> Stashed changes
   );
 }
 
@@ -215,6 +480,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8FAFC',
   },
+<<<<<<< Updated upstream
   content: {
     paddingBottom: 120,
   },
@@ -316,10 +582,193 @@ const styles = StyleSheet.create({
     marginTop: 34,
     marginBottom: 14,
     paddingHorizontal: 24,
+=======
+  header: {
+    paddingBottom: 20,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    overflow: 'hidden',
+  },
+  headerGradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  headerTop: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+    marginBottom: 8,
+  },
+  roleBadge: {
+    color: '#A7F3D0',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+  },
+  welcomeText: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  subWelcomeText: {
+    fontSize: 13,
+    color: '#D1FAE5',
+    marginTop: 2,
+  },
+  scrollContent: {
+    padding: 16,
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 20,
+  },
+  statCard: {
+    width: (width - 44) / 2,
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    elevation: 1,
+  },
+  statIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  statNumber: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#1E293B',
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  sectionHeader: {
+    marginBottom: 12,
+  },
+  sectionHeaderBetween: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  viewAllText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#059669',
+  },
+  actionGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 20,
+  },
+  actionCard: {
+    width: (width - 44) / 2,
+    backgroundColor: '#FFFFFF',
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    elevation: 2,
+  },
+  actionIconBg: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  actionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  actionSub: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  emptyCard: {
+    backgroundColor: '#ECFDF5',
+    padding: 24,
+    borderRadius: 16,
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  emptyText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#047857',
+  },
+  doubtCard: {
+    backgroundColor: '#FFFFFF',
+    padding: 14,
+    borderRadius: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  doubtHeader: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 6,
+  },
+  doubtSubjectTag: {
+    backgroundColor: '#D1FAE5',
+    color: '#047857',
+    fontSize: 11,
+    fontWeight: '700',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  doubtBatchTag: {
+    backgroundColor: '#F1F5F9',
+    color: '#475569',
+    fontSize: 11,
+    fontWeight: '600',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  doubtQuestion: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1E293B',
+    marginBottom: 10,
+  },
+  doubtFooter: {
+>>>>>>> Stashed changes
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+<<<<<<< Updated upstream
   sectionTitle: {
     color: '#0F172A',
     fontSize: 22,
@@ -462,5 +911,20 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     color: '#0F172A',
     fontSize: 13,
+=======
+  doubtStudent: {
+    fontSize: 12,
+    color: '#64748B',
+  },
+  answerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  answerBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#059669',
+>>>>>>> Stashed changes
   },
 });

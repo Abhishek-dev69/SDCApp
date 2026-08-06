@@ -46,6 +46,7 @@ const handleLinkGoogle = async (googleToken) => {
     if (role === 'owner') {
       navigation.replace('OwnerTabs');
     } else if (role === 'teacher') {
+<<<<<<< Updated upstream
       navigation.replace('TeacherTabs');
     } else if (role === 'admin') {
       navigation.replace('AdminTabs', { userRole: role });

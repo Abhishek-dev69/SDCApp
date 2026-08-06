@@ -19,6 +19,7 @@ export default function SDCLoginScreen({ navigation }) {
 
   const navigateForRole = (role, currentName) => {
     if (role === 'owner') {
+<<<<<<< Updated upstream
       navigation.replace('OwnerTabs', { displayName: currentName || 'Owner' });
     } else if (role === 'teacher') {
       navigation.replace('TeacherTabs');
@@ -32,6 +33,21 @@ export default function SDCLoginScreen({ navigation }) {
     alert(`Login failed: unrecognized role "${role}". Please contact support.`);
   }
 };
+=======
+      navigation.replace('OwnerTabs', { displayName: 'Natik Sir' });
+    } else if (role === 'teacher') {
+      navigation.replace('TeacherTabs', { userRole: 'teacher', displayName: 'Teacher' });
+    } else if (role === 'admin') {
+      navigation.replace('AdminTabs', getAdminRouteParams(role));
+    } else if (role === 'parent') {
+      navigation.replace('ParentTabs');
+    } else if (role === 'student') {
+      navigation.replace('MainTabs');
+    } else {
+      alert(`Login failed: unrecognized role "${role}". Please contact support.`);
+    }
+  };
+>>>>>>> Stashed changes
 
   const handleLogin = async () => {
   if (!sdcId || !password) {
