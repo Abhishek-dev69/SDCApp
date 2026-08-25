@@ -49,6 +49,9 @@ function formatLecture(row) {
   };
 }
 
+// Fetches a lecture and checks the calling user can access its batch (or a
+// requested batch override). Writes the error response itself and returns
+// null when access should be denied, so callers can just `if (!x) return;`.
 async function requireLectureAccess(req, res, lectureId, requestedBatchId = null) {
   const result = await pool.query(
     'SELECT batch_id FROM lectures WHERE id = $1',
@@ -57,21 +60,6 @@ async function requireLectureAccess(req, res, lectureId, requestedBatchId = null
   if (!result.rows[0]) {
     res.status(404).json({ error: 'Lecture not found' });
     return null;
-
-
-
-
-// =============================== ADMIN ROUTES ==============================================================
-
-
-
-// GET /admin/lectures — all lectures with batch name
-
-router.get('/', verifyToken, requireRole('admin'), async (req, res) => {
-  const { from, to } = req.query;
-
-  if (!from || !to) {
-    return res.status(400).json({ error: 'from and to query params are required' });
   }
 
   const batchId = requestedBatchId || result.rows[0].batch_id;
@@ -82,30 +70,9 @@ router.get('/', verifyToken, requireRole('admin'), async (req, res) => {
   return result.rows[0];
 }
 
-router.get('/batches', verifyToken, canManageLectures, async (req, res) => {
-  try {
-    const visibleBatchIds = await getVisibleBatchIds(pool, req.user);
-    const values = [];
-    const conditions = ['COALESCE(is_active, true) = true'];
-    if (Array.isArray(visibleBatchIds)) {
-      values.push(visibleBatchIds);
-      conditions.push(`id = ANY($${values.length}::int[])`);
-    }
-
-    const result = await pool.query(
-      `SELECT id, name, location, standard, academic_year
-       FROM batches
-       WHERE ${conditions.join(' AND ')}
-       ORDER BY location, name`,
-      values
-    );
-    res.json(result.rows);
-  } catch (err) {
-    console.error('Lecture batch list error:', err.message);
-    res.status(500).json({ error: 'Failed to fetch batches' });
-  }
-});
-
+// GET /lectures and /admin/lectures — list lectures, scoped to the caller's
+// visible batches (admin/owner see everything, teacher/student/parent are
+// scoped via getVisibleBatchIds).
 router.get('/', verifyToken, async (req, res) => {
   const { batch_id: requestedBatchId, subject, status, from, to } = req.query;
   const conditions = [];
@@ -126,18 +93,6 @@ router.get('/', verifyToken, async (req, res) => {
     if (!Number.isFinite(rangeDays) || rangeDays < 0 || rangeDays > 31) {
       return res.status(400).json({ error: 'Invalid date range. Maximum range is 31 days.' });
     }
-
-
-
-
-// POST /admin/lectures — create a new lecture
-
-router.post('/', verifyToken, requireRole('admin'), async (req, res) => {
-  const { batch_id, subject, topic, teacher_name, scheduled_at, duration_mins } = req.body;
-  const created_by = req.user.sdcId;
-
-  if (!batch_id || !subject || !scheduled_at || !duration_mins) {
-    return res.status(400).json({ error: 'batch_id, subject, scheduled_at, and duration_mins are required' });
   }
 
   try {
@@ -186,6 +141,29 @@ router.post('/', verifyToken, requireRole('admin'), async (req, res) => {
   }
 });
 
+// GET /lectures/batches and /admin/lectures/batches — batch dropdown for the
+// lecture (and test) scheduling forms. Deliberately NOT scoped to a
+// teacher's own `teacher_batch_assignments` — a teacher scheduling a lecture
+// or creating a test should be able to pick from every active batch, same as
+// admin/owner see, not just batches they've been formally assigned to
+// (that assignment data isn't reliably maintained anyway).
+router.get('/batches', verifyToken, canManageLectures, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, name, location, standard, academic_year
+       FROM batches
+       WHERE COALESCE(is_active, true) = true
+       ORDER BY location, name`
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Lecture batch list error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch batches' });
+  }
+});
+
+// POST /admin/lectures — schedule a new lecture. Accepts both snake_case and
+// camelCase field names since different screens have historically sent both.
 router.post('/', verifyToken, canManageLectures, async (req, res) => {
   const batchId = req.body.batchId || req.body.batch_id;
   const subject = req.body.subject;
@@ -200,14 +178,6 @@ router.post('/', verifyToken, canManageLectures, async (req, res) => {
       error: 'batchId, subject, scheduledAt, and durationMins are required',
     });
   }
-
-
-
-// PATCH /admin/lectures/:id — edit a scheduled lecture
-
-router.patch('/:id', verifyToken, requireRole('admin'), async (req, res) => {
-  const { id } = req.params;
-  const { subject, topic, teacher_name, scheduled_at, duration_mins } = req.body;
 
   try {
     if (!(await canAccessBatch(pool, req.user, batchId))) {
@@ -240,12 +210,53 @@ router.patch('/:id', verifyToken, requireRole('admin'), async (req, res) => {
   }
 });
 
+// PATCH /admin/lectures/:id — edit a scheduled lecture
+router.patch('/:id', verifyToken, requireRole('admin'), async (req, res) => {
+  const { id } = req.params;
+  const { batch_id, subject, topic, teacher_name, scheduled_at, duration_mins, notes } = req.body;
 
+  try {
+    const existing = await requireLectureAccess(req, res, id, batch_id);
+    if (!existing) return;
+
+    const result = await pool.query(
+      `UPDATE lectures SET
+         batch_id = COALESCE($1, batch_id),
+         subject = COALESCE($2, subject),
+         topic = COALESCE($3, topic),
+         teacher_name = COALESCE($4, teacher_name),
+         scheduled_at = COALESCE($5, scheduled_at),
+         duration_mins = COALESCE($6, duration_mins),
+         notes = COALESCE($7, notes),
+         updated_at = NOW()
+       WHERE id = $8
+       RETURNING *`,
+      [
+        batch_id ? Number(batch_id) : null,
+        subject || null,
+        topic || null,
+        teacher_name || null,
+        scheduled_at || null,
+        duration_mins ? Number(duration_mins) : null,
+        notes || null,
+        id,
+      ]
+    );
+    if (!result.rows[0]) {
+      return res.status(404).json({ error: 'Lecture not found' });
+    }
+    res.json(formatLecture(result.rows[0]));
+  } catch (err) {
+    console.error('Lecture update error:', err.message);
+    const statusCode = ['23503', '23514', '22P02'].includes(err.code) ? 400 : 500;
+    res.status(statusCode).json({
+      error: statusCode === 400 ? 'Invalid batch, status, date, or duration' : 'Failed to update lecture',
+    });
+  }
+});
 
 // PATCH /admin/lectures/:id/start
-
 router.patch('/:id/start', verifyToken, requireRole('admin'), async (req, res) => {
-  const { id } = req.params;
   try {
     if (!(await requireLectureAccess(req, res, req.params.id))) return;
     const result = await pool.query(
@@ -265,12 +276,8 @@ router.patch('/:id/start', verifyToken, requireRole('admin'), async (req, res) =
   }
 });
 
-
-
 // PATCH /admin/lectures/:id/complete
-
 router.patch('/:id/complete', verifyToken, requireRole('admin'), async (req, res) => {
-  const { id } = req.params;
   try {
     if (!(await requireLectureAccess(req, res, req.params.id))) return;
     const result = await pool.query(
@@ -290,14 +297,8 @@ router.patch('/:id/complete', verifyToken, requireRole('admin'), async (req, res
   }
 });
 
-
-
 // PATCH /admin/lectures/:id/cancel — cancel + notification fan-out
-
 router.patch('/:id/cancel', verifyToken, requireRole('admin'), async (req, res) => {
-  const { id } = req.params;
-  const client = await pool.connect();
-
   try {
     if (!(await requireLectureAccess(req, res, req.params.id))) return;
     const result = await pool.query(
@@ -317,27 +318,7 @@ router.patch('/:id/cancel', verifyToken, requireRole('admin'), async (req, res) 
   }
 });
 
-// GET /admin/batches — for dropdowns in lecture forms
-
-router.get('/batches', verifyToken, requireRole('admin'), async (req, res) => {
-  try {
-    const result = await pool.query(
-      `SELECT id, name, location FROM batches WHERE is_active = true ORDER BY name`
-    );
-    res.json(result.rows);
-  } catch (err) {
-    console.error('GET /admin/batches:', err);
-    res.status(500).json({ error: 'Failed to fetch batches' });
-  }
-});
-
-
-
-
-// ============================== STUDENT ROUTES ==============================================================
-
-// GET /lectures/my — student's own batch lectures
-
+// GET /lectures/my and /admin/lectures/my — a student's own batch's lectures
 router.get('/my', verifyToken, requireRole('student'), async (req, res) => {
   const { from, to } = req.query;
   const sdcId = req.user.sdcId;
@@ -355,10 +336,6 @@ router.get('/my', verifyToken, requireRole('student'), async (req, res) => {
   }
 
   try {
-    const targetBatchId = req.body.batchId || req.body.batch_id;
-    const lecture = await requireLectureAccess(req, res, req.params.id, targetBatchId);
-    if (!lecture) return;
-    values.push(req.params.id);
     const result = await pool.query(
       `SELECT l.id, l.subject, l.topic, l.teacher_name, l.scheduled_at, l.duration_mins, l.status
        FROM lectures l
@@ -369,7 +346,7 @@ router.get('/my', verifyToken, requireRole('student'), async (req, res) => {
        ORDER BY l.scheduled_at ASC`,
       [sdcId, fromDate, toDate]
     );
-    res.json(formatLecture(result.rows[0]));
+    res.json(result.rows.map(formatLecture));
   } catch (err) {
     console.error('GET /lectures/my:', err);
     res.status(500).json({ error: 'Failed to fetch lectures' });
@@ -389,6 +366,5 @@ router.delete('/:id', verifyToken, canManageLectures, async (req, res) => {
     res.status(500).json({ error: 'Failed to delete lecture' });
   }
 });
-
 
 module.exports = router;

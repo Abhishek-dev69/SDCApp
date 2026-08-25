@@ -63,7 +63,7 @@ export default function OTPVerificationScreen({ navigation, route }) {
     } else if (role === 'parent') {
       navigation.navigate('ParentTabs');
     } else {
-      navigation.navigate('BatchSelection');
+      navigation.navigate('MainTabs');
     }
   };
 

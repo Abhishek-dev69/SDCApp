@@ -134,6 +134,13 @@ if (!newPassword || !passwordRegex.test(newPassword)) {
 
 router.get('/user/profile', verifyToken, async (req, res) => {
   try {
+    // batch_id used to be resolved via students.sdc_batch (free text) matched
+    // against batches.name — that text match silently breaks whenever the two
+    // columns drift (e.g. a student created outside the admin assignment
+    // flow), leaving batch_id null even though the student genuinely has a
+    // batch. student_batches is the real system of record every other route
+    // (tests, attendance, lectures, parent) already joins against for a
+    // student's batch, so resolve it the same way here.
     const result = await pool.query(
       `SELECT a.sdc_id, a.name, a.email, a.phone_number AS phone, a.role, a.google_linked,
               s.student_name, s.sdc_batch, s.sdc_branch, s.student_std,
@@ -142,9 +149,11 @@ router.get('/user/profile', verifyToken, async (req, res) => {
               COALESCE(ad.location, b.location) AS location
        FROM auth a
        LEFT JOIN students s ON s.auth_id = a.id
-       LEFT JOIN batches b ON b.name = s.sdc_batch
+       LEFT JOIN student_batches sb ON sb.sdc_id = a.sdc_id
+       LEFT JOIN batches b ON b.id = sb.batch_id
        LEFT JOIN admins ad ON ad.sdc_id = a.sdc_id
-       WHERE a.id = $1`,
+       WHERE a.id = $1
+       LIMIT 1`,
       [req.user.authId]
     );
 

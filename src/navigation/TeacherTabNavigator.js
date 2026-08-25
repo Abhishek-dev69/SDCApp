@@ -1,8 +1,9 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Home, MessageCircle, User } from 'lucide-react-native';
+import { Home, FileText, MessageCircle, User } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import TeacherDashboardScreen from '../screens/teacher/TeacherDashboardScreen';
+import TeacherTestsScreen from '../screens/teacher/TeacherTestsScreen';
 import TeacherDoubtsScreen from '../screens/teacher/TeacherDoubtsScreen';
 import TeacherProfileScreen from '../screens/teacher/TeacherProfileScreen';
 
@@ -17,7 +18,8 @@ export default function TeacherTabNavigator() {
       screenOptions={({ route }) => ({
         tabBarIcon: ({ color, size }) => {
           let IconComponent = Home;
-          if (route.name === 'Doubts') IconComponent = MessageCircle;
+          if (route.name === 'Tests') IconComponent = FileText;
+          else if (route.name === 'Doubts') IconComponent = MessageCircle;
           else if (route.name === 'Profile') IconComponent = User;
           return <IconComponent size={size} color={color} />;
         },
@@ -40,6 +42,7 @@ export default function TeacherTabNavigator() {
       })}
     >
       <Tab.Screen name="Dashboard" component={TeacherDashboardScreen} />
+      <Tab.Screen name="Tests" component={TeacherTestsScreen} />
       <Tab.Screen name="Doubts" component={TeacherDoubtsScreen} />
       <Tab.Screen name="Profile" component={TeacherProfileScreen} />
     </Tab.Navigator>

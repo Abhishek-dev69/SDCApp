@@ -10,7 +10,6 @@ import { registerClearSession } from './src/services/sessionManager';
 import RoleSelectionScreen from './src/screens/RoleSelectionScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import ChangePasswordScreen from './src/screens/auth/ChangePasswordScreen';
-import BatchSelectionScreen from './src/screens/student/BatchSelectionScreen';
 import StudentTabNavigator from './src/navigation/StudentTabNavigator';
 import AdminTabNavigator from './src/navigation/AdminTabNavigator';
 import TeacherTabNavigator from './src/navigation/TeacherTabNavigator';
@@ -38,6 +37,7 @@ import SDCLoginScreen from './src/screens/auth/SDCLoginScreen';
 import { getAuthToken, fetchAndStoreProfile } from './src/services/api';
 import { navigationRef } from './src/navigation/navigationRef';
 import AddLectureScreen from './src/screens/admin/AddLectureScreen';
+import TeacherTestFormScreen from './src/screens/teacher/TeacherTestFormScreen';
 import MarkAttendanceScreen from './src/screens/admin/MarkAttendanceScreen';
 import AttendanceScreen from './src/screens/student/AttendanceScreen';
 import StudentListScreen from './src/screens/admin/StudentListScreen';
@@ -68,8 +68,11 @@ function AppNavigator() {
         if (token) {
           const profile = await fetchAndStoreProfile(setUserProfile);
           if (profile?.role) {
+            // Students are always assigned a batch by the admin when their
+            // account is created, so there's no separate batch-selection
+            // step — every role goes straight to its dashboard.
             const roleRouteMap = {
-              student: 'BatchSelection',
+              student: 'MainTabs',
               admin: 'AdminTabs',
               teacher: 'TeacherTabs',
               owner: 'OwnerTabs',
@@ -103,7 +106,6 @@ function AppNavigator() {
     >
       <Stack.Screen name="RoleSelection" component={RoleSelectionScreen} />
       <Stack.Screen name="Login" component={LoginScreen} />
-      <Stack.Screen name="BatchSelection" component={BatchSelectionScreen} />
       <Stack.Screen name="MainTabs" component={StudentTabNavigator} />
       <Stack.Screen name="AdminTabs" component={AdminTabNavigator} />
       <Stack.Screen name="TeacherTabs" component={TeacherTabNavigator} />
@@ -129,6 +131,7 @@ function AppNavigator() {
       <Stack.Screen name="LinkGoogle" component={LinkGoogleScreen} />
       <Stack.Screen name="SDCLogin" component={SDCLoginScreen} />
       <Stack.Screen name="AddLecture" component={AddLectureScreen} />
+      <Stack.Screen name="TeacherTestForm" component={TeacherTestFormScreen} />
       <Stack.Screen name="MarkAttendance" component={MarkAttendanceScreen} />
       <Stack.Screen name="AttendanceScreen" component={AttendanceScreen} />
       <Stack.Screen name="StudentListScreen" component={StudentListScreen} />

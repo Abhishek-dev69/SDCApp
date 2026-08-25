@@ -17,7 +17,7 @@ export default function SDCLoginScreen({ navigation }) {
     displayName: currentName || (currentRole === 'teacher' ? 'Teacher' : 'Admin'),
   });
 
-  const navigateForRole = (role, currentName) => {
+  const navigateForRole = (role, currentName, batchId) => {
     if (role === 'owner') {
       navigation.replace('OwnerTabs', { displayName: currentName || 'Owner' });
     } else if (role === 'teacher') {
@@ -27,7 +27,9 @@ export default function SDCLoginScreen({ navigation }) {
     } else if (role === 'parent') {
       navigation.replace('ParentTabs');
     } else if (role === 'student') {
-      navigation.replace('BatchSelection');
+      // Students are always assigned a batch by the admin when their
+      // account is created — no separate batch-selection step needed.
+      navigation.replace('MainTabs');
     } else {
     alert(`Login failed: unrecognized role "${role}". Please contact support.`);
   }
@@ -51,14 +53,14 @@ export default function SDCLoginScreen({ navigation }) {
     });
 
     await saveAuthToken(data.token);
-    await fetchAndStoreProfile(setUserProfile);
+    const profile = await fetchAndStoreProfile(setUserProfile);
 
     if (!data.google_linked) {
       navigation.replace('LinkGoogle', { role: data.role});
       return;
     }
 
-    navigateForRole(data.role, data.name);
+    navigateForRole(data.role, data.name, profile?.batch_id);
 
   } catch (err) {
     console.log('Signin error:', err.message);

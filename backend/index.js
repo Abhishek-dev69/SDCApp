@@ -24,7 +24,6 @@ const materialRoutes = require('./routes/materials');
 const lectureRoutes = require('./routes/lectures');
 const dashboardRoutes = require('./routes/dashboards');
 const operationRoutes = require('./routes/operations');
-const lecturesRoutes = require('./routes/lectures');
 const attendanceRoutes = require('./routes/attendance');
 const studentRoutes = require('./routes/students');
 const testsRoutes = require('./routes/tests');
@@ -42,9 +41,7 @@ app.use('/tests', testsRoutes);
 app.use('/', instituteRoutes);
 app.use('/announcements', announcementRoutes);
 app.use('/auth/email', emailRoutes);
-app.use('/auth', authRoutes);  
-app.use('/users', usersRouter);
-app.use('/admin/lectures', lecturesRoutes);
+app.use('/auth', authRoutes);
 app.use('/admin/students', studentRoutes);
 app.use('/parent', parentRoutes);
 

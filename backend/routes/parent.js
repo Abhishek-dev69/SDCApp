@@ -5,10 +5,24 @@ const verifyToken = require('../middleware/verifyToken');
 const requireRole = require('../middleware/requireRole');
 const Razorpay = require('razorpay');
 
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET,
-});
+// Built lazily (only when a fees route actually needs it) instead of at
+// module load. Constructing this eagerly throws if RAZORPAY_KEY_ID/SECRET
+// aren't set, and since this file is required unconditionally from index.js,
+// that used to crash the entire backend — not just the fees feature — any
+// time those env vars were missing.
+let razorpayClient = null;
+function getRazorpay() {
+  if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+    throw new Error('Payment gateway is not configured (missing RAZORPAY_KEY_ID/RAZORPAY_KEY_SECRET)');
+  }
+  if (!razorpayClient) {
+    razorpayClient = new Razorpay({
+      key_id: process.env.RAZORPAY_KEY_ID,
+      key_secret: process.env.RAZORPAY_KEY_SECRET,
+    });
+  }
+  return razorpayClient;
+}
 
 // Helper middleware to verify parent is authorized to view the child
 async function verifyChildOwnership(req, res, next) {
@@ -425,7 +439,7 @@ router.get('/fees/checkout', async (req, res) => {
 
     // 3. Create Razorpay Order
     const amountInPaise = amountVal * 100;
-    const order = await razorpay.orders.create({
+    const order = await getRazorpay().orders.create({
       amount: amountInPaise,
       currency: 'INR',
       receipt: `receipt_${studentSdcId}_${Date.now()}`

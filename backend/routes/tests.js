@@ -151,6 +151,84 @@ router.patch('/:id/publish', verifyToken, canManageTests, async (req, res) => {
   }
 });
 
+// ---------- READ URLS (view/download) ----------
+
+// Anyone who can already see this test (its creator, or a student in one of
+// its assigned batches once it's published) can get a signed read URL for
+// the question paper — so students can open what the teacher uploaded.
+router.get('/:id/question-url', verifyToken, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const testResult = await pool.query(
+      `SELECT question_gcs_path, status, created_by FROM tests WHERE id = $1`,
+      [id]
+    );
+    if (testResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Test not found' });
+    }
+    const test = testResult.rows[0];
+
+    const isManager = ['admin', 'owner', 'teacher'].includes(String(req.user?.role || '').trim().toLowerCase());
+    let allowed = isManager;
+
+    if (!allowed && req.user.role === 'student') {
+      const access = await pool.query(
+        `SELECT 1 FROM test_batches tb
+         JOIN student_batches sb ON sb.batch_id = tb.batch_id
+         WHERE tb.test_id = $1 AND sb.sdc_id = $2`,
+        [id, req.user.sdcId]
+      );
+      allowed = access.rows.length > 0 && test.status === 'published';
+    }
+
+    if (!allowed) {
+      return res.status(403).json({ error: 'You do not have permission to view this' });
+    }
+    if (!test.question_gcs_path) {
+      return res.status(404).json({ error: 'No question paper on file for this test' });
+    }
+
+    const [url] = await sign(test.question_gcs_path, 'read');
+    res.json({ url });
+  } catch (err) {
+    console.error('Question paper URL error:', err.message);
+    res.status(500).json({ error: 'Failed to generate URL' });
+  }
+});
+
+// Teacher grading a submission, or the student who owns it, can get a signed
+// read URL for the uploaded answer sheet.
+router.get('/submissions/:submissionId/answer-url', verifyToken, async (req, res) => {
+  const { submissionId } = req.params;
+  try {
+    const result = await pool.query(
+      `SELECT answer_gcs_path, student_sdc_id FROM submissions WHERE id = $1`,
+      [submissionId]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Submission not found' });
+    }
+    const submission = result.rows[0];
+
+    const isManager = ['admin', 'owner', 'teacher'].includes(String(req.user?.role || '').trim().toLowerCase());
+    const isOwner = req.user.role === 'student' && submission.student_sdc_id === req.user.sdcId;
+    if (!isManager && !isOwner) {
+      return res.status(403).json({ error: 'You do not have permission to view this' });
+    }
+    if (!submission.answer_gcs_path) {
+      return res.status(404).json({ error: 'No answer sheet on file for this submission' });
+    }
+
+    const [url] = await sign(submission.answer_gcs_path, 'read');
+    res.json({ url });
+  } catch (err) {
+    console.error('Answer sheet URL error:', err.message);
+    res.status(500).json({ error: 'Failed to generate URL' });
+  }
+});
+
+// ---------- TESTS ----------
+
 router.get('/', verifyToken, async (req, res) => {
   const { batchId } = req.query;
 
@@ -214,8 +292,23 @@ router.post('/:id/submissions', verifyToken, isStudent, async (req, res) => {
     if (testCheck.rows.length === 0) {
       return res.status(404).json({ error: 'Test not found' });
     }
-    if (testCheck.rows[0].status !== 'published') {
+    const test = testCheck.rows[0];
+    if (test.status !== 'published') {
       return res.status(400).json({ error: 'This test is not open for submissions' });
+    }
+    if (test.due_at && new Date(test.due_at) < new Date()) {
+      return res.status(400).json({ error: 'The submission window for this test has closed' });
+    }
+
+    // Don't let a (re)submission silently wipe out a grade that's already
+    // been released to the student — that should never happen even if this
+    // request technically arrives before the due date.
+    const existing = await pool.query(
+      `SELECT released_at FROM submissions WHERE test_id = $1 AND student_sdc_id = $2`,
+      [id, req.user.sdcId]
+    );
+    if (existing.rows.length > 0 && existing.rows[0].released_at) {
+      return res.status(400).json({ error: 'This test has already been graded and cannot be resubmitted' });
     }
 
     const result = await pool.query(

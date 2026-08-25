@@ -33,6 +33,7 @@
       "expo-asset",
       "expo-secure-store",
       "expo-web-browser",
+      "expo-document-picker",
       "@react-native-community/datetimepicker"
     ],
     "extra": {

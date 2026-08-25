@@ -1,15 +1,18 @@
-import React, { useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronLeft } from 'lucide-react-native';
-import { apiRequest } from '../../services/api';
+import { apiRequest, getAuthToken, fetchAndStoreProfile } from '../../services/api';
+import { useUserSession } from '../../context/UserSessionContext';
 WebBrowser.maybeCompleteAuthSession();
 
 export default function LinkGoogleScreen({ route, navigation }) {
-  const { role ,sdcId } = route?.params || {};
+  const { role: routeRole, sdcId } = route?.params || {};
+  const { userProfile, setUserProfile } = useUserSession();
+  const [resolving, setResolving] = useState(false);
 
   const [request, response, promptAsync] = Google.useAuthRequest({
   androidClientId: '456970553309-14fk1ssbbm4po4iqrknss9l6ljulorgq.apps.googleusercontent.com',
@@ -35,24 +38,77 @@ const handleLinkGoogle = async (googleToken) => {
       body: { token: googleToken },
     });
 
-    handleNext();
+    await handleNext();
   } catch (err) {
     console.error('Link Google error:', err);
     alert(err.message || 'Network error, please try again');
   }
 };
 
-  const handleNext = () => {
-    if (role === 'owner') {
-      navigation.replace('OwnerTabs');
-    } else if (role === 'teacher') {
-      navigation.replace('TeacherTabs');
-    } else if (role === 'admin') {
-      navigation.replace('AdminTabs', { userRole: role });
-    } else if (role === 'parent') {
-      navigation.replace('ParentTabs');
-    } else {
-      navigation.replace('MainTabs');
+  // Routes to the right dashboard for a given role. Normalizes casing/whitespace
+  // so a value like "Teacher" or " teacher " still matches. Returns true if it
+  // recognized the role and navigated, false otherwise (so callers can fall back
+  // instead of silently landing on the wrong screen).
+  const routeForRole = (role, batchId) => {
+    const normalizedRole = String(role || '').trim().toLowerCase();
+    switch (normalizedRole) {
+      case 'owner':
+        navigation.replace('OwnerTabs');
+        return true;
+      case 'teacher':
+        navigation.replace('TeacherTabs');
+        return true;
+      case 'admin':
+        navigation.replace('AdminTabs', { userRole: normalizedRole });
+        return true;
+      case 'parent':
+        navigation.replace('ParentTabs');
+        return true;
+      case 'student':
+        // Students are always assigned a batch by the admin when their
+        // account is created — no separate batch-selection step needed.
+        navigation.replace('MainTabs');
+        return true;
+      default:
+        return false;
+    }
+  };
+
+  const handleNext = async () => {
+    setResolving(true);
+    try {
+      // The role passed in via navigation params can go stale (e.g. if this
+      // screen is reached after a token refresh) or arrive with inconsistent
+      // casing. The stored auth token is the source of truth, so re-verify the
+      // role against it before deciding where to send the user.
+      let role = userProfile?.role;
+      let batchId = userProfile?.batch_id;
+      if (!role) {
+        const token = await getAuthToken();
+        if (token) {
+          const profile = await fetchAndStoreProfile(setUserProfile);
+          role = profile?.role;
+          batchId = profile?.batch_id;
+        }
+      }
+
+      if (routeForRole(role, batchId)) return;
+
+      // Fall back to whatever role was passed at login time, in case the
+      // profile fetch didn't return one.
+      if (routeForRole(routeRole, batchId)) return;
+
+      Alert.alert(
+        'Login issue',
+        `We couldn't determine your account type ("${role || routeRole || 'unknown'}"). Please contact support.`
+      );
+    } catch (err) {
+      console.error('Failed to resolve role after Google link:', err.message);
+      if (!routeForRole(routeRole)) {
+        Alert.alert('Login issue', 'Could not verify your account. Please try logging in again.');
+      }
+    } finally {
+      setResolving(false);
     }
   };
 
@@ -90,14 +146,18 @@ const handleLinkGoogle = async (googleToken) => {
             <TouchableOpacity
               style={styles.googleBtn}
               onPress={() => promptAsync()}
-              disabled={!request}
+              disabled={!request || resolving}
             >
               <Text style={styles.googleText}>Continue with Google</Text>
             </TouchableOpacity>
 
             {/* Skip */}
-            <TouchableOpacity onPress={handleNext}>
-              <Text style={styles.skipText}>Skip for now</Text>
+            <TouchableOpacity onPress={handleNext} disabled={resolving}>
+              {resolving ? (
+                <ActivityIndicator color="#1E40AF" style={{ marginTop: 6 }} />
+              ) : (
+                <Text style={styles.skipText}>Skip for now</Text>
+              )}
             </TouchableOpacity>
 
           </View>

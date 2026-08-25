@@ -70,6 +70,8 @@ export async function apiRequest(path, options = {}) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 seconds connection timeout
 
+  console.log('[API]', method, `${API_URL}${path}`, auth ? '(auth)' : '(no auth)');
+
   try {
     const response = await fetch(`${API_URL}${path}`, {
       method,
@@ -89,6 +91,8 @@ export async function apiRequest(path, options = {}) {
         data = { message: text };
       }
     }
+
+    console.log('[API]', method, path, '-> status', response.status, 'body:', text?.slice(0, 500));
 
     if (response.status === 401) {
       await clearAuthToken();

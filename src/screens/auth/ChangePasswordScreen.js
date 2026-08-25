@@ -42,7 +42,7 @@ export default function ChangePasswordScreen({ navigation }) {
       });
 
       alert('Password changed successfully!');
-      navigation.navigate('BatchSelection');
+      navigation.navigate('MainTabs');
 
     } catch (err) {
       alert(err.message || 'Something went wrong. Please try again.');

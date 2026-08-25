@@ -58,7 +58,9 @@ export default function EmailSignInScreen({ navigation, route }) {
           } else if (data.role === 'parent') {
             navigation.navigate('ParentTabs');
           } else {
-            navigation.navigate('BatchSelection');
+            // Students are always assigned a batch by the admin when their
+            // account is created — no separate batch-selection step needed.
+            navigation.navigate('MainTabs');
           }
         }
       }

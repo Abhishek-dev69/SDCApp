@@ -37,7 +37,7 @@ export default function LoginScreen({ navigation, route }) {
 
   const navigatePostLogin = (role) => {
     const roleRoutes = {
-      student: 'BatchSelection',
+      student: 'MainTabs',
       admin: 'AdminTabs',
       teacher: 'TeacherTabs',
       owner: 'OwnerTabs',
